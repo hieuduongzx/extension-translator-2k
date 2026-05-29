@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Globe, Radio } from "lucide-react";
 import { WebSettings } from "./WebSettings";
 import { StreamSettings } from "./StreamSettings";
-import { loadSettings, saveSettings, watchSettings } from "../storage";
+import { loadSettings, updateSettings, watchSettings, diffSettings } from "../storage";
 import { DEFAULT_SETTINGS, type Settings } from "../types";
 
 type SectionId = "web" | "stream";
@@ -42,8 +42,9 @@ export function OptionsApp() {
   }, []);
 
   async function updateWebSettings(next: Settings) {
+    const patch = diffSettings(settings, next);
     setSettings(next);
-    await saveSettings(next);
+    await updateSettings(patch);
   }
 
   return (

@@ -37,6 +37,8 @@ type RuntimeState = {
   showSource: boolean;
   showSpeaker: boolean;
   apiKey: string;
+  displayMode: 'transcript' | 'block';
+  autoScroll: boolean;
 };
 
 type ToggleTranslationMessage = {
@@ -195,6 +197,8 @@ function getRuntimeState(): RuntimeState {
     showSource: overlaySettings.showSource,
     showSpeaker: overlaySettings.showSpeaker,
     apiKey: overlaySettings.apiKey,
+    displayMode: overlaySettings.displayMode,
+    autoScroll: overlaySettings.autoScroll,
   };
 }
 

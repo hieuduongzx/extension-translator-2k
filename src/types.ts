@@ -37,6 +37,9 @@ export type DisplayMode = "bilingual" | "replace";
 
 export type AutoRule = "always" | "never" | "ask";
 
+/** How the in-page dictionary lookup popup is triggered. */
+export type DictionaryMode = "doubleclick" | "alt-doubleclick" | "off";
+
 /**
  * Connection settings for an OpenAI-compatible chat-completions endpoint.
  * Used directly for the fixed `gemma` backend and embedded in each
@@ -115,12 +118,14 @@ export interface Settings {
    */
   selectionTrigger: boolean;
   /**
-   * When enabled, double-clicking a single word opens a dictionary popup
-   * (definitions, phonetic, examples) instead of the regular translation
-   * popup. Falls back to translation when the word is not found in the
-   * dictionary.
+   * How the dictionary lookup popup (definitions, phonetic, examples) is
+   * triggered:
+   *  - "doubleclick"     — double-click a single word opens the dictionary.
+   *  - "alt-doubleclick" — hold Alt and double-click a word (default).
+   *  - "off"             — dictionary lookup disabled.
+   * Falls back to the translation popup when the word is not found.
    */
-  dictionaryOnDoubleClick: boolean;
+  dictionaryMode: DictionaryMode;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -146,7 +151,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showSelectionOriginal: false,
   selectionPopupTheme: "light",
   selectionTrigger: true,
-  dictionaryOnDoubleClick: true
+  dictionaryMode: "alt-doubleclick"
 };
 
 export interface TranslateRequestMessage {

@@ -5,11 +5,10 @@ import {
   Pause,
   Play,
   RefreshCcw,
-  Settings as SettingsIcon,
   AlertCircle,
-  Radio,
   Globe2,
-  KeyRound
+  KeyRound,
+  Type
 } from "lucide-react";
 import { Dropdown } from "./components/Dropdown";
 import { LANGUAGES } from "../languages";
@@ -21,32 +20,38 @@ import {
   type StreamRuntimeState
 } from "../stream/types";
 
+const TARGET_OPTIONS = LANGUAGES.filter((l) => l.code !== "auto").map((lang) => ({
+  value: lang.code,
+  label: lang.native,
+  description: lang.name
+}));
+
 /**
  * The "Dịch Stream" tab of the popup: real-time speech-to-text + translation
- * powered by Soniox. Controls the offscreen tab-audio capture lifecycle via the
- * background worker. Detailed configuration (API key, overlay defaults) lives
- * in the dedicated options page.
+ * powered by Soniox. Controls the offscreen tab-audio capture lifecycle plus
+ * the overlay appearance (source text, speakers, display mode, opacity, size)
+ * — the same controls available in the options page, surfaced here for quick
+ * access while watching.
  */
 export function StreamPanel() {
   const [state, setState] = useState<StreamRuntimeState>(DEFAULT_STREAM_STATE);
   const [draftLang, setDraftLang] = useState(DEFAULT_STREAM_STATE.targetLang);
   const [fontScaleDraft, setFontScaleDraft] = useState(DEFAULT_STREAM_STATE.fontScale);
+  const [opacityDraft, setOpacityDraft] = useState(DEFAULT_STREAM_STATE.opacity);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void (async () => {
-      const next = await getStreamState();
-      if (next) {
-        setState(next);
-        setDraftLang(next.targetLang);
-        setFontScaleDraft(next.fontScale);
-      }
-    })();
-    return watchStreamState((next) => {
+    function sync(next: StreamRuntimeState) {
       setState(next);
       setDraftLang(next.targetLang);
       setFontScaleDraft(next.fontScale);
-    });
+      setOpacityDraft(next.opacity);
+    }
+    void (async () => {
+      const next = await getStreamState();
+      if (next) sync(next);
+    })();
+    return watchStreamState(sync);
   }, []);
 
   async function send(message: Record<string, unknown>, trackBusy = true) {
@@ -56,6 +61,7 @@ export function StreamPanel() {
       if (response) {
         setState(response);
         setFontScaleDraft(response.fontScale);
+        setOpacityDraft(response.opacity);
       }
     } finally {
       if (trackBusy) setBusy(false);
@@ -86,7 +92,12 @@ export function StreamPanel() {
   }
 
   async function updateOverlaySettings(
-    payload: Partial<Pick<StreamRuntimeState, "fontScale" | "showSource">>
+    payload: Partial<
+      Pick<
+        StreamRuntimeState,
+        "fontScale" | "opacity" | "showSource" | "showSpeaker" | "autoScroll" | "displayMode"
+      >
+    >
   ) {
     await send({ type: "UPDATE_OVERLAY_SETTINGS", payload }, false);
   }
@@ -97,41 +108,32 @@ export function StreamPanel() {
 
   const hasApiKey = Boolean(state.apiKey && state.apiKey !== "YOUR_SONIOX_API_KEY");
   const stateLabel = state.isActive ? (state.isPaused ? "Tạm dừng" : "Trực tiếp") : "Tắt";
-  const sliderPercent = ((fontScaleDraft - 30) / (180 - 30)) * 100;
+  const fontPercent = ((fontScaleDraft - 30) / (180 - 30)) * 100;
+  const opacityPercent = ((opacityDraft - 10) / 90) * 100;
 
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <span
+          className={`status-pill ${
+            state.isActive
+              ? state.isPaused
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-zinc-100 text-zinc-500 border-zinc-200"
+          }`}
+        >
           <span
-            className={`status-pill ${
+            className={`w-1.5 h-1.5 rounded-full ${
               state.isActive
                 ? state.isPaused
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-zinc-100 text-zinc-500 border-zinc-200"
+                  ? "bg-amber-500"
+                  : "bg-emerald-500 animate-pulse"
+                : "bg-zinc-400"
             }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                state.isActive
-                  ? state.isPaused
-                    ? "bg-amber-500"
-                    : "bg-emerald-500 animate-pulse"
-                  : "bg-zinc-400"
-              }`}
-            />
-            {stateLabel}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => chrome.runtime.openOptionsPage()}
-          className="btn-icon-sm"
-          title="Cài đặt dịch stream"
-        >
-          <SettingsIcon className="w-4 h-4" />
-        </button>
+          />
+          {stateLabel}
+        </span>
       </div>
 
       {state.error && (
@@ -154,106 +156,7 @@ export function StreamPanel() {
         </button>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="surface-card p-2.5 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="section-label">Nguồn</span>
-            <div
-              className={`flex h-6 w-6 items-center justify-center rounded-md ${
-                state.isActive ? "bg-emerald-50" : "bg-zinc-100"
-              }`}
-            >
-              <Radio
-                className={`w-3 h-3 ${
-                  state.isActive ? "text-emerald-600" : "text-zinc-400"
-                }`}
-              />
-            </div>
-          </div>
-          <span
-            className={`text-[13px] font-semibold ${
-              state.isActive
-                ? state.isPaused
-                  ? "text-amber-600"
-                  : "text-emerald-600"
-                : "text-zinc-500"
-            }`}
-          >
-            {state.isActive ? (state.isPaused ? "Tạm dừng" : "Đang nghe") : "Nghỉ"}
-          </span>
-        </div>
-
-        <div className="surface-card p-2.5 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="section-label">Đích</span>
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50">
-              <Globe2 className="w-3 h-3 text-brand-600" />
-            </div>
-          </div>
-          <LanguageStreamSelect value={draftLang} onChange={setDraftLang} disabled={busy} />
-        </div>
-      </div>
-
-      <section className="surface-card p-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-900 leading-tight">
-              Hiện bản gốc
-            </span>
-            <span className="text-[10px] text-zinc-500 mt-0.5">
-              Hiển thị lời thoại gốc trên overlay
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => void updateOverlaySettings({ showSource: !state.showSource })}
-            className={`relative w-10 h-[22px] rounded-full transition-colors ${
-              state.showSource ? "bg-brand-600" : "bg-zinc-300"
-            }`}
-          >
-            <span
-              className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${
-                state.showSource ? "left-[22px]" : "left-[3px]"
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="h-px bg-zinc-200 w-full" />
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[12.5px]">
-            <span className="font-medium text-zinc-900">Cỡ phụ đề</span>
-            <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
-              {fontScaleDraft}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min="30"
-            max="180"
-            step="5"
-            value={fontScaleDraft}
-            onChange={(event) => {
-              const nextValue = Number(event.target.value);
-              setFontScaleDraft(nextValue);
-              void updateOverlaySettings({ fontScale: nextValue });
-            }}
-            className="w-full h-1.5 rounded-full appearance-none outline-none cursor-pointer
-                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow
-                       [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500"
-            style={{
-              background: `linear-gradient(to right, #14b8a6 ${sliderPercent}%, #e4e4e7 ${sliderPercent}%)`
-            }}
-          />
-          <div className="flex justify-between text-[9px] text-zinc-400 font-medium px-0.5">
-            <span>Nhỏ</span>
-            <span>Lớn</span>
-          </div>
-        </div>
-      </section>
-
+      {/* Primary actions — always pinned to the top for quick access. */}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -323,32 +226,177 @@ export function StreamPanel() {
           {state.statusMessage}
         </p>
       </div>
+
+      {/* Target language */}
+      <div className="surface-card p-2.5 flex flex-col gap-1">
+        <span className="section-label flex items-center gap-1.5">
+          <Globe2 className="w-3 h-3 text-zinc-400" />
+          Dịch sang
+        </span>
+        <div className={busy ? "opacity-60 pointer-events-none" : ""}>
+          <Dropdown value={draftLang} options={TARGET_OPTIONS} onChange={setDraftLang} />
+        </div>
+      </div>
+
+      {/* Overlay controls */}
+      <div className="surface-card p-2.5 flex flex-col gap-2.5">
+        <ToggleRow
+          label="Hiện bản gốc"
+          checked={state.showSource}
+          onChange={(v) => void updateOverlaySettings({ showSource: v })}
+        />
+        <ToggleRow
+          label="Hiện người nói"
+          checked={state.showSpeaker}
+          onChange={(v) => void updateOverlaySettings({ showSpeaker: v })}
+        />
+        <ToggleRow
+          label="Tự cuộn tới dòng mới"
+          checked={state.autoScroll}
+          onChange={(v) => void updateOverlaySettings({ autoScroll: v })}
+        />
+
+        <div className="h-px bg-zinc-200/70" />
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] font-medium text-zinc-800">Chế độ hiển thị</span>
+          <div className="grid grid-cols-2 gap-1">
+            {(
+              [
+                ["transcript", "Liên tục"],
+                ["block", "Theo câu"]
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => void updateOverlaySettings({ displayMode: mode })}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium tracking-tight border transition-colors ${
+                  state.displayMode === mode
+                    ? "bg-brand-50 border-brand-200 text-brand-700"
+                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-px bg-zinc-200/70" />
+
+        <SliderRow
+          label="Cỡ phụ đề"
+          icon={<Type className="w-3 h-3 text-zinc-400" />}
+          value={fontScaleDraft}
+          suffix="%"
+          min={30}
+          max={180}
+          step={5}
+          percent={fontPercent}
+          onChange={(v) => {
+            setFontScaleDraft(v);
+            void updateOverlaySettings({ fontScale: v });
+          }}
+        />
+
+        <SliderRow
+          label="Độ mờ nền"
+          value={opacityDraft}
+          suffix="%"
+          min={10}
+          max={100}
+          step={5}
+          percent={opacityPercent}
+          onChange={(v) => {
+            setOpacityDraft(v);
+            void updateOverlaySettings({ opacity: v });
+          }}
+        />
+      </div>
     </div>
   );
 }
 
-/**
- * Compact target-language picker for the stream tab. Soniox one-way translation
- * accepts a target language code; we reuse the shared light Dropdown with the
- * curated language list (no "auto").
- */
-function LanguageStreamSelect({
-  value,
-  onChange,
-  disabled
+function ToggleRow({
+  label,
+  checked,
+  onChange
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
 }) {
-  const options = LANGUAGES.filter((l) => l.code !== "auto").map((lang) => ({
-    value: lang.code,
-    label: lang.native,
-    description: lang.name
-  }));
   return (
-    <div className={disabled ? "opacity-60 pointer-events-none" : ""}>
-      <Dropdown value={value} options={options} onChange={onChange} />
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[12px] font-medium text-zinc-800">{label}</span>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 ${
+          checked ? "bg-brand-600" : "bg-zinc-300"
+        }`}
+        aria-pressed={checked}
+        aria-label={label}
+      >
+        <span
+          className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${
+            checked ? "left-[22px]" : "left-[3px]"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+function SliderRow({
+  label,
+  icon,
+  value,
+  suffix,
+  min,
+  max,
+  step,
+  percent,
+  onChange
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  value: number;
+  suffix?: string;
+  min: number;
+  max: number;
+  step: number;
+  percent: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-[12px]">
+        <span className="font-medium text-zinc-800 flex items-center gap-1.5">
+          {icon}
+          {label}
+        </span>
+        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-1.5 rounded-full appearance-none outline-none cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow
+                   [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500"
+        style={{
+          background: `linear-gradient(to right, #14b8a6 ${percent}%, #e4e4e7 ${percent}%)`
+        }}
+      />
     </div>
   );
 }

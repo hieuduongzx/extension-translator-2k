@@ -13,7 +13,7 @@ import {
 } from "./selectionTrigger";
 import { ensureStyles } from "./styles";
 import { normalizeSelection } from "./selectionText";
-import { loadSettings, saveSettings, watchSettings } from "../storage";
+import { loadSettings, updateSettings, watchSettings } from "../storage";
 import { customProviderId } from "../types";
 import type {
   ApplySettingsMessage,
@@ -192,17 +192,15 @@ function syncSelectionTrigger(settings: Settings): void {
 async function persistTheme(theme: "dark" | "light"): Promise<void> {
   const settings = await getSettings();
   if (settings.selectionPopupTheme === theme) return;
-  const next = { ...settings, selectionPopupTheme: theme };
-  cachedSettings = next;
-  await saveSettings(next);
+  // Merge over the freshest stored settings so we don't clobber fields (e.g.
+  // autoRule / hostRules) that may have changed in the popup meanwhile.
+  cachedSettings = await updateSettings({ selectionPopupTheme: theme });
 }
 
 async function persistProvider(provider: ProviderId): Promise<void> {
   const settings = await getSettings();
   if (settings.provider === provider) return;
-  const next = { ...settings, provider };
-  cachedSettings = next;
-  await saveSettings(next);
+  cachedSettings = await updateSettings({ provider });
 }
 
 function selectionAnchor(): { x: number; y: number } | null {
@@ -299,7 +297,9 @@ document.addEventListener(
 
 async function handleDoubleClick(e: MouseEvent): Promise<void> {
   const settings = await getSettings();
-  if (!settings.dictionaryOnDoubleClick) return;
+  if (settings.dictionaryMode === "off") return;
+  // "alt-doubleclick" requires the Alt key to be held during the double-click.
+  if (settings.dictionaryMode === "alt-doubleclick" && !e.altKey) return;
 
   // Skip when the click is inside our own popups, inputs, or editable areas.
   const target = e.target as HTMLElement | null;

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Languages, Settings as SettingsIcon, Globe2, Loader2 } from "lucide-react";
-import { ProviderSelect, AIProviderSelect } from "./components/ProviderSelect";
-import { LanguageSelect } from "./components/LanguageSelect";
-import { ModeToggle } from "./components/ModeToggle";
+import { Languages, Globe2, Loader2 } from "lucide-react";
+import { ProviderPair } from "./components/ProviderSelect";
+import { LanguagePair } from "./components/LanguagePair";
+import { ModeSwitch } from "./components/ModeSwitch";
 import { StatusBadge } from "./components/StatusBadge";
-import { loadSettings, saveSettings, watchSettings } from "../storage";
+import { loadSettings, updateSettings, watchSettings, diffSettings } from "../storage";
 import type { AIProviderId, AutoRule, CustomModel, ProviderId, Settings } from "../types";
 import { customProviderId, DEFAULT_SETTINGS } from "../types";
 
@@ -106,10 +106,15 @@ export function WebPanel() {
 
   async function update(next: Settings, notifyTab = true): Promise<void> {
     setSettings(next);
-    await saveSettings(next);
+    // Persist only the fields that actually changed, merged over the freshest
+    // stored settings. This prevents the popup's snapshot from clobbering
+    // fields written elsewhere (e.g. provider/theme from an in-page popup, or
+    // host rules) between renders.
+    const patch = diffSettings(settings, next);
+    const saved = await updateSettings(patch);
     if (!notifyTab || !tab) return;
     chrome.tabs
-      .sendMessage(tab.tabId, { type: "apply-settings", settings: next })
+      .sendMessage(tab.tabId, { type: "apply-settings", settings: saved })
       .catch(() => {
         /* content script may not be loaded */
       });
@@ -197,17 +202,13 @@ export function WebPanel() {
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-zinc-500 truncate max-w-[260px] leading-tight">
+        <p className="text-[11px] text-zinc-500 truncate max-w-[230px] leading-tight">
           {tab?.hostname || "Không có tab nào"}
         </p>
-        <button
-          type="button"
-          onClick={() => chrome.runtime.openOptionsPage()}
-          className="btn-icon-sm"
-          title="Cài đặt dịch web"
-        >
-          <SettingsIcon className="w-4 h-4" />
-        </button>
+        <ModeSwitch
+          value={settings.displayMode}
+          onChange={(displayMode) => update({ ...settings, displayMode })}
+        />
       </div>
 
       <button
@@ -239,37 +240,21 @@ export function WebPanel() {
 
       <StatusBadge active={status.active} count={status.count} pending={status.pending} />
 
-      <ModeToggle
-        value={settings.displayMode}
-        onChange={(displayMode) => update({ ...settings, displayMode })}
+      <LanguagePair
+        source={settings.sourceLang}
+        target={settings.targetLang}
+        onSourceChange={(sourceLang) => update({ ...settings, sourceLang })}
+        onTargetChange={(targetLang) => update({ ...settings, targetLang })}
       />
 
-      <div className="grid grid-cols-2 gap-2">
-        <LanguageSelect
-          label="Từ"
-          value={settings.sourceLang}
-          onChange={(sourceLang) => update({ ...settings, sourceLang })}
-          allowAuto
-        />
-        <LanguageSelect
-          label="Sang"
-          value={settings.targetLang}
-          onChange={(targetLang) => update({ ...settings, targetLang })}
-        />
-      </div>
-
-      <ProviderSelect
-        value={settings.provider}
+      <ProviderPair
+        provider={settings.provider}
+        aiProvider={settings.aiProvider}
         customModels={settings.customModels}
-        onChange={setProvider}
-        onAddCustom={() => void addCustomModel("provider")}
-      />
-
-      <AIProviderSelect
-        value={settings.aiProvider}
-        customModels={settings.customModels}
-        onChange={setAIProvider}
-        onAddCustom={() => void addCustomModel("ai")}
+        onProviderChange={setProvider}
+        onAIProviderChange={setAIProvider}
+        onAddProvider={() => void addCustomModel("provider")}
+        onAddAIProvider={() => void addCustomModel("ai")}
       />
 
       <section className="surface-card p-3">

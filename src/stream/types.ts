@@ -15,6 +15,8 @@ export interface StreamRuntimeState {
   showSource: boolean;
   showSpeaker: boolean;
   apiKey: string;
+  displayMode: "transcript" | "block";
+  autoScroll: boolean;
   error?: string;
 }
 
@@ -41,7 +43,9 @@ export const DEFAULT_STREAM_STATE: StreamRuntimeState = {
   opacity: 85,
   showSource: true,
   showSpeaker: false,
-  apiKey: ""
+  apiKey: "",
+  displayMode: "transcript",
+  autoScroll: true
 };
 
 export interface StreamLanguageOption {

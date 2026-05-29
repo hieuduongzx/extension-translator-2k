@@ -1,10 +1,13 @@
 import { Globe2, MousePointerClick, Plus, Sparkles, Trash2 } from "lucide-react";
 import { GemmaIcon } from "../popup/components/ProviderSelect";
+import { ModeToggle } from "../popup/components/ModeToggle";
+import { Dropdown } from "../popup/components/Dropdown";
 import {
   customProviderId,
   DEFAULT_SETTINGS,
   type AutoRule,
   type CustomModel,
+  type DictionaryMode,
   type Settings
 } from "../types";
 
@@ -23,6 +26,28 @@ const THEME_LABELS: Record<"light" | "dark", string> = {
   light: "Sáng",
   dark: "Tối"
 };
+
+const DICTIONARY_MODE_OPTIONS: {
+  value: DictionaryMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "doubleclick",
+    label: "Nhấp đúp",
+    description: "Nhấp đúp một từ để tra từ điển"
+  },
+  {
+    value: "alt-doubleclick",
+    label: "Giữ Alt + nhấp đúp",
+    description: "Giữ phím Alt rồi nhấp đúp một từ"
+  },
+  {
+    value: "off",
+    label: "Tắt",
+    description: "Không tra từ điển"
+  }
+];
 
 /**
  * Settings for the web/page translation feature. Operates on the shared
@@ -85,6 +110,24 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
 
       <section className="surface-card p-4 space-y-2.5">
         <div className="flex items-center gap-2">
+          <Globe2 className="w-3.5 h-3.5 text-zinc-500" />
+          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
+            Chế độ hiển thị bản dịch
+          </h2>
+        </div>
+        <p className="text-[11px] leading-snug text-zinc-500 -mt-1">
+          Cách hiển thị nội dung sau khi dịch trang.
+        </p>
+        <div className="max-w-md">
+          <ModeToggle
+            value={settings.displayMode}
+            onChange={(displayMode) => onChange({ ...settings, displayMode })}
+          />
+        </div>
+      </section>
+
+      <section className="surface-card p-4 space-y-2.5">
+        <div className="flex items-center gap-2">
           <MousePointerClick className="w-3.5 h-3.5 text-zinc-500" />
           <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
             Popup chọn văn bản
@@ -109,25 +152,26 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
           />
         </label>
 
-        <label className="flex items-start justify-between gap-3 cursor-pointer">
-          <span className="flex flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <span className="flex flex-col flex-1 min-w-0">
             <span className="text-[12.5px] font-medium text-zinc-800">
-              Tra từ điển khi nhấp đúp
+              Cách tra từ điển
             </span>
             <span className="text-[11px] leading-snug text-zinc-500">
-              Nhấp đúp một từ để mở popup từ điển với định nghĩa, phát âm và
-              ví dụ. Tự chuyển sang trình dịch khi không tìm thấy từ.
+              Mở popup từ điển (định nghĩa, phát âm, ví dụ). Tự chuyển sang trình
+              dịch khi không tìm thấy từ.
             </span>
           </span>
-          <input
-            type="checkbox"
-            checked={settings.dictionaryOnDoubleClick}
-            onChange={(e) =>
-              onChange({ ...settings, dictionaryOnDoubleClick: e.target.checked })
-            }
-            className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
-          />
-        </label>
+          <div className="w-[200px] shrink-0">
+            <Dropdown
+              value={settings.dictionaryMode}
+              options={DICTIONARY_MODE_OPTIONS}
+              onChange={(dictionaryMode) =>
+                onChange({ ...settings, dictionaryMode: dictionaryMode as DictionaryMode })
+              }
+            />
+          </div>
+        </div>
 
         <label className="flex items-start justify-between gap-3 cursor-pointer">
           <span className="flex flex-col">
