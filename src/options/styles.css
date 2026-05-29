@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Options page — full-window variant of the Lab Studio light theme.
+   Shares the same component vocabulary as the popup (surface-card, btn-*, …)
+   but without the 380px width clamp so the sidebar layout can breathe.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html,
+  body,
+  #root {
+    margin: 0;
+    min-height: 100vh;
+    background: #fafafa;
+    color: #18181b;
+    font-family:
+      "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-xl border border-zinc-200 bg-white shadow-card;
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+           text-[10px] font-bold uppercase tracking-wider border;
+  }
+
+  .brand-input {
+    @apply h-9 px-3 rounded-lg bg-zinc-50 border border-zinc-200
+           text-[13px] text-zinc-900 placeholder:text-zinc-400
+           focus:bg-white focus:border-brand-500
+           focus:ring-2 focus:ring-brand-500/20 focus:outline-none
+           transition-colors;
+  }
+
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-1.5
+           h-9 px-3.5 rounded-lg text-[13px] font-semibold
+           bg-brand-600 text-white shadow-sm
+           hover:bg-brand-700 active:bg-brand-700
+           focus:outline-none focus:ring-2 focus:ring-brand-500/30
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5
+           h-9 px-3.5 rounded-lg text-[13px] font-medium
+           bg-white border border-zinc-200 text-zinc-700
+           hover:bg-zinc-50 hover:border-zinc-300
+           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center shrink-0
+           h-9 w-9 rounded-lg text-zinc-500
+           hover:text-zinc-900 hover:bg-zinc-100
+           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .btn-icon-sm {
+    @apply inline-flex items-center justify-center shrink-0
+           h-7 w-7 rounded-md text-zinc-500
+           hover:text-zinc-900 hover:bg-zinc-100
+           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .accent-line {
+    @apply h-px w-full;
+    background-image: linear-gradient(
+      to right,
+      transparent 0%,
+      rgb(var(--brand-rgb, 24 24 27) / 0.35) 50%,
+      transparent 100%
+    );
+  }
+
+  /* Sidebar navigation entry. */
+  .nav-item {
+    @apply w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
+           text-[13px] font-medium text-left text-zinc-600
+           hover:bg-white hover:text-zinc-900 transition-colors;
+  }
+  .nav-item-active {
+    @apply bg-white text-brand-700 shadow-card border border-zinc-200;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 transparent;
+}
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--brand-rgb, 161 161 170));
+  background-clip: padding-box;
+}
+
+:root {
+  --brand-rgb: 20 184 166;
+}
