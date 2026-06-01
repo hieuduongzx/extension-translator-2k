@@ -201,10 +201,13 @@ export function WebPanel() {
 
   return (
     <div className="p-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-zinc-500 truncate max-w-[230px] leading-tight">
-          {tab?.hostname || "Không có tab nào"}
-        </p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Globe2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <p className="text-[11.5px] font-medium text-zinc-600 truncate max-w-[210px] leading-tight">
+            {tab?.hostname || "Không có tab nào"}
+          </p>
+        </div>
         <ModeSwitch
           value={settings.displayMode}
           onChange={(displayMode) => update({ ...settings, displayMode })}
@@ -215,11 +218,11 @@ export function WebPanel() {
         type="button"
         onClick={triggerTranslate}
         disabled={!tab || restricted || busy}
-        className={`w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border shadow-sm transition-all text-[14px] font-semibold tracking-tight ${
+        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all text-[14px] font-semibold tracking-tight active:scale-[0.99] ${
           status.active
-            ? "bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300"
-            : "bg-brand-600 border-brand-600 text-white hover:bg-brand-700"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+            ? "bg-white border-zinc-200 text-zinc-900 shadow-card hover:border-zinc-300 hover:shadow-card-hover"
+            : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700"
+        } disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none`}
       >
         {(busy || status.pending > 0) && !status.active ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -240,22 +243,28 @@ export function WebPanel() {
 
       <StatusBadge active={status.active} count={status.count} pending={status.pending} />
 
-      <LanguagePair
-        source={settings.sourceLang}
-        target={settings.targetLang}
-        onSourceChange={(sourceLang) => update({ ...settings, sourceLang })}
-        onTargetChange={(targetLang) => update({ ...settings, targetLang })}
-      />
+      <section className="surface-card p-2.5 flex flex-col gap-2.5">
+        <LanguagePair
+          source={settings.sourceLang}
+          target={settings.targetLang}
+          onSourceChange={(sourceLang) => update({ ...settings, sourceLang })}
+          onTargetChange={(targetLang) => update({ ...settings, targetLang })}
+          bare
+        />
 
-      <ProviderPair
-        provider={settings.provider}
-        aiProvider={settings.aiProvider}
-        customModels={settings.customModels}
-        onProviderChange={setProvider}
-        onAIProviderChange={setAIProvider}
-        onAddProvider={() => void addCustomModel("provider")}
-        onAddAIProvider={() => void addCustomModel("ai")}
-      />
+        <div className="h-px bg-zinc-200/70" />
+
+        <ProviderPair
+          provider={settings.provider}
+          aiProvider={settings.aiProvider}
+          customModels={settings.customModels}
+          onProviderChange={setProvider}
+          onAIProviderChange={setAIProvider}
+          onAddProvider={() => void addCustomModel("provider")}
+          onAddAIProvider={() => void addCustomModel("ai")}
+          bare
+        />
+      </section>
 
       <section className="surface-card p-3">
         <div className="flex items-center gap-2 mb-2">
@@ -270,9 +279,9 @@ export function WebPanel() {
               key={r}
               type="button"
               onClick={() => setHostRule(r)}
-              className={`px-2 py-1.5 rounded-md text-[11px] font-medium uppercase tracking-wider border transition-colors ${
+              className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all active:scale-[0.97] ${
                 hostRule === r
-                  ? "bg-brand-50 border-brand-200 text-brand-700"
+                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                   : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
             >

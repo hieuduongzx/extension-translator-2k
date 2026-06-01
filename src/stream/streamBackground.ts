@@ -131,6 +131,7 @@ const MAX_PENDING_AUDIO_CHUNKS = 120;
 const AUDIO_CHANNEL_NAME = 'stream-translator-audio';
 const MIN_FONT_SCALE = 30;
 const MAX_FONT_SCALE = 180;
+const MAX_SUBTITLE_HISTORY = 50;
 
 let activeTabId: number | null = null;
 let sonioxClient: SonioxClient | null = null;
@@ -505,7 +506,7 @@ function renderOverlayOnPage(payload: TranslationPayload | null) {
       font-size:9.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
       line-height:1.1; white-space:nowrap;
     }
-    #${containerId} .st-badge.info { background:rgba(99,102,241,.18); color:#c7d2fe; }
+    #${containerId} .st-badge.info { background:rgba(20,184,166,.18); color:#99f6e4; }
     #${containerId} .st-badge.success { background:rgba(34,197,94,.15); color:#86efac; }
     #${containerId} .st-badge.success::before {
       content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
@@ -596,7 +597,7 @@ function renderOverlayOnPage(payload: TranslationPayload | null) {
       position:relative; width:36px; height:20px; border-radius:10px;
       background:rgba(255,255,255,.12); transition:background .25s; cursor:pointer;
     }
-    #${containerId} .st-toggle-switch.on { background:#8b5cf6; }
+    #${containerId} .st-toggle-switch.on { background:#14b8a6; }
     #${containerId} .st-toggle-knob {
       position:absolute; top:2px; left:2px; width:16px; height:16px;
       border-radius:50%; background:#fff;
@@ -637,7 +638,11 @@ function renderOverlayOnPage(payload: TranslationPayload | null) {
     #${containerId} .st-history-text { color:#fff; font-weight:700; transition: color 0.3s ease; }
     #${containerId} .st-current-text { color:rgba(255,255,255,.55); font-weight:600; transition: color 0.3s ease; }
     #${containerId} .st-current-text[data-final="true"] { color:#fff; font-weight:700; }
-    #${containerId} .st-source-text { color:rgba(255,255,255,.4); font-style:italic; font-size:0.9em; margin-left: 2px; }
+    #${containerId} .st-source-text {
+      display:block; margin-top:8px;
+      color:rgba(255,255,255,.4); font-style:italic; font-size:0.85em;
+      line-height:1.4; text-align:left; text-shadow:0 2px 20px rgba(0,0,0,.4);
+    }
     #${containerId} .st-history-text,
     #${containerId} .st-current-text,
     #${containerId} .st-source-text,
@@ -871,24 +876,40 @@ function renderOverlayOnPage(payload: TranslationPayload | null) {
   }
 
   if (dynamicContent) {
+    // Transcribed/translated text comes from an untrusted source (live audio),
+    // so escape it before interpolating into innerHTML. Defined inline because
+    // this function is serialized and injected into the page via executeScript.
+    const esc = (value: string) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     let html = '';
     if (payload.displayMode === 'block') {
       const history = payload.history || [];
       const historyHtml = history.map((item, idx) => `
         <div class="st-history-item ${idx === history.length - 1 ? 'st-history-last' : ''}">
-          <div class="st-history-translation">${item.translatedText}</div>
+          <div class="st-history-translation">${esc(item.translatedText)}</div>
         </div>
       `).join('');
       let currentHtml = '';
-      if (payload.translatedText) currentHtml += `<div class="st-translation" data-final="${payload.isFinal ? 'true' : 'false'}">${payload.translatedText}</div>`;
-      if (payload.text) currentHtml += `<div class="st-source">${payload.text}</div>`;
+      if (payload.translatedText) currentHtml += `<div class="st-translation" data-final="${payload.isFinal ? 'true' : 'false'}">${esc(payload.translatedText)}</div>`;
+      if (payload.text) currentHtml += `<div class="st-source">${esc(payload.text)}</div>`;
       html = `<div class="st-history">${historyHtml}</div>${currentHtml}`;
     } else {
       const historyText = (payload.history || []).map(i => i.translatedText).join(' ');
       let currentHtml = '';
-      if (payload.translatedText) currentHtml += `<span class="st-current-text" data-final="${payload.isFinal ? 'true' : 'false'}">${payload.translatedText}</span>`;
-      else if (payload.text) currentHtml += `<span class="st-source-text">${payload.text}</span>`;
-      html = `<div class="st-transcript"><span class="st-history-text">${historyText ? historyText + ' ' : ''}</span>${currentHtml}</div>`;
+      if (payload.translatedText) currentHtml += `<span class="st-current-text" data-final="${payload.isFinal ? 'true' : 'false'}">${esc(payload.translatedText)}</span>`;
+      else if (payload.text) currentHtml += `<span class="st-source-text">${esc(payload.text)}</span>`;
+      // Show the original line beneath the translation when both exist, gated by
+      // the "show source" toggle via the [data-show-source] CSS rule.
+      const sourceLine = payload.translatedText && payload.text
+        ? `<span class="st-source-text">${esc(payload.text)}</span>`
+        : '';
+      html = `<div class="st-transcript"><span class="st-history-text">${historyText ? esc(historyText) + ' ' : ''}</span>${currentHtml}${sourceLine}</div>`;
     }
     dynamicContent.innerHTML = html;
 
@@ -1341,6 +1362,11 @@ async function handleRealtimeResult(result: RealtimeResult) {
 
   if (pendingHistoryItem && sourceText) {
     subtitleHistory.push(pendingHistoryItem);
+    // Cap retained history so long sessions don't grow the array / overlay DOM
+    // without bound (speech every <10s keeps the clear timer from firing).
+    if (subtitleHistory.length > MAX_SUBTITLE_HISTORY) {
+      subtitleHistory = subtitleHistory.slice(-MAX_SUBTITLE_HISTORY);
+    }
     pendingHistoryItem = null;
 
     lastSourceText = '';

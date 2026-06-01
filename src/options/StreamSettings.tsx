@@ -203,9 +203,9 @@ export function StreamSettings() {
                     key={mode}
                     type="button"
                     onClick={() => void patchOverlay({ displayMode: mode })}
-                    className={`px-2 py-1.5 rounded-md text-[11px] font-medium tracking-tight border transition-colors ${
+                    className={`px-2 py-1.5 rounded-md text-[11px] font-medium tracking-tight border transition-all active:scale-[0.97] ${
                       overlay.displayMode === mode
-                        ? "bg-brand-50 border-brand-200 text-brand-700"
+                        ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                     }`}
                   >

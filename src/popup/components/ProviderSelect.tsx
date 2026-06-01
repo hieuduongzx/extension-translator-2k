@@ -250,12 +250,15 @@ interface ProviderPairProps {
   onAIProviderChange: (provider: AIProviderId) => void;
   onAddProvider: () => void;
   onAddAIProvider: () => void;
+  /** Render without the card wrapper so it can sit inside a shared card. */
+  bare?: boolean;
 }
 
 /**
  * Combined provider card: the main translation service and the AI service
  * grouped into one tidy card (a labelled row each), instead of two stacked
- * cards. Used by the popup to keep the UI compact.
+ * cards. Used by the popup to keep the UI compact. Pass `bare` to drop the
+ * card wrapper when composing into a larger unified card.
  */
 export function ProviderPair({
   provider,
@@ -264,7 +267,8 @@ export function ProviderPair({
   onProviderChange,
   onAIProviderChange,
   onAddProvider,
-  onAddAIProvider
+  onAddAIProvider,
+  bare = false
 }: ProviderPairProps) {
   const mainOptions: Option[] = [
     GOOGLE_OPTION,
@@ -278,8 +282,8 @@ export function ProviderPair({
     ...customModels.map(customOption),
     ADD_OPTION
   ];
-  return (
-    <div className="surface-card p-2.5 flex flex-col gap-2.5">
+  const inner = (
+    <>
       <div className="flex flex-col gap-1">
         <span className="section-label">Dịch vụ dịch chính</span>
         <Dropdown
@@ -302,6 +306,9 @@ export function ProviderPair({
           Dùng cho nút lấy bản dịch AI trong popup chọn văn bản.
         </p>
       </div>
-    </div>
+    </>
   );
+
+  if (bare) return <div className="flex flex-col gap-2.5">{inner}</div>;
+  return <div className="surface-card p-2.5 flex flex-col gap-2.5">{inner}</div>;
 }

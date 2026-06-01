@@ -32,10 +32,10 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
             key={mode.id}
             type="button"
             onClick={() => onChange(mode.id)}
-            className={`group flex items-start gap-2 p-3 rounded-xl border shadow-sm transition-all text-left ${
+            className={`group flex items-start gap-2 p-3 rounded-xl border transition-all text-left active:scale-[0.98] ${
               active
-                ? "bg-brand-50 border-brand-200 ring-1 ring-brand-200"
-                : "bg-white border-zinc-200 hover:border-zinc-300 hover:shadow"
+                ? "bg-brand-50 border-brand-300 ring-1 ring-brand-200 shadow-glow-sm"
+                : "bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-card-hover"
             }`}
           >
             <div

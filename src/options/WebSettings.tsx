@@ -200,9 +200,9 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                 key={t}
                 type="button"
                 onClick={() => onChange({ ...settings, selectionPopupTheme: t })}
-                className={`px-3 py-1 rounded-md text-[11px] font-medium uppercase tracking-wider border transition-colors ${
+                className={`px-3 py-1 rounded-md text-[11px] font-medium uppercase tracking-wider border transition-all active:scale-[0.97] ${
                   settings.selectionPopupTheme === t
-                    ? "bg-brand-50 border-brand-200 text-brand-700"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                     : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                 }`}
               >
@@ -240,9 +240,9 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                 key={mode}
                 type="button"
                 onClick={() => onChange({ ...settings, aiTranslationMode: mode })}
-                className={`px-2 py-1.5 rounded-md text-[11px] font-medium tracking-tight border transition-colors ${
+                className={`px-2 py-1.5 rounded-md text-[11px] font-medium tracking-tight border transition-all active:scale-[0.97] ${
                   settings.aiTranslationMode === mode
-                    ? "bg-brand-50 border-brand-200 text-brand-700"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                     : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                 }`}
               >
@@ -376,9 +376,9 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
               key={rule}
               type="button"
               onClick={() => onChange({ ...settings, autoRule: rule })}
-              className={`px-2 py-1.5 rounded-md text-[11px] font-medium uppercase tracking-wider border transition-colors ${
+              className={`px-2 py-1.5 rounded-md text-[11px] font-medium uppercase tracking-wider border transition-all active:scale-[0.97] ${
                 settings.autoRule === rule
-                  ? "bg-brand-50 border-brand-200 text-brand-700"
+                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                   : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
             >

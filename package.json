@@ -1,7 +1,7 @@
 {
   "name": "translator2k",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "description": "Dịch trang web (Google/Bing/AI) và phụ đề thời gian thực cho video/stream (Soniox). Hai chức năng trong một tiện ích.",
   "scripts": {

@@ -7,9 +7,9 @@ const STYLES = `
   padding: 0.15em 0.4em;
   font-size: 0.95em;
   line-height: 1.45;
-  color: rgb(37, 99, 235);
-  background: rgba(37, 99, 235, 0.06);
-  border-left: 3px solid rgba(37, 99, 235, 0.45);
+  color: rgb(13, 148, 136);
+  background: rgba(13, 148, 136, 0.07);
+  border-left: 3px solid rgba(13, 148, 136, 0.45);
   border-radius: 4px;
   font-family: inherit;
   font-style: normal;
@@ -23,8 +23,8 @@ const STYLES = `
   margin-left: 0.35em;
   padding: 0 0.3em;
   font-size: 0.92em;
-  color: rgb(37, 99, 235);
-  background: rgba(37, 99, 235, 0.08);
+  color: rgb(13, 148, 136);
+  background: rgba(13, 148, 136, 0.1);
   border-radius: 3px;
   font-style: normal;
   unicode-bidi: isolate;
@@ -66,6 +66,9 @@ const STYLES = `
   --wt-icon-hover-bg: rgba(255, 255, 255, 0.08);
   --wt-divider: rgba(255, 255, 255, 0.08);
   --wt-source-bg: rgba(255, 255, 255, 0.04);
+  --wt-trigger-bg: rgba(255, 255, 255, 0.05);
+  --wt-trigger-border: rgba(255, 255, 255, 0.14);
+  --wt-trigger-border-hover: rgba(255, 255, 255, 0.28);
   --wt-shadow: 0 18px 40px rgba(0, 0, 0, 0.45),
     0 4px 12px rgba(0, 0, 0, 0.25);
   --wt-error: #f87171;
@@ -100,6 +103,9 @@ const STYLES = `
   --wt-icon-hover-bg: rgba(0, 0, 0, 0.06);
   --wt-divider: rgba(0, 0, 0, 0.08);
   --wt-source-bg: rgba(0, 0, 0, 0.03);
+  --wt-trigger-bg: rgba(0, 0, 0, 0.035);
+  --wt-trigger-border: rgba(0, 0, 0, 0.1);
+  --wt-trigger-border-hover: rgba(0, 0, 0, 0.18);
   --wt-shadow: 0 18px 40px rgba(0, 0, 0, 0.12),
     0 4px 12px rgba(0, 0, 0, 0.08);
   --wt-error: #b91c1c;
@@ -121,21 +127,39 @@ const STYLES = `
   padding: 6px 10px;
   background: var(--wt-toolbar-bg);
   border-bottom: 1px solid var(--wt-divider);
+  /* The toolbar doubles as a drag handle for the whole popup. */
+  cursor: grab;
+  user-select: none;
+}
+.wt-selection-popup.wt-dragging,
+.wt-selection-popup.wt-dragging .wt-sp-toolbar {
+  cursor: grabbing;
 }
 
 .wt-sp-toolbar-start {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   justify-content: flex-start;
+}
+
+.wt-sp-toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 0 4px;
 }
 
 .wt-sp-toolbar-end {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
+  flex: 1 1 0;
+  justify-content: flex-end;
 }
 
 .wt-sp-icon-btn {
@@ -308,12 +332,102 @@ const STYLES = `
   position: relative;
 }
 
+/* Inline dropdown trigger on the toolbar: shows the active provider name plus
+   a caret, replacing the old gear-icon-only button. Click toggles the menu.
+   Fixed width so it doesn't jump as the provider name changes. */
+.wt-sp-provider-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  width: 210px;
+  padding: 0 8px 0 11px;
+  /* Sits just barely above the toolbar with a faint grey wash; the subtle
+     border is what really sets it apart from the title bar. */
+  background: var(--wt-trigger-bg);
+  border: 1px solid var(--wt-trigger-border);
+  border-radius: 9px;
+  color: var(--wt-fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.wt-sp-provider-trigger:hover {
+  background: var(--wt-icon-hover-bg);
+  border-color: var(--wt-trigger-border-hover);
+}
+.wt-sp-provider-trigger[aria-expanded="true"] {
+  background: var(--wt-icon-hover-bg);
+  border-color: rgba(20, 184, 166, 0.5);
+}
+.wt-sp-provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wt-sp-provider-icon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.wt-sp-provider-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wt-sp-provider-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wt-muted);
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+.wt-sp-provider-caret svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.wt-sp-provider-trigger[aria-expanded="true"] .wt-sp-provider-caret {
+  transform: rotate(180deg);
+}
+
+/* The menu is mounted on <body> (outside the popup) so the popup's
+   overflow:hidden can't clip it. It carries its own theme tokens and is
+   positioned manually via inline left/top. */
+.wt-selection-popup-menu {
+  --wt-bg: #1c1f24;
+  --wt-fg: #e7eaee;
+  --wt-muted: #9aa3ad;
+  --wt-border: rgba(255, 255, 255, 0.08);
+  --wt-icon-hover-bg: rgba(255, 255, 255, 0.08);
+  --wt-shadow: 0 18px 40px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.wt-selection-popup-menu[data-theme="light"] {
+  --wt-bg: #ffffff;
+  --wt-fg: #1c1f24;
+  --wt-muted: #6b7280;
+  --wt-border: rgba(0, 0, 0, 0.08);
+  --wt-icon-hover-bg: rgba(0, 0, 0, 0.06);
+  --wt-shadow: 0 18px 40px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
 .wt-sp-provider-menu {
   position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  min-width: 180px;
+  z-index: 2147483647;
+  min-width: 210px;
+  max-width: calc(100vw - 16px);
+  max-height: 50vh;
+  overflow-y: auto;
   background: var(--wt-bg);
+  color: var(--wt-fg);
   border: 1px solid var(--wt-border);
   border-radius: 10px;
   box-shadow: var(--wt-shadow);
@@ -321,7 +435,8 @@ const STYLES = `
   display: flex;
   flex-direction: column;
   gap: 1px;
-  z-index: 2;
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+    system-ui, sans-serif;
   animation: wt-fade-in 100ms ease-out;
 }
 .wt-sp-provider-menu[hidden] { display: none !important; }
@@ -338,7 +453,7 @@ const STYLES = `
 .wt-sp-provider-option {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 7px 8px;
   border-radius: 6px;
   background: transparent;
@@ -354,11 +469,31 @@ const STYLES = `
   font-weight: 600;
 }
 
+.wt-sp-provider-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wt-sp-provider-option-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.wt-sp-provider-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wt-sp-provider-check {
   width: 14px;
+  flex-shrink: 0;
   display: inline-block;
   text-align: center;
-  color: #60a5fa;
+  color: #14b8a6;
 }
 .wt-sp-provider-option:not([aria-selected="true"]) .wt-sp-provider-check {
   color: transparent;
@@ -375,7 +510,7 @@ const STYLES = `
   justify-content: center;
   padding: 0;
   background: #ffffff;
-  color: #2563eb;
+  color: #0d9488;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 7px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18),
@@ -387,9 +522,9 @@ const STYLES = `
   animation: wt-trigger-in 120ms ease-out;
 }
 .wt-selection-trigger:hover {
-  background: #f8fafc;
+  background: #f0fdfa;
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22),
+  box-shadow: 0 10px 22px rgba(13, 148, 136, 0.28),
     0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .wt-selection-trigger:active { transform: translateY(0); }

@@ -162,12 +162,12 @@ export function StreamPanel() {
           type="button"
           onClick={() => void toggleTranslation()}
           disabled={busy}
-          className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all border ${
+          className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all border active:scale-[0.99] disabled:active:scale-100 ${
             busy
               ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200"
               : state.isActive
                 ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                : "bg-brand-600 text-white border-brand-600 hover:bg-brand-700"
+                : "bg-brand-600 text-white border-brand-600 shadow-glow hover:bg-brand-700"
           }`}
         >
           {state.isActive ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -178,11 +178,11 @@ export function StreamPanel() {
           type="button"
           onClick={() => void togglePause()}
           disabled={busy || !state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-colors ${
+          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
             state.isActive
               ? state.isPaused
                 ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300"
               : "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
           }`}
           title={state.isPaused ? "Tiếp tục" : "Tạm dừng"}
@@ -198,9 +198,9 @@ export function StreamPanel() {
           type="button"
           onClick={() => void resetOverlayLayout()}
           disabled={!state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-colors ${
+          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
             state.isActive
-              ? "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+              ? "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300"
               : "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
           }`}
           title="Đặt lại vị trí overlay"
@@ -227,19 +227,20 @@ export function StreamPanel() {
         </p>
       </div>
 
-      {/* Target language */}
-      <div className="surface-card p-2.5 flex flex-col gap-1">
-        <span className="section-label flex items-center gap-1.5">
-          <Globe2 className="w-3 h-3 text-zinc-400" />
-          Dịch sang
-        </span>
-        <div className={busy ? "opacity-60 pointer-events-none" : ""}>
-          <Dropdown value={draftLang} options={TARGET_OPTIONS} onChange={setDraftLang} />
-        </div>
-      </div>
-
-      {/* Overlay controls */}
+      {/* Target language + overlay controls — one unified card. */}
       <div className="surface-card p-2.5 flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1">
+          <span className="section-label flex items-center gap-1.5">
+            <Globe2 className="w-3 h-3 text-zinc-400" />
+            Dịch sang
+          </span>
+          <div className={busy ? "opacity-60 pointer-events-none" : ""}>
+            <Dropdown value={draftLang} options={TARGET_OPTIONS} onChange={setDraftLang} />
+          </div>
+        </div>
+
+        <div className="h-px bg-zinc-200/70" />
+
         <ToggleRow
           label="Hiện bản gốc"
           checked={state.showSource}
@@ -271,9 +272,9 @@ export function StreamPanel() {
                 key={mode}
                 type="button"
                 onClick={() => void updateOverlaySettings({ displayMode: mode })}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium tracking-tight border transition-colors ${
+                className={`px-2 py-1 rounded-md text-[11px] font-semibold tracking-tight border transition-all active:scale-[0.97] ${
                   state.displayMode === mode
-                    ? "bg-brand-50 border-brand-200 text-brand-700"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                     : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                 }`}
               >

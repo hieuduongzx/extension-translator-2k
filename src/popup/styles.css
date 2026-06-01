@@ -13,18 +13,33 @@
   #root {
     width: 380px;
     margin: 0;
-    background: #fafafa;
     color: #18181b;
     font-family:
       "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+
+  /* Subtle teal-tinted backdrop: a soft radial wash up top fading into the
+     neutral canvas. Gives the popup depth without leaving the light theme. */
+  body {
+    background:
+      radial-gradient(
+        120% 80% at 50% -10%,
+        rgba(20, 184, 166, 0.08) 0%,
+        rgba(20, 184, 166, 0) 60%
+      ),
+      #f7f8f8;
+  }
 }
 
 @layer components {
   .surface-card {
-    @apply rounded-xl border border-zinc-200 bg-white shadow-card;
+    @apply rounded-xl border border-zinc-200/80 bg-white shadow-card
+           transition-shadow duration-200;
+  }
+  .surface-card-hover {
+    @apply hover:shadow-card-hover;
   }
 
   .section-label {
@@ -55,41 +70,41 @@
   .btn-brand {
     @apply inline-flex items-center justify-center gap-1.5
            h-9 px-3.5 rounded-lg text-[13px] font-semibold
-           bg-brand-600 text-white shadow-sm
-           hover:bg-brand-700 active:bg-brand-700
+           bg-brand-600 text-white shadow-glow-sm
+           hover:bg-brand-700 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-brand-sm {
     @apply inline-flex items-center justify-center gap-1.5
            h-8 px-3 rounded-md text-[13px] font-medium
-           bg-brand-600 text-white shadow-sm
-           hover:bg-brand-700 active:bg-brand-700
+           bg-brand-600 text-white shadow-glow-sm
+           hover:bg-brand-700 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5
            h-9 px-3.5 rounded-lg text-[13px] font-medium
            bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300
+           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-ghost-sm {
     @apply inline-flex items-center justify-center gap-1.5
            h-8 px-3 rounded-md text-[13px] font-medium
            bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300
+           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-icon {
@@ -137,6 +152,23 @@
            text-[10px] font-semibold text-zinc-700 leading-none
            shadow-[inset_0_-1px_0_rgba(0,0,0,0.05)];
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+
+  /* Segmented control — pill-style tab group used for the popup's two
+     features. The track is a soft inset surface; the active segment is a
+     raised white pill that floats above it. */
+  .segment-track {
+    @apply flex items-center gap-1 p-1 rounded-xl
+           bg-zinc-100/80 border border-zinc-200/70;
+  }
+  .segment {
+    @apply flex-1 inline-flex items-center justify-center gap-1.5
+           h-8 px-3 rounded-lg text-[12.5px] font-semibold tracking-tight
+           text-zinc-500 transition-all duration-150
+           hover:text-zinc-800;
+  }
+  .segment-active {
+    @apply bg-white text-brand-700 shadow-card;
   }
 }
 

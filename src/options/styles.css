@@ -14,18 +14,33 @@
   #root {
     margin: 0;
     min-height: 100vh;
-    background: #fafafa;
     color: #18181b;
     font-family:
       "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+
+  /* Teal-tinted radial wash anchored to the top, fading into the neutral
+     canvas — matches the popup so both surfaces feel like one product. */
+  body {
+    background:
+      radial-gradient(
+        80% 50% at 50% -5%,
+        rgba(20, 184, 166, 0.07) 0%,
+        rgba(20, 184, 166, 0) 55%
+      ),
+      #f7f8f8;
+  }
 }
 
 @layer components {
   .surface-card {
-    @apply rounded-xl border border-zinc-200 bg-white shadow-card;
+    @apply rounded-xl border border-zinc-200/80 bg-white shadow-card
+           transition-shadow duration-200;
+  }
+  .surface-card-hover {
+    @apply hover:shadow-card-hover;
   }
 
   .section-label {
@@ -48,21 +63,21 @@
   .btn-brand {
     @apply inline-flex items-center justify-center gap-1.5
            h-9 px-3.5 rounded-lg text-[13px] font-semibold
-           bg-brand-600 text-white shadow-sm
-           hover:bg-brand-700 active:bg-brand-700
+           bg-brand-600 text-white shadow-glow-sm
+           hover:bg-brand-700 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5
            h-9 px-3.5 rounded-lg text-[13px] font-medium
            bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300
+           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           transition-all duration-150;
   }
 
   .btn-icon {

@@ -57,10 +57,10 @@ export function OptionsApp() {
               <img
                 src={chrome.runtime.getURL("public/icons/icon-128.png")}
                 alt="Translator2k"
-                className="w-9 h-9 rounded-lg shadow-sm"
+                className="w-9 h-9 rounded-xl shadow-card ring-1 ring-zinc-200/70"
               />
               <div>
-                <h1 className="text-[15px] font-semibold tracking-tight text-zinc-900 leading-tight">
+                <h1 className="text-[15px] font-bold tracking-tight text-zinc-900 leading-tight">
                   Translator2k
                 </h1>
                 <p className="text-[11px] text-zinc-500 leading-tight">Cài đặt</p>
@@ -78,8 +78,10 @@ export function OptionsApp() {
                     className={`nav-item ${active ? "nav-item-active" : ""}`}
                   >
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-md shrink-0 ${
-                        active ? "bg-brand-600 text-white" : "bg-white text-zinc-500 border border-zinc-200"
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-all ${
+                        active
+                          ? "bg-brand-600 text-white shadow-glow-sm"
+                          : "bg-white text-zinc-500 border border-zinc-200"
                       }`}
                     >
                       <Icon className="w-4 h-4" />

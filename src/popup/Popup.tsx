@@ -41,16 +41,16 @@ export function Popup() {
 
   return (
     <div>
-      <header className="px-3 pt-3 pb-0">
+      <header className="px-3 pt-3 pb-2">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5">
             <img
               src={chrome.runtime.getURL("public/icons/icon-128.png")}
               alt="Translator2k"
-              className="w-9 h-9 rounded-lg shadow-sm"
+              className="w-9 h-9 rounded-xl shadow-card ring-1 ring-zinc-200/70"
             />
             <div>
-              <h1 className="text-[14px] font-semibold tracking-tight text-zinc-900 leading-tight">
+              <h1 className="text-[14px] font-bold tracking-tight text-zinc-900 leading-tight">
                 Translator2k
               </h1>
               <p className="text-[11px] text-zinc-500 leading-tight">
@@ -69,19 +69,17 @@ export function Popup() {
           </button>
         </div>
 
-        <nav className="flex gap-1 border-b border-zinc-200">
+        <nav className="segment-track" role="tablist">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
             return (
               <button
                 key={id}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => selectTab(id)}
-                className={`flex items-center gap-1.5 px-3 py-2 -mb-px text-[12.5px] font-semibold tracking-tight border-b-2 transition-colors ${
-                  active
-                    ? "border-brand-600 text-brand-700"
-                    : "border-transparent text-zinc-500 hover:text-zinc-800"
-                }`}
+                className={`segment ${active ? "segment-active" : ""}`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
@@ -91,7 +89,9 @@ export function Popup() {
         </nav>
       </header>
 
-      {tab === "web" ? <WebPanel /> : <StreamPanel />}
+      <div key={tab} className="animate-fade-in">
+        {tab === "web" ? <WebPanel /> : <StreamPanel />}
+      </div>
     </div>
   );
 }

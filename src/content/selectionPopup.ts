@@ -67,6 +67,9 @@ function createPopup(
   let lastAITranslation = "";
   let inflightId = 0;
   let aiInflightId = 0;
+  // Set once the user drags the popup, so subsequent re-shows keep its spot
+  // instead of snapping back to the selection anchor.
+  let dragged = false;
 
   const root = document.createElement("div");
   root.className = "wt-selection-popup";
@@ -83,8 +86,22 @@ function createPopup(
   const ICON_SPARKLE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`;
   const ICON_MOON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
   const ICON_SUN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
-  const ICON_GEAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+  const ICON_CHEVRON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
   const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+
+  // Provider marks (inline SVG, offline-friendly). Solid fills avoid gradient
+  // id collisions when the same icon renders in both the trigger and the menu.
+  const PROVIDER_ICON_GOOGLE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 16.1 18.9 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.5-5.2l-6.2-5.3c-2.1 1.4-4.6 2.2-7.3 2.2-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.5l6.2 5.3C41 35.5 44 30.2 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>`;
+  const PROVIDER_ICON_BING = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#0078d4" d="M5 3v22.6l6.5-2.7v-12L20 14l-3 1.3 5 2.2 6 2.5L11.5 28 5 25.7V3z"/></svg>`;
+  const PROVIDER_ICON_GEMMA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1C69FF" d="M12 24A14.304 14.304 0 000 12 14.304 14.304 0 0012 0a14.305 14.305 0 0012 12 14.305 14.305 0 00-12 12"/></svg>`;
+  const PROVIDER_ICON_CUSTOM = `<svg viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg>`;
+
+  function providerIcon(id: ProviderId): string {
+    if (id === "google") return PROVIDER_ICON_GOOGLE;
+    if (id === "bing") return PROVIDER_ICON_BING;
+    if (id === "gemma") return PROVIDER_ICON_GEMMA;
+    return PROVIDER_ICON_CUSTOM;
+  }
 
   const sourceSectionHtml = config.showOriginal
     ? `
@@ -101,14 +118,17 @@ function createPopup(
         <button type="button" class="wt-sp-icon-btn" data-role="retry" aria-label="Dịch lại" title="Dịch lại">${ICON_RETRY}</button>
         <button type="button" class="wt-sp-icon-btn" data-role="ai" aria-label="Lấy bản dịch AI" title="Lấy bản dịch AI">${ICON_SPARKLE}</button>
       </div>
+      <div class="wt-sp-toolbar-center">
+        <button type="button" class="wt-sp-provider-trigger" data-role="provider-button" aria-expanded="false" aria-haspopup="listbox" aria-label="Dịch vụ dịch" title="Dịch vụ dịch">
+          <span class="wt-sp-provider-icon" data-role="provider-icon"></span>
+          <span class="wt-sp-provider-current" data-role="provider-current"></span>
+          <span class="wt-sp-provider-caret">${ICON_CHEVRON}</span>
+        </button>
+      </div>
       <div class="wt-sp-toolbar-end">
         <button type="button" class="wt-sp-icon-btn" data-role="theme" aria-label="Đổi giao diện" title="Đổi giao diện">
           <span data-role="theme-icon">${currentTheme === "dark" ? ICON_MOON : ICON_SUN}</span>
         </button>
-        <div class="wt-sp-provider">
-          <button type="button" class="wt-sp-icon-btn" data-role="provider-button" aria-expanded="false" aria-label="Tuỳ chọn dịch vụ" title="Dịch vụ dịch">${ICON_GEAR}</button>
-          <div class="wt-sp-provider-menu" data-role="provider-menu" hidden></div>
-        </div>
         <button type="button" class="wt-sp-icon-btn" data-role="close" aria-label="Đóng" title="Đóng">${ICON_CLOSE}</button>
       </div>
     </div>
@@ -128,8 +148,19 @@ function createPopup(
 
   const sourceEl = root.querySelector<HTMLDivElement>('[data-role="source"]');
   const resultEl = root.querySelector<HTMLDivElement>('[data-role="result"]')!;
+  const toolbarEl = root.querySelector<HTMLDivElement>(".wt-sp-toolbar")!;
   const providerButton = root.querySelector<HTMLButtonElement>('[data-role="provider-button"]')!;
-  const providerMenu = root.querySelector<HTMLDivElement>('[data-role="provider-menu"]')!;
+  const providerCurrentEl = root.querySelector<HTMLSpanElement>('[data-role="provider-current"]')!;
+  const providerIconEl = root.querySelector<HTMLSpanElement>('[data-role="provider-icon"]')!;
+  // The provider menu lives on <body>, not inside the popup, so the popup's
+  // `overflow: hidden` can't clip it when the popup is short. It's positioned
+  // manually relative to the trigger each time it opens.
+  const providerMenu = document.createElement("div");
+  providerMenu.className = "wt-selection-popup-menu wt-sp-provider-menu";
+  providerMenu.setAttribute("role", "listbox");
+  providerMenu.dataset.theme = currentTheme;
+  providerMenu.setAttribute("translate", "no");
+  providerMenu.hidden = true;
   const closeBtn = root.querySelector<HTMLButtonElement>('[data-role="close"]')!;
   const copyBtn = root.querySelector<HTMLButtonElement>('[data-role="copy"]')!;
   const speakBtn = root.querySelector<HTMLButtonElement>('[data-role="speak"]')!;
@@ -161,11 +192,17 @@ function createPopup(
     if (theme === currentTheme) return;
     currentTheme = theme;
     root.dataset.theme = theme;
+    providerMenu.dataset.theme = theme;
     themeIconEl.innerHTML = theme === "dark" ? ICON_MOON : ICON_SUN;
     config.onThemeChange(theme);
   }
 
   function renderProviderMenu(): void {
+    // Reflect the current selection in the toolbar trigger (icon + label).
+    const current = config.providerOptions.find((p) => p.id === currentProvider);
+    providerIconEl.innerHTML = providerIcon(currentProvider);
+    providerCurrentEl.textContent = current?.label ?? "Dịch vụ";
+
     providerMenu.innerHTML = "";
     const heading = document.createElement("div");
     heading.className = "wt-sp-provider-heading";
@@ -175,8 +212,20 @@ function createPopup(
       const opt = document.createElement("button");
       opt.type = "button";
       opt.className = "wt-sp-provider-option";
+      opt.setAttribute("role", "option");
       opt.setAttribute("aria-selected", String(p.id === currentProvider));
-      opt.innerHTML = `<span class="wt-sp-provider-check">✓</span><span>${p.label}</span>`;
+
+      const check = document.createElement("span");
+      check.className = "wt-sp-provider-check";
+      check.textContent = "✓";
+      const icon = document.createElement("span");
+      icon.className = "wt-sp-provider-option-icon";
+      icon.innerHTML = providerIcon(p.id);
+      const label = document.createElement("span");
+      label.className = "wt-sp-provider-option-label";
+      label.textContent = p.label;
+      opt.append(check, icon, label);
+
       opt.addEventListener("click", (e) => {
         e.stopPropagation();
         setProvider(p.id);
@@ -186,13 +235,38 @@ function createPopup(
     }
   }
 
+  /**
+   * Anchor the body-level menu to the trigger. Opens below by default, flips
+   * above when there isn't room, and clamps horizontally to the viewport.
+   */
+  function positionMenu(): void {
+    const btn = providerButton.getBoundingClientRect();
+    const margin = 8;
+    const menuW = providerMenu.offsetWidth || 200;
+    const menuH = providerMenu.offsetHeight || 200;
+    let left = btn.left;
+    if (left + menuW > window.innerWidth - margin) {
+      left = window.innerWidth - menuW - margin;
+    }
+    if (left < margin) left = margin;
+    let top = btn.bottom + 6;
+    if (top + menuH > window.innerHeight - margin) {
+      const above = btn.top - menuH - 6;
+      if (above >= margin) top = above;
+      else top = Math.max(margin, window.innerHeight - menuH - margin);
+    }
+    providerMenu.style.left = `${left + window.scrollX}px`;
+    providerMenu.style.top = `${top + window.scrollY}px`;
+  }
+
   function toggleMenu(force?: boolean): void {
-    const next = force ?? providerMenu.hasAttribute("hidden");
+    const next = force ?? providerMenu.hidden;
     if (next) {
-      providerMenu.removeAttribute("hidden");
+      providerMenu.hidden = false;
       providerButton.setAttribute("aria-expanded", "true");
+      positionMenu();
     } else {
-      providerMenu.setAttribute("hidden", "");
+      providerMenu.hidden = true;
       providerButton.setAttribute("aria-expanded", "false");
     }
   }
@@ -412,14 +486,84 @@ function createPopup(
     toggleMenu();
   });
 
+  // ----- Drag the whole popup by its toolbar -----
+  // Pointer events give us mouse + touch + pen for free and capture so the
+  // drag keeps tracking even if the cursor outruns the popup.
+  let dragPointerId: number | null = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragOriginLeft = 0;
+  let dragOriginTop = 0;
+
+  const onDragMove = (e: PointerEvent) => {
+    if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+    const margin = 8;
+    const rect = root.getBoundingClientRect();
+    // Keep the popup within the viewport so it can't be dragged off-screen.
+    const maxLeft = window.innerWidth - rect.width - margin;
+    const maxTop = window.innerHeight - rect.height - margin;
+    let left = dragOriginLeft + (e.clientX - dragStartX);
+    let top = dragOriginTop + (e.clientY - dragStartY);
+    left = Math.min(Math.max(margin, left), Math.max(margin, maxLeft));
+    top = Math.min(Math.max(margin, top), Math.max(margin, maxTop));
+    root.style.left = `${left + window.scrollX}px`;
+    root.style.top = `${top + window.scrollY}px`;
+    if (!providerMenu.hidden) positionMenu();
+  };
+
+  const onDragEnd = (e: PointerEvent) => {
+    if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+    dragPointerId = null;
+    root.classList.remove("wt-dragging");
+    document.removeEventListener("pointermove", onDragMove, true);
+    document.removeEventListener("pointerup", onDragEnd, true);
+    document.removeEventListener("pointercancel", onDragEnd, true);
+  };
+
+  toolbarEl.addEventListener("pointerdown", (e) => {
+    // Only start a drag from the toolbar background, never from its buttons
+    // (those have their own click behaviour) and only with the primary button.
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    const rect = root.getBoundingClientRect();
+    dragPointerId = e.pointerId;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragOriginLeft = rect.left;
+    dragOriginTop = rect.top;
+    dragged = true;
+    root.classList.add("wt-dragging");
+    toggleMenu(false);
+    e.preventDefault();
+    document.addEventListener("pointermove", onDragMove, true);
+    document.addEventListener("pointerup", onDragEnd, true);
+    document.addEventListener("pointercancel", onDragEnd, true);
+  });
+
   // Dismiss on outside click or Escape only. We intentionally do NOT close
   // on page scroll: the popup is `position: fixed` so it stays anchored,
   // and users want to keep reading the page while the translation is open.
+  // The provider menu lives on <body> (outside `root`), so a click inside it
+  // must count as "inside" — otherwise selecting a provider would dismiss the
+  // whole popup.
   const onDocClick = (e: MouseEvent) => {
-    if (!root.contains(e.target as Node)) destroy();
+    const target = e.target as Node;
+    if (root.contains(target)) return;
+    if (providerMenu.contains(target)) return;
+    // A click anywhere else closes the menu first (if open), else the popup.
+    if (!providerMenu.hidden) {
+      toggleMenu(false);
+      return;
+    }
+    destroy();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
+      if (!providerMenu.hidden) {
+        toggleMenu(false);
+        providerButton.focus();
+        return;
+      }
       destroy();
       return;
     }
@@ -427,6 +571,13 @@ function createPopup(
   };
   document.addEventListener("mousedown", onDocClick, true);
   document.addEventListener("keydown", onKey, true);
+
+  // Keep the menu glued to the trigger if the layout shifts while it's open.
+  const onReflow = () => {
+    if (!providerMenu.hidden) positionMenu();
+  };
+  window.addEventListener("scroll", onReflow, true);
+  window.addEventListener("resize", onReflow);
 
   // Keep keyboard focus inside the popup while it's open (focus trap).
   function focusableElements(): HTMLElement[] {
@@ -458,11 +609,17 @@ function createPopup(
     inflightId++;
     document.removeEventListener("mousedown", onDocClick, true);
     document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("scroll", onReflow, true);
+    window.removeEventListener("resize", onReflow);
+    document.removeEventListener("pointermove", onDragMove, true);
+    document.removeEventListener("pointerup", onDragEnd, true);
+    document.removeEventListener("pointercancel", onDragEnd, true);
     try {
       ttsStop();
     } catch {
       /* ignore */
     }
+    providerMenu.remove();
     root.remove();
     // Restore focus to wherever the user was before the popup opened.
     try {
@@ -499,12 +656,16 @@ function createPopup(
   function show(text: string, anchor: { x: number; y: number }): void {
     currentText = text;
     if (sourceEl) sourceEl.textContent = text;
+    toggleMenu(false);
     resetAISection();
-    position(anchor);
+    // Once the user has dragged the popup, keep it where they put it rather
+    // than snapping back to the new selection anchor.
+    if (!dragged) position(anchor);
     void translate();
   }
 
   document.body.appendChild(root);
+  document.body.appendChild(providerMenu);
   if (sourceEl) sourceEl.textContent = currentText;
   renderProviderMenu();
   syncAIButton();
