@@ -89,8 +89,11 @@ export function Popup() {
         </nav>
       </header>
 
-      <div key={tab} className="animate-fade-in">
-        {tab === "web" ? <WebPanel /> : <StreamPanel />}
+      <div className={tab === "web" ? "" : "hidden"}>
+        <WebPanel />
+      </div>
+      <div className={tab === "stream" ? "" : "hidden"}>
+        <StreamPanel />
       </div>
     </div>
   );

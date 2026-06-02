@@ -3,18 +3,18 @@ import { STYLE_ELEMENT_ID } from "./constants";
 const STYLES = `
 .wt-bilingual-line {
   display: block;
-  margin-top: 0.3em;
-  margin-bottom: 0.2em;
-  padding: 0.3em 0.7em;
-  font-size: 0.96em;
-  line-height: 1.5;
-  color: #374151;
-  background: rgba(120, 120, 128, 0.1);
-  border-left: 3px solid rgba(120, 120, 128, 0.4);
-  border-radius: 0 6px 6px 0;
+  margin-top: 0.15em;
+  margin-bottom: 0.1em;
+  padding: 0.15em 0.5em;
+  font-size: 0.9em;
+  line-height: 1.55;
+  color: #78716c;
+  background: transparent;
+  border-left: 2px solid rgba(120, 113, 108, 0.35);
+  border-radius: 0 3px 3px 0;
   font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
-  font-style: normal;
-  font-weight: 500;
+  font-style: italic;
+  font-weight: 400;
   white-space: normal;
   unicode-bidi: isolate;
   box-decoration-break: clone;
@@ -23,16 +23,16 @@ const STYLES = `
 
 .wt-bilingual-inline {
   display: inline;
-  margin: 0 0.15em 0 0.35em;
-  padding: 0.05em 0.4em;
-  font-size: 0.94em;
-  color: #374151;
-  background: rgba(120, 120, 128, 0.12);
-  border-radius: 4px;
-  border-bottom: 1.5px solid rgba(120, 120, 128, 0.35);
+  margin: 0 0.1em 0 0.25em;
+  padding: 0.02em 0.3em;
+  font-size: 0.9em;
+  color: #78716c;
+  background: transparent;
+  border-radius: 2px;
+  border-bottom: 1px solid rgba(120, 113, 108, 0.3);
   font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
-  font-style: normal;
-  font-weight: 500;
+  font-style: italic;
+  font-weight: 400;
   unicode-bidi: isolate;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
@@ -40,45 +40,13 @@ const STYLES = `
 
 @media (prefers-color-scheme: dark) {
   .wt-bilingual-line {
-    color: #d4d4d8;
-    background: rgba(160, 160, 170, 0.14);
-    border-left-color: rgba(160, 160, 170, 0.4);
+    color: #a8a29e;
+    border-left-color: rgba(168, 162, 158, 0.35);
   }
   .wt-bilingual-inline {
-    color: #d4d4d8;
-    background: rgba(160, 160, 170, 0.16);
-    border-bottom-color: rgba(160, 160, 170, 0.4);
+    color: #a8a29e;
+    border-bottom-color: rgba(168, 162, 158, 0.3);
   }
-}
-
-/* ===== Per-batch loading indicator ===== */
-/* A small inline pill of pulsing dots injected next to each text node while
-   its batch is in flight, then removed when the translation is applied. */
-.wt-loading-marker {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  vertical-align: middle;
-  margin: 0 0.25em;
-  padding: 0.1em 0.35em;
-  border-radius: 999px;
-  background: rgba(13, 148, 136, 0.1);
-  line-height: 0;
-  /* Keep it visually quiet but obvious; never break the page layout flow. */
-  user-select: none;
-  pointer-events: none;
-  vertical-align: baseline;
-}
-.wt-loading-marker .wt-loading-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #14b8a6;
-}
-
-@media (prefers-color-scheme: dark) {
-  .wt-loading-marker { background: rgba(45, 212, 191, 0.16); }
-  .wt-loading-marker .wt-loading-dot { background: #2dd4bf; }
 }
 
 .wt-error-banner {
@@ -91,9 +59,9 @@ const STYLES = `
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(185, 28, 28, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   pointer-events: auto;
 }
 
@@ -104,6 +72,8 @@ const STYLES = `
   color: inherit;
   cursor: pointer;
   font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ===== Selection popup (compact) ===== */
@@ -281,17 +251,18 @@ const STYLES = `
 }
 
 .wt-sp-source {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--wt-muted);
   background: var(--wt-source-bg);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
   margin-bottom: 10px;
-  max-height: 120px;
+  max-height: 110px;
   overflow: auto;
+  border: 1px solid var(--wt-border);
 }
 
 .wt-sp-divider {
@@ -299,12 +270,13 @@ const STYLES = `
 }
 
 .wt-sp-result {
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--wt-fg);
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.55;
+  line-height: 1.6;
   font-weight: 400;
+  letter-spacing: 0.005em;
 }
 
 .wt-sp-result.wt-loading {
@@ -317,20 +289,22 @@ const STYLES = `
   background: var(--wt-error-bg);
   border-radius: 8px;
   padding: 8px 10px;
+  font-size: 13px;
 }
 
 .wt-sp-status {
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--wt-muted);
   text-align: right;
+  letter-spacing: 0.01em;
 }
 .wt-sp-status[hidden] { display: none; }
 
 /* ----- On-demand AI translation section ----- */
 .wt-sp-ai {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid var(--wt-divider);
 }
 .wt-sp-ai[hidden] { display: none; }
@@ -340,7 +314,7 @@ const STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .wt-sp-ai-label {
@@ -348,7 +322,7 @@ const STYLES = `
   align-items: center;
   font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: #a78bfa;
 }
@@ -360,12 +334,13 @@ const STYLES = `
 .wt-sp-ai-copy svg { width: 14px; height: 14px; }
 
 .wt-sp-ai-result {
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--wt-fg);
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.55;
+  line-height: 1.6;
   font-weight: 400;
+  letter-spacing: 0.005em;
 }
 .wt-sp-ai-result.wt-loading {
   color: var(--wt-muted);
@@ -376,6 +351,7 @@ const STYLES = `
   background: var(--wt-error-bg);
   border-radius: 8px;
   padding: 8px 10px;
+  font-size: 13px;
 }
 
 /* ----- Provider menu ----- */
@@ -505,8 +481,8 @@ const STYLES = `
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
-  border-radius: 6px;
+  padding: 7px 9px;
+  border-radius: 7px;
   background: transparent;
   border: 0;
   cursor: pointer;
@@ -518,6 +494,7 @@ const STYLES = `
 .wt-sp-provider-option:hover { background: var(--wt-icon-hover-bg); }
 .wt-sp-provider-option[aria-selected="true"] {
   font-weight: 600;
+  background: rgba(13, 148, 136, 0.08);
 }
 
 .wt-sp-provider-option-icon {
@@ -554,18 +531,18 @@ const STYLES = `
 .wt-selection-trigger {
   position: absolute;
   z-index: 2147483646;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 0;
   background: #ffffff;
   color: #0d9488;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 7px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18),
-    0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(13, 148, 136, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.07);
   cursor: pointer;
   font: 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui,
     sans-serif;
@@ -575,8 +552,8 @@ const STYLES = `
 .wt-selection-trigger:hover {
   background: #f0fdfa;
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(13, 148, 136, 0.28),
-    0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.06);
 }
 .wt-selection-trigger:active { transform: translateY(0); }
 .wt-selection-trigger svg {
@@ -714,6 +691,8 @@ const STYLES = `
   align-items: flex-start;
   color: var(--wt-fg);
   font-weight: 500;
+  padding-left: 8px;
+  border-left: 2px solid rgba(13, 148, 136, 0.45);
 }
 
 .wt-dict-example {
@@ -796,17 +775,18 @@ const STYLES = `
 .wt-dict-chip {
   font: inherit;
   font-size: 12px;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid var(--wt-border);
   background: var(--wt-source-bg);
   color: var(--wt-fg);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
 }
 .wt-dict-chip:hover {
-  background: var(--wt-icon-hover-bg);
-  border-color: transparent;
+  background: rgba(13, 148, 136, 0.12);
+  border-color: rgba(13, 148, 136, 0.35);
+  color: #0d9488;
 }
 `;
 

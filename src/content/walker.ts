@@ -114,7 +114,6 @@ export function isTranslatableElement(element: Element): boolean {
   if (element.classList.contains("notranslate")) return false;
   if (element.closest(".notranslate")) return false;
   if (element.closest(".wt-bilingual-line")) return false;
-  if (element.closest(".wt-loading-marker")) return false;
   if (element.closest("[data-wt-selection-popup=\"true\"]")) return false;
   if (element.closest(".wt-selection-popup")) return false;
   if (element.closest(".wt-error-banner")) return false;

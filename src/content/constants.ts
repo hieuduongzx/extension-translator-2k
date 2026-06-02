@@ -32,8 +32,6 @@ export const ORIGINAL_ATTR = "data-wt-original";
 /** Stores an element's original inline font-family so it can be restored. */
 export const FONT_PATCH_ATTR = "data-wt-orig-font";
 export const BILINGUAL_CLASS = "wt-bilingual-line";
-/** Inline element injected next to text nodes that are awaiting translation. */
-export const LOADING_MARKER_CLASS = "wt-loading-marker";
 export const STYLE_ELEMENT_ID = "web-translator-styles";
 
 /**

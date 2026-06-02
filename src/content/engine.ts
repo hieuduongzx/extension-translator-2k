@@ -1,5 +1,5 @@
 import { batchSegments, type SegmentBatch } from "./batching";
-import { BATCH_CONCURRENCY, BILINGUAL_CLASS, FONT_PATCH_ATTR, GENERIC_FONT_FAMILIES, LOADING_MARKER_CLASS, ORIGINAL_ATTR, TRANSLATED_ATTR, TRANSLATED_FONT_FALLBACK } from "./constants";
+import { BATCH_CONCURRENCY, BILINGUAL_CLASS, FONT_PATCH_ATTR, GENERIC_FONT_FAMILIES, ORIGINAL_ATTR, TRANSLATED_ATTR, TRANSLATED_FONT_FALLBACK } from "./constants";
 import { sendTranslateRequest } from "./messaging";
 import { ensureStyles, removeStyles } from "./styles";
 import { collectSegments, collectSelectionSegments, type TextSegment } from "./walker";
@@ -137,9 +137,6 @@ export class TranslationEngine {
         const batch = batches[cursor++];
         this.inflight++;
         this.emitProgress();
-        // Show a per-batch loading indicator next to the text being translated
-        // so the user can see exactly which segments are in flight.
-        const markers = this.showLoadingMarkers(batch.segments);
         try {
           const response = await sendTranslateRequest({
             type: "translate",
@@ -158,7 +155,6 @@ export class TranslationEngine {
           const message = err instanceof Error ? err.message : String(err);
           this.onError?.(message);
         } finally {
-          this.removeLoadingMarkers(markers);
           this.inflight--;
           this.emitProgress();
         }
@@ -179,40 +175,6 @@ export class TranslationEngine {
 
       const record = this.applyToSegment(segment, translated);
       if (record) this.records.push(record);
-    }
-  }
-
-  /**
-   * Inject a small animated "translating…" indicator right after each text
-   * node in the batch. Returns the created marker elements so they can be
-   * removed once the batch resolves. Markers are inert (`translate="no"`,
-   * pointer-events none) and skipped by the walker so they never get picked up
-   * as translatable content.
-   */
-  private showLoadingMarkers(segments: TextSegment[]): HTMLElement[] {
-    const markers: HTMLElement[] = [];
-    for (const segment of segments) {
-      const parent = segment.node.parentNode;
-      if (!parent) continue;
-      const marker = document.createElement("span");
-      marker.className = LOADING_MARKER_CLASS;
-      marker.setAttribute("translate", "no");
-      marker.setAttribute("aria-hidden", "true");
-      marker.innerHTML =
-        '<span class="wt-loading-dot"></span><span class="wt-loading-dot"></span><span class="wt-loading-dot"></span>';
-      try {
-        segment.node.after(marker);
-        markers.push(marker);
-      } catch {
-        // Node may have been detached by the page between collect and request.
-      }
-    }
-    return markers;
-  }
-
-  private removeLoadingMarkers(markers: HTMLElement[]): void {
-    for (const marker of markers) {
-      marker.remove();
     }
   }
 
