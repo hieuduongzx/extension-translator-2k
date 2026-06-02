@@ -183,12 +183,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (type === "get-tab-id") {
+    sendResponse({ tabId: sender.tab?.id });
+    return false;
+  }
+
   return false;
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  // Nothing persistent to clean; Chrome auto-clears per-tab badges.
-  void tabId;
+  const key = `wt-active-tab:${tabId}`;
+  if (chrome.storage?.session) {
+    chrome.storage.session.remove(key).catch(() => {});
+  }
 });
 
 /**

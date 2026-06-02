@@ -29,10 +29,36 @@ let lastStatus = { active: false, count: 0, pending: 0 };
 let lastContextMenuPoint: { x: number; y: number } | null = null;
 let lastContextMenuSelection: string = "";
 let cachedSettings: Settings | null = null;
+let tabId: number | null = null;
 
 async function getSettings(): Promise<Settings> {
   if (!cachedSettings) cachedSettings = await loadSettings();
   return cachedSettings;
+}
+
+async function markTabActive(): Promise<void> {
+  if (!chrome.storage?.session) return;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "get-tab-id" });
+    if (res?.tabId != null) tabId = res.tabId as number;
+    if (tabId != null) await chrome.storage.session.set({ [`wt-active-tab:${tabId}`]: true });
+  } catch { /* extension context invalidated */ }
+}
+
+async function markTabInactive(): Promise<void> {
+  if (tabId == null || !chrome.storage?.session) return;
+  try { await chrome.storage.session.remove(`wt-active-tab:${tabId}`); } catch { /* */ }
+}
+
+async function checkTabActive(): Promise<boolean> {
+  if (!chrome.storage?.session) return false;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "get-tab-id" });
+    if (res?.tabId != null) tabId = res.tabId as number;
+    if (tabId == null) return false;
+    const result = await chrome.storage.session.get(`wt-active-tab:${tabId}`);
+    return result[`wt-active-tab:${tabId}`] === true;
+  } catch { return false; }
 }
 
 function getEngine(): TranslationEngine {
@@ -85,9 +111,11 @@ async function handleToggle(): Promise<void> {
   const e = getEngine();
   if (e.isActive()) {
     e.disable();
+    await markTabInactive();
     return;
   }
   await e.enable(configFromSettings(settings));
+  await markTabActive();
 }
 
 async function applySettings(settings: Settings): Promise<void> {
@@ -135,7 +163,7 @@ async function openSelectionPopup(
   const settings = await getSettings();
   dismissDictionaryPopup();
   showSelectionPopup(normalizeSelection(text), anchor, {
-    provider: settings.provider,
+    provider: settings.quickProvider,
     aiProvider: settings.aiProvider,
     aiTranslationMode: settings.aiTranslationMode,
     providerOptions: buildProviderOptions(settings),
@@ -176,7 +204,7 @@ async function openDictionaryPopup(
   dismissSelectionPopup();
   showDictionaryPopup(word, anchor, {
     theme: settings.selectionPopupTheme,
-    provider: settings.provider,
+    provider: settings.quickProvider,
     source: "en",
     target: settings.targetLang,
     onThemeChange: (theme) => {
@@ -210,8 +238,8 @@ async function persistTheme(theme: "dark" | "light"): Promise<void> {
 
 async function persistProvider(provider: ProviderId): Promise<void> {
   const settings = await getSettings();
-  if (settings.provider === provider) return;
-  cachedSettings = await updateSettings({ provider });
+  if (settings.quickProvider === provider) return;
+  cachedSettings = await updateSettings({ quickProvider: provider });
 }
 
 function selectionAnchor(): { x: number; y: number } | null {
@@ -285,7 +313,14 @@ void (async () => {
   syncSelectionTrigger(settings);
   const host = window.location.hostname;
   const rule = settings.hostRules[host] ?? settings.autoRule;
-  if (rule === "always") {
+
+  let shouldEnable = rule === "always";
+
+  if (!shouldEnable) {
+    shouldEnable = await checkTabActive();
+  }
+
+  if (shouldEnable) {
     await getEngine().enable(configFromSettings(settings));
   }
 })();

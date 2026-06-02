@@ -158,6 +158,10 @@ export function WebPanel() {
     await update({ ...settings, provider });
   }
 
+  async function setQuickProvider(quickProvider: ProviderId): Promise<void> {
+    await update({ ...settings, quickProvider });
+  }
+
   async function setAIProvider(aiProvider: AIProviderId): Promise<void> {
     await update({ ...settings, aiProvider });
   }
@@ -166,7 +170,7 @@ export function WebPanel() {
    * Create a blank custom model, select it for the requested role, and open the
    * options page so the user can fill in its endpoint/model/key right away.
    */
-  async function addCustomModel(role: "provider" | "ai"): Promise<void> {
+  async function addCustomModel(role: "provider" | "quick" | "ai"): Promise<void> {
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -176,7 +180,11 @@ export function WebPanel() {
     const next: Settings = {
       ...settings,
       customModels: [...settings.customModels, model],
-      ...(role === "provider" ? { provider: pid } : { aiProvider: pid })
+      ...(role === "provider"
+        ? { provider: pid }
+        : role === "quick"
+          ? { quickProvider: pid }
+          : { aiProvider: pid })
     };
     await update(next, false);
     chrome.runtime.openOptionsPage();
@@ -252,34 +260,32 @@ export function WebPanel() {
           bare
         />
 
-        <div className="h-px bg-zinc-200/70" />
-
         <ProviderPair
           provider={settings.provider}
+          quickProvider={settings.quickProvider}
           aiProvider={settings.aiProvider}
           customModels={settings.customModels}
           onProviderChange={setProvider}
+          onQuickProviderChange={setQuickProvider}
           onAIProviderChange={setAIProvider}
           onAddProvider={() => void addCustomModel("provider")}
+          onAddQuickProvider={() => void addCustomModel("quick")}
           onAddAIProvider={() => void addCustomModel("ai")}
           bare
         />
       </section>
 
-      <section className="surface-card p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Globe2 className="w-3.5 h-3.5 text-zinc-500" />
-          <h2 className="text-[12px] font-semibold tracking-tight text-zinc-900">
-            Tự động dịch trang này
-          </h2>
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
+      <section className="surface-card p-2.5 flex flex-col gap-1.5">
+        <h2 className="section-label">
+          Tự động dịch
+        </h2>
+        <div className="flex gap-1 justify-center">
           {(["always", "ask", "never"] as AutoRule[]).map((r) => (
             <button
               key={r}
               type="button"
               onClick={() => setHostRule(r)}
-              className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all active:scale-[0.97] ${
+              className={`flex-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border transition-all active:scale-[0.97] ${
                 hostRule === r
                   ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                   : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
@@ -289,13 +295,6 @@ export function WebPanel() {
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[10.5px] leading-snug text-zinc-500">
-          {hostRule === "always"
-            ? "Các trang trên site này sẽ tự dịch khi mở."
-            : hostRule === "never"
-              ? "Site này không bao giờ tự động dịch."
-              : "Bấm nút Dịch (hoặc dùng phím tắt) để dịch trang."}
-        </p>
       </section>
     </div>
   );

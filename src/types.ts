@@ -74,8 +74,15 @@ export interface ProviderSettings {
 }
 
 export interface Settings {
-  /** The main translation service used for page + selection translation. */
+  /** The main translation service used for full-page translation. */
   provider: ProviderId;
+  /**
+   * Provider used when selecting text on a page and opening the in-page
+   * translation popup (quick/bôi đen). Independent of `provider` so the user
+   * can keep e.g. Google for page translation while using an AI model for
+   * fast, context-aware snippet translation.
+   */
+  quickProvider: ProviderId;
   /**
    * The dedicated AI provider used by the on-demand "AI translation" button in
    * the selection popup. Always an AI provider, independent of `provider` so
@@ -130,6 +137,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "google",
+  quickProvider: "gemma",
   aiProvider: "gemma",
   aiTranslationMode: "below",
   customModels: [],

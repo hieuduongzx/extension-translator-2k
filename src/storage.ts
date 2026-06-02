@@ -106,6 +106,11 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
   else if (raw === "lingva" || raw === "mymemory") provider = DEFAULT_SETTINGS.provider;
   else if (raw && isValidProvider(raw)) provider = raw;
 
+  const rawQuick = stored.quickProvider as string | undefined;
+  const quickProvider: ProviderId = rawQuick && isValidProvider(rawQuick)
+    ? (rawQuick as ProviderId)
+    : DEFAULT_SETTINGS.quickProvider;
+
   // `gemma` is a fixed developer-provided backend: always use the bundled
   // default and ignore any stored overrides.
   const ai: Settings["providers"]["ai"] = {
@@ -145,6 +150,7 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
     ...DEFAULT_SETTINGS,
     ...stored,
     provider,
+    quickProvider,
     aiProvider,
     aiTranslationMode,
     dictionaryMode,

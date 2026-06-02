@@ -12,7 +12,9 @@
   body,
   #root {
     width: 380px;
+    height: 600px;
     margin: 0;
+    overflow: hidden;
     color: #18181b;
     font-family:
       "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;

@@ -10,6 +10,8 @@ interface ProviderSelectProps {
   onChange: (provider: ProviderId) => void;
   /** Called when the user picks the "add new model" entry. */
   onAddCustom: () => void;
+  /** Header label above the dropdown. */
+  label?: string;
 }
 
 interface AIProviderSelectProps {
@@ -193,7 +195,8 @@ export function ProviderSelect({
   value,
   customModels,
   onChange,
-  onAddCustom
+  onAddCustom,
+  label = "Dịch vụ dịch chính"
 }: ProviderSelectProps) {
   const options: Option[] = [
     GOOGLE_OPTION,
@@ -204,7 +207,7 @@ export function ProviderSelect({
   ];
   return (
     <div className="surface-card flex flex-col gap-1 p-2.5">
-      <span className="section-label">Dịch vụ dịch chính</span>
+      <span className="section-label">{label}</span>
       <Dropdown
         value={value}
         options={options}
@@ -244,13 +247,15 @@ export function AIProviderSelect({
 
 interface ProviderPairProps {
   provider: ProviderId;
+  quickProvider: ProviderId;
   aiProvider: AIProviderId;
   customModels: CustomModel[];
   onProviderChange: (provider: ProviderId) => void;
+  onQuickProviderChange: (provider: ProviderId) => void;
   onAIProviderChange: (provider: AIProviderId) => void;
   onAddProvider: () => void;
+  onAddQuickProvider: () => void;
   onAddAIProvider: () => void;
-  /** Render without the card wrapper so it can sit inside a shared card. */
   bare?: boolean;
 }
 
@@ -262,15 +267,25 @@ interface ProviderPairProps {
  */
 export function ProviderPair({
   provider,
+  quickProvider,
   aiProvider,
   customModels,
   onProviderChange,
+  onQuickProviderChange,
   onAIProviderChange,
   onAddProvider,
+  onAddQuickProvider,
   onAddAIProvider,
   bare = false
 }: ProviderPairProps) {
   const mainOptions: Option[] = [
+    GOOGLE_OPTION,
+    BING_OPTION,
+    GEMMA_OPTION,
+    ...customModels.map(customOption),
+    ADD_OPTION
+  ];
+  const quickOptions: Option[] = [
     GOOGLE_OPTION,
     BING_OPTION,
     GEMMA_OPTION,
@@ -285,14 +300,21 @@ export function ProviderPair({
   const inner = (
     <>
       <div className="flex flex-col gap-1">
-        <span className="section-label">Dịch vụ dịch chính</span>
+        <span className="section-label">Dịch vụ dịch trang</span>
         <Dropdown
           value={provider}
           options={mainOptions}
           onChange={(v) => (v === ADD_NEW ? onAddProvider() : onProviderChange(v as ProviderId))}
         />
       </div>
-      <div className="h-px bg-zinc-200/70" />
+      <div className="flex flex-col gap-1">
+        <span className="section-label">Dịch vụ bôi đen</span>
+        <Dropdown
+          value={quickProvider}
+          options={quickOptions}
+          onChange={(v) => (v === ADD_NEW ? onAddQuickProvider() : onQuickProviderChange(v as ProviderId))}
+        />
+      </div>
       <div className="flex flex-col gap-1">
         <span className="section-label">Dịch vụ AI</span>
         <Dropdown
@@ -302,9 +324,6 @@ export function ProviderPair({
             v === ADD_NEW ? onAddAIProvider() : onAIProviderChange(v as AIProviderId)
           }
         />
-        <p className="mt-0.5 text-[10.5px] leading-snug text-zinc-500">
-          Dùng cho nút lấy bản dịch AI trong popup chọn văn bản.
-        </p>
       </div>
     </>
   );

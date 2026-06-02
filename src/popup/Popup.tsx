@@ -33,43 +33,15 @@ export function Popup() {
     void chrome.storage.local.set({ [ACTIVE_TAB_KEY]: next });
   }
 
-  // Deep-link the options page to the matching section.
   function openSettings() {
     const url = chrome.runtime.getURL(`options.html#${tab}`);
     void chrome.tabs.create({ url });
   }
 
   return (
-    <div>
-      <header className="px-3 pt-3 pb-2">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2.5">
-            <img
-              src={chrome.runtime.getURL("public/icons/icon-128.png")}
-              alt="Translator2k"
-              className="w-9 h-9 rounded-xl shadow-card ring-1 ring-zinc-200/70"
-            />
-            <div>
-              <h1 className="text-[14px] font-bold tracking-tight text-zinc-900 leading-tight">
-                Translator2k
-              </h1>
-              <p className="text-[11px] text-zinc-500 leading-tight">
-                Dịch trang web &amp; phụ đề trực tiếp
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openSettings}
-            className="btn-icon"
-            title="Cài đặt"
-            aria-label="Cài đặt"
-          >
-            <SettingsIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        <nav className="segment-track" role="tablist">
+    <div className="flex flex-col h-full">
+      <nav className="shrink-0 px-3 pt-2.5 pb-2" role="tablist">
+        <div className="segment-track">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
             return (
@@ -86,14 +58,28 @@ export function Popup() {
               </button>
             );
           })}
-        </nav>
-      </header>
+        </div>
+      </nav>
 
-      <div className={tab === "web" ? "" : "hidden"}>
-        <WebPanel />
+      <div className="flex-1 overflow-y-auto">
+        <div className={tab === "web" ? "" : "hidden"}>
+          <WebPanel />
+        </div>
+        <div className={tab === "stream" ? "" : "hidden"}>
+          <StreamPanel />
+        </div>
       </div>
-      <div className={tab === "stream" ? "" : "hidden"}>
-        <StreamPanel />
+
+      <div className="shrink-0 border-t border-zinc-200/80 bg-white/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={openSettings}
+          className="btn-icon-sm"
+          title="Cài đặt"
+          aria-label="Cài đặt"
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
