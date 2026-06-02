@@ -1,8 +1,8 @@
 import { batchSegments, type SegmentBatch } from "./batching";
-import { BATCH_CONCURRENCY, BILINGUAL_CLASS, ORIGINAL_ATTR, TRANSLATED_ATTR } from "./constants";
+import { BATCH_CONCURRENCY, BILINGUAL_CLASS, FONT_PATCH_ATTR, GENERIC_FONT_FAMILIES, LOADING_MARKER_CLASS, ORIGINAL_ATTR, TRANSLATED_ATTR, TRANSLATED_FONT_FALLBACK } from "./constants";
 import { sendTranslateRequest } from "./messaging";
 import { ensureStyles, removeStyles } from "./styles";
-import { collectSegments, type TextSegment } from "./walker";
+import { collectSegments, collectSelectionSegments, type TextSegment } from "./walker";
 import type {
   DisplayMode,
   ProviderId
@@ -76,6 +76,22 @@ export class TranslationEngine {
     this.emitProgress();
   }
 
+  /**
+   * Translate only the text nodes inside the user's current selection,
+   * in-place, without enabling whole-page mode or the mutation observer. Used
+   * by the Alt+S shortcut. Records are tracked so a later full toggle-off
+   * restores these segments along with everything else.
+   */
+  async translateSelection(config: EngineConfig): Promise<void> {
+    this.config = config;
+    ensureStyles();
+    const segments = collectSelectionSegments((n) => this.translatedNodes.has(n));
+    if (segments.length === 0) return;
+    const batches = batchSegments(segments);
+    await this.runBatches(batches, () => false);
+    this.emitProgress();
+  }
+
   disable(opts: { keepStyles?: boolean } = {}): void {
     if (!this.active && this.records.length === 0) {
       if (!opts.keepStyles) removeStyles();
@@ -105,15 +121,25 @@ export class TranslationEngine {
    * Dispatches batches to the background with a bounded concurrency pool so a
    * single slow request can't stall the whole page, while still capping the
    * number of simultaneous provider calls to stay rate-limit friendly.
+   *
+   * `cancelled` decides when to bail mid-flight. For whole-page mode that's
+   * "engine was disabled"; for the selection shortcut there's no active state,
+   * so it never cancels (the few selected batches just run to completion).
    */
-  private async runBatches(batches: SegmentBatch[]): Promise<void> {
+  private async runBatches(
+    batches: SegmentBatch[],
+    cancelled: () => boolean = () => !this.active
+  ): Promise<void> {
     let cursor = 0;
     const worker = async (): Promise<void> => {
       while (cursor < batches.length) {
-        if (!this.active) return;
+        if (cancelled()) return;
         const batch = batches[cursor++];
         this.inflight++;
         this.emitProgress();
+        // Show a per-batch loading indicator next to the text being translated
+        // so the user can see exactly which segments are in flight.
+        const markers = this.showLoadingMarkers(batch.segments);
         try {
           const response = await sendTranslateRequest({
             type: "translate",
@@ -126,12 +152,13 @@ export class TranslationEngine {
             this.onError?.(response.error);
             continue;
           }
-          if (!this.active) return;
+          if (cancelled()) return;
           this.applyBatch(batch.segments, response.translations);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           this.onError?.(message);
         } finally {
+          this.removeLoadingMarkers(markers);
           this.inflight--;
           this.emitProgress();
         }
@@ -155,6 +182,40 @@ export class TranslationEngine {
     }
   }
 
+  /**
+   * Inject a small animated "translating…" indicator right after each text
+   * node in the batch. Returns the created marker elements so they can be
+   * removed once the batch resolves. Markers are inert (`translate="no"`,
+   * pointer-events none) and skipped by the walker so they never get picked up
+   * as translatable content.
+   */
+  private showLoadingMarkers(segments: TextSegment[]): HTMLElement[] {
+    const markers: HTMLElement[] = [];
+    for (const segment of segments) {
+      const parent = segment.node.parentNode;
+      if (!parent) continue;
+      const marker = document.createElement("span");
+      marker.className = LOADING_MARKER_CLASS;
+      marker.setAttribute("translate", "no");
+      marker.setAttribute("aria-hidden", "true");
+      marker.innerHTML =
+        '<span class="wt-loading-dot"></span><span class="wt-loading-dot"></span><span class="wt-loading-dot"></span>';
+      try {
+        segment.node.after(marker);
+        markers.push(marker);
+      } catch {
+        // Node may have been detached by the page between collect and request.
+      }
+    }
+    return markers;
+  }
+
+  private removeLoadingMarkers(markers: HTMLElement[]): void {
+    for (const marker of markers) {
+      marker.remove();
+    }
+  }
+
   private applyToSegment(segment: TextSegment, translated: string): AppliedRecord | null {
     const parent = segment.node.parentElement;
     if (!parent) return null;
@@ -170,6 +231,10 @@ export class TranslationEngine {
       segment.node.nodeValue = `${leadingWs}${translated}${trailingWs}`;
       parent.setAttribute(TRANSLATED_ATTR, "true");
       parent.setAttribute(ORIGINAL_ATTR, segment.text);
+      // The page's own font may lack Vietnamese diacritics (common with
+      // script-specific webfonts, e.g. Japanese-only). Append a fallback stack
+      // so missing glyphs resolve instead of rendering as tofu.
+      this.patchFont(parent);
       return { segment, originalText: original };
     }
 
@@ -180,9 +245,46 @@ export class TranslationEngine {
     const wrapper = document.createElement(inline ? "span" : "div");
     wrapper.className = inline ? "wt-bilingual-inline" : BILINGUAL_CLASS;
     wrapper.setAttribute("translate", "no");
+    // Ensure injected translation has a Vietnamese-capable glyph source even if
+    // a page stylesheet tries to force its own font on our element.
+    wrapper.style.setProperty("font-family", TRANSLATED_FONT_FALLBACK, "important");
     wrapper.textContent = translated;
     segment.node.after(wrapper);
     return { segment, originalText: segment.node.nodeValue ?? "", injectedNode: wrapper };
+  }
+
+  /**
+   * Make sure the element's font stack can render Vietnamese diacritics.
+   *
+   * We take the page's computed font-family and splice our Vietnamese-capable
+   * fonts in *before* the first CSS generic (sans-serif, system-ui, …). That
+   * ordering matters: per-glyph fallback walks the list left-to-right, and on
+   * CJK-locale machines a bare generic resolves to a CJK font missing the
+   * Vietnamese glyphs — so anything after the generic is never reached. Applied
+   * with `!important` so it also wins over page rules that use `!important`.
+   * The original inline declaration is stashed for exact restore. Idempotent.
+   */
+  private patchFont(el: HTMLElement): void {
+    if (el.hasAttribute(FONT_PATCH_ATTR)) return;
+    // Stash both the value and its priority so restore is exact.
+    const prevValue = el.style.getPropertyValue("font-family");
+    const prevPriority = el.style.getPropertyPriority("font-family");
+    el.setAttribute(FONT_PATCH_ATTR, prevPriority ? `${prevValue}\u0000${prevPriority}` : prevValue);
+
+    const computed = window.getComputedStyle(el).fontFamily || prevValue;
+    el.style.setProperty("font-family", mergeFontStack(computed), "important");
+  }
+
+  private restoreFont(el: HTMLElement | null): void {
+    if (!el || !el.hasAttribute(FONT_PATCH_ATTR)) return;
+    const stored = el.getAttribute(FONT_PATCH_ATTR) ?? "";
+    const [value, priority] = stored.split("\u0000");
+    if (value) {
+      el.style.setProperty("font-family", value, priority || "");
+    } else {
+      el.style.removeProperty("font-family");
+    }
+    el.removeAttribute(FONT_PATCH_ATTR);
   }
 
   private restoreAll(): void {
@@ -194,8 +296,10 @@ export class TranslationEngine {
         if (record.segment.node.parentNode) {
           record.segment.node.nodeValue = record.originalText;
         }
-        record.segment.node.parentElement?.removeAttribute(TRANSLATED_ATTR);
-        record.segment.node.parentElement?.removeAttribute(ORIGINAL_ATTR);
+        const parent = record.segment.node.parentElement;
+        parent?.removeAttribute(TRANSLATED_ATTR);
+        parent?.removeAttribute(ORIGINAL_ATTR);
+        this.restoreFont(parent);
       } catch {
         // ignore nodes that have been detached by the page
       }
@@ -287,4 +391,54 @@ function isInlineParent(parent: Element): boolean {
   if (INLINE_TAGS.has(parent.tagName)) return true;
   const display = window.getComputedStyle(parent).display;
   return display.startsWith("inline");
+}
+
+/**
+ * Merge the Vietnamese-capable fallback into an existing font stack so missing
+ * diacritic glyphs always resolve. The fallback fonts are inserted *before*
+ * the first CSS generic family (sans-serif, system-ui, …) because per-glyph
+ * fallback stops at the generic — on a CJK-locale machine that generic is a
+ * CJK font without Vietnamese glyphs, so anything after it is unreachable.
+ *
+ * Example (JA locale):
+ *   in:  "Yu Gothic", sans-serif
+ *   out: "Yu Gothic", "Segoe UI", Roboto, …, sans-serif
+ */
+function mergeFontStack(computed: string): string {
+  const stack = splitFontFamily(computed);
+  // Already patched? (defensive — patchFont guards via the attribute too)
+  if (stack.some((f) => /noto sans|segoe ui|liberation sans/i.test(f))) {
+    return computed || TRANSLATED_FONT_FALLBACK;
+  }
+
+  const fallback = splitFontFamily(TRANSLATED_FONT_FALLBACK);
+  const genericIndex = stack.findIndex((f) =>
+    GENERIC_FONT_FAMILIES.has(stripQuotes(f).toLowerCase())
+  );
+
+  if (genericIndex === -1) {
+    // No generic present: just append the fallback after the page fonts.
+    return [...stack, ...fallback].join(", ");
+  }
+
+  // Splice the fallback fonts in just before the first generic.
+  const head = stack.slice(0, genericIndex);
+  const tail = stack.slice(genericIndex); // keep the page's generic(s) last
+  // Drop the trailing generic from `fallback` to avoid duplicating it.
+  const fallbackNoGeneric = fallback.filter(
+    (f) => !GENERIC_FONT_FAMILIES.has(stripQuotes(f).toLowerCase())
+  );
+  return [...head, ...fallbackNoGeneric, ...tail].join(", ");
+}
+
+/** Split a font-family declaration into individual, trimmed families. */
+function splitFontFamily(value: string): string[] {
+  return value
+    .split(",")
+    .map((f) => f.trim())
+    .filter(Boolean);
+}
+
+function stripQuotes(value: string): string {
+  return value.replace(/^['"]|['"]$/g, "").trim();
 }

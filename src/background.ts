@@ -240,11 +240,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.commands.onCommand.addListener((command) => {
-  if (command !== "toggle-translation") return;
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     if (!tab?.id) return;
-    void toggleInTab(tab.id);
+    if (command === "toggle-translation") {
+      void toggleInTab(tab.id);
+    } else if (command === "translate-selection") {
+      void sendOrInject(tab.id, { type: "translate-selection-inline" });
+    }
   });
 });
 

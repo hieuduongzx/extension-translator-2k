@@ -22,18 +22,7 @@ export function collectSegments(
   const segments: TextSegment[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      const parent = node.parentElement;
-      if (!parent) return NodeFilter.FILTER_REJECT;
-      if (isTranslated(node as Text)) return NodeFilter.FILTER_REJECT;
-      if (!isTranslatableElement(parent)) return NodeFilter.FILTER_REJECT;
-
-      const text = node.nodeValue;
-      if (!text) return NodeFilter.FILTER_REJECT;
-      const trimmed = text.trim();
-      if (trimmed.length < MIN_TEXT_LENGTH) return NodeFilter.FILTER_REJECT;
-      if (!hasLetters(trimmed)) return NodeFilter.FILTER_REJECT;
-
-      return NodeFilter.FILTER_ACCEPT;
+      return acceptTextNode(node as Text, isTranslated);
     }
   });
 
@@ -47,6 +36,74 @@ export function collectSegments(
   return segments;
 }
 
+/**
+ * Collects translatable text nodes that intersect the user's current
+ * selection. Whole text nodes touching the selection are translated (matching
+ * the in-place engine, which always operates on entire text nodes), so a
+ * partially-highlighted paragraph still translates cleanly. Used by the
+ * "translate selection in place" shortcut (Alt+S).
+ */
+export function collectSelectionSegments(
+  isTranslated: (node: Text) => boolean = () => false
+): TextSegment[] {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return [];
+
+  const segments: TextSegment[] = [];
+  const seen = new Set<Text>();
+
+  for (let i = 0; i < selection.rangeCount; i++) {
+    const range = selection.getRangeAt(i);
+    if (range.collapsed) continue;
+
+    const ancestor = range.commonAncestorContainer;
+    const root =
+      ancestor.nodeType === Node.ELEMENT_NODE
+        ? (ancestor as Element)
+        : ancestor.parentElement;
+    if (!root) continue;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const textNode = node as Text;
+        if (!range.intersectsNode(textNode)) return NodeFilter.FILTER_REJECT;
+        return acceptTextNode(textNode, isTranslated);
+      }
+    });
+
+    let current = walker.nextNode();
+    while (current) {
+      const textNode = current as Text;
+      if (!seen.has(textNode)) {
+        seen.add(textNode);
+        segments.push({ node: textNode, text: textNode.nodeValue!.trim() });
+      }
+      current = walker.nextNode();
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * Shared accept/reject logic for a single text node, used by both the
+ * full-document and selection-scoped collectors.
+ */
+function acceptTextNode(node: Text, isTranslated: (node: Text) => boolean): number {
+  const parent = node.parentElement;
+  if (!parent) return NodeFilter.FILTER_REJECT;
+  if (isTranslated(node)) return NodeFilter.FILTER_REJECT;
+  if (!isTranslatableElement(parent)) return NodeFilter.FILTER_REJECT;
+
+  const text = node.nodeValue;
+  if (!text) return NodeFilter.FILTER_REJECT;
+  const trimmed = text.trim();
+  if (trimmed.length < MIN_TEXT_LENGTH) return NodeFilter.FILTER_REJECT;
+  if (!hasLetters(trimmed)) return NodeFilter.FILTER_REJECT;
+
+  return NodeFilter.FILTER_ACCEPT;
+}
+
 export function isTranslatableElement(element: Element): boolean {
   if (SKIP_TAGS.has(element.tagName)) return false;
   // Note: we intentionally do NOT reject by the parent `data-wt-translated`
@@ -57,6 +114,7 @@ export function isTranslatableElement(element: Element): boolean {
   if (element.classList.contains("notranslate")) return false;
   if (element.closest(".notranslate")) return false;
   if (element.closest(".wt-bilingual-line")) return false;
+  if (element.closest(".wt-loading-marker")) return false;
   if (element.closest("[data-wt-selection-popup=\"true\"]")) return false;
   if (element.closest(".wt-selection-popup")) return false;
   if (element.closest(".wt-error-banner")) return false;

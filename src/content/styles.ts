@@ -3,31 +3,82 @@ import { STYLE_ELEMENT_ID } from "./constants";
 const STYLES = `
 .wt-bilingual-line {
   display: block;
-  margin-top: 0.25em;
-  padding: 0.15em 0.4em;
-  font-size: 0.95em;
-  line-height: 1.45;
-  color: rgb(13, 148, 136);
-  background: rgba(13, 148, 136, 0.07);
-  border-left: 3px solid rgba(13, 148, 136, 0.45);
-  border-radius: 4px;
-  font-family: inherit;
+  margin-top: 0.3em;
+  margin-bottom: 0.2em;
+  padding: 0.3em 0.7em;
+  font-size: 0.96em;
+  line-height: 1.5;
+  color: #374151;
+  background: rgba(120, 120, 128, 0.1);
+  border-left: 3px solid rgba(120, 120, 128, 0.4);
+  border-radius: 0 6px 6px 0;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
   font-style: normal;
-  font-weight: inherit;
+  font-weight: 500;
   white-space: normal;
   unicode-bidi: isolate;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .wt-bilingual-inline {
   display: inline;
-  margin-left: 0.35em;
-  padding: 0 0.3em;
-  font-size: 0.92em;
-  color: rgb(13, 148, 136);
-  background: rgba(13, 148, 136, 0.1);
-  border-radius: 3px;
+  margin: 0 0.15em 0 0.35em;
+  padding: 0.05em 0.4em;
+  font-size: 0.94em;
+  color: #374151;
+  background: rgba(120, 120, 128, 0.12);
+  border-radius: 4px;
+  border-bottom: 1.5px solid rgba(120, 120, 128, 0.35);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
   font-style: normal;
+  font-weight: 500;
   unicode-bidi: isolate;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wt-bilingual-line {
+    color: #d4d4d8;
+    background: rgba(160, 160, 170, 0.14);
+    border-left-color: rgba(160, 160, 170, 0.4);
+  }
+  .wt-bilingual-inline {
+    color: #d4d4d8;
+    background: rgba(160, 160, 170, 0.16);
+    border-bottom-color: rgba(160, 160, 170, 0.4);
+  }
+}
+
+/* ===== Per-batch loading indicator ===== */
+/* A small inline pill of pulsing dots injected next to each text node while
+   its batch is in flight, then removed when the translation is applied. */
+.wt-loading-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
+  margin: 0 0.25em;
+  padding: 0.1em 0.35em;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0.1);
+  line-height: 0;
+  /* Keep it visually quiet but obvious; never break the page layout flow. */
+  user-select: none;
+  pointer-events: none;
+  vertical-align: baseline;
+}
+.wt-loading-marker .wt-loading-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #14b8a6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wt-loading-marker { background: rgba(45, 212, 191, 0.16); }
+  .wt-loading-marker .wt-loading-dot { background: #2dd4bf; }
 }
 
 .wt-error-banner {

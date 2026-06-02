@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Translator2k",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Dịch trang web (Google/Bing/AI) và phụ đề thời gian thực cho video/stream (Soniox). Hai chức năng trong một tiện ích.",
   "permissions": [
     "storage",
@@ -46,6 +46,12 @@
         "default": "Alt+A"
       },
       "description": "Bật/tắt dịch trang"
+    },
+    "translate-selection": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Dịch phần đã bôi đen tại chỗ"
     }
   }
 }

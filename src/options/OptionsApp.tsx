@@ -95,7 +95,7 @@ export function OptionsApp() {
               })}
             </nav>
 
-            <p className="mt-4 px-2 text-[10.5px] text-zinc-400">v2.0.0</p>
+            <p className="mt-4 px-2 text-[10.5px] text-zinc-400">v2.0.2</p>
           </div>
         </aside>
 

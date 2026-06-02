@@ -182,6 +182,16 @@ export interface TranslateSelectionMessage {
   text: string;
 }
 
+/**
+ * Translate the page's current selection in place (Alt+S), mirroring the
+ * whole-page replace/bilingual rendering but scoped to the highlighted nodes.
+ * Carries no text: the content script reads the live DOM selection itself so
+ * it can operate on the actual text nodes rather than a flattened string.
+ */
+export interface TranslateSelectionInlineMessage {
+  type: "translate-selection-inline";
+}
+
 export interface StatusMessage {
   type: "status";
   active: boolean;
@@ -295,6 +305,7 @@ export type RuntimeMessage =
   | ToggleMessage
   | GetStatusMessage
   | TranslateSelectionMessage
+  | TranslateSelectionInlineMessage
   | StatusMessage
   | ApplySettingsMessage
   | DictionaryRequestMessage

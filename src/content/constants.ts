@@ -29,8 +29,48 @@ export const SKIP_TAGS = new Set([
 /** Marker class added to elements so we don't re-translate them. */
 export const TRANSLATED_ATTR = "data-wt-translated";
 export const ORIGINAL_ATTR = "data-wt-original";
+/** Stores an element's original inline font-family so it can be restored. */
+export const FONT_PATCH_ATTR = "data-wt-orig-font";
 export const BILINGUAL_CLASS = "wt-bilingual-line";
+/** Inline element injected next to text nodes that are awaiting translation. */
+export const LOADING_MARKER_CLASS = "wt-loading-marker";
 export const STYLE_ELEMENT_ID = "web-translator-styles";
+
+/**
+ * Fonts known to carry full Vietnamese diacritics across the major desktop and
+ * mobile platforms. Ordered so a platform-native option comes first.
+ *
+ * Deliberately ends with `sans-serif` only as the very last resort and is
+ * inserted *before* any generic the page already uses (see `patchFont`): on
+ * CJK-locale machines a bare `sans-serif` resolves to a CJK font that often
+ * lacks the Vietnamese precomposed glyphs (ư, ơ, ệ…), which is the exact case
+ * that produces tofu. Putting real Vietnamese-capable fonts ahead of the
+ * generic guarantees per-glyph fallback finds one of them first.
+ */
+export const TRANSLATED_FONT_FALLBACK =
+  '"Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", Tahoma, sans-serif';
+
+/**
+ * CSS generic font keywords. Our Vietnamese fallback must never sit *after*
+ * one of these in a font stack, or per-glyph fallback resolves a missing glyph
+ * against the system generic (possibly a CJK font) and never reaches our
+ * fonts.
+ */
+export const GENERIC_FONT_FAMILIES = new Set([
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-serif",
+  "ui-sans-serif",
+  "ui-monospace",
+  "ui-rounded",
+  "math",
+  "emoji",
+  "fangsong"
+]);
 
 /** Heuristic: skip text shorter than this (after trim). */
 export const MIN_TEXT_LENGTH = 2;

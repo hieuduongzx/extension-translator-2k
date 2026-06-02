@@ -1,4 +1,4 @@
-import { Globe2, MousePointerClick, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Globe2, Keyboard, MousePointerClick, Plus, Sparkles, Trash2 } from "lucide-react";
 import { GemmaIcon } from "../popup/components/ProviderSelect";
 import { ModeToggle } from "../popup/components/ModeToggle";
 import { Dropdown } from "../popup/components/Dropdown";
@@ -107,6 +107,38 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
         </p>
         <div className="accent-line mt-3" />
       </header>
+
+      <section className="surface-card p-4 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <Keyboard className="w-3.5 h-3.5 text-zinc-500" />
+          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
+            Phím tắt
+          </h2>
+        </div>
+        <p className="text-[11px] leading-snug text-zinc-500 -mt-1">
+          Tăng tốc thao tác dịch ngay trên trang. Có thể đổi phím tại{" "}
+          <button
+            type="button"
+            onClick={() => chrome.tabs.create({ url: "chrome://extensions/shortcuts" })}
+            className="text-brand-700 font-medium hover:underline"
+          >
+            chrome://extensions/shortcuts
+          </button>
+          .
+        </p>
+        <ul className="flex flex-col gap-1.5 max-w-md">
+          <ShortcutRow
+            keys={["Alt", "A"]}
+            label="Dịch / bỏ dịch cả trang"
+            description="Bật hoặc tắt dịch toàn bộ trang đang xem."
+          />
+          <ShortcutRow
+            keys={["Alt", "S"]}
+            label="Dịch phần đã bôi đen"
+            description="Bôi đen một đoạn rồi nhấn để chỉ dịch đoạn đó tại chỗ."
+          />
+        </ul>
+      </section>
 
       <section className="surface-card p-4 space-y-2.5">
         <div className="flex items-center gap-2">
@@ -438,5 +470,34 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
         )}
       </section>
     </div>
+  );
+}
+
+function ShortcutRow({
+  keys,
+  label,
+  description
+}: {
+  keys: string[];
+  label: string;
+  description: string;
+}) {
+  return (
+    <li className="flex items-start justify-between gap-3 bg-zinc-50 border border-zinc-200/70 rounded-md px-2.5 py-2">
+      <span className="flex flex-col min-w-0">
+        <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
+        <span className="text-[11px] leading-snug text-zinc-500">{description}</span>
+      </span>
+      <span className="flex items-center gap-1 shrink-0 pt-0.5">
+        {keys.map((k, i) => (
+          <span key={i} className="flex items-center gap-1">
+            {i > 0 && <span className="text-[10px] text-zinc-400">+</span>}
+            <kbd className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-md border border-zinc-300 bg-white text-[11px] font-semibold text-zinc-700 shadow-sm">
+              {k}
+            </kbd>
+          </span>
+        ))}
+      </span>
+    </li>
   );
 }

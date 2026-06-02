@@ -105,6 +105,17 @@ async function applySettings(settings: Settings): Promise<void> {
   }
 }
 
+async function handleTranslateSelectionInline(): Promise<void> {
+  const selection = window.getSelection();
+  const hasSelection = !!selection && selection.toString().trim().length > 0;
+  if (!hasSelection) {
+    showError("Hãy bôi đen đoạn văn bản cần dịch trước, rồi nhấn Alt+S.");
+    return;
+  }
+  const settings = await getSettings();
+  await getEngine().translateSelection(configFromSettings(settings));
+}
+
 async function handleTranslateSelection(message: TranslateSelectionMessage): Promise<void> {
   // Chrome's `info.selectionText` (which feeds `message.text`) collapses
   // newlines into spaces. Prefer the live DOM selection captured at the
@@ -251,6 +262,10 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
     void handleTranslateSelection(message as TranslateSelectionMessage).then(() =>
       sendResponse({ ok: true })
     );
+    return true;
+  }
+  if (message.type === "translate-selection-inline") {
+    void handleTranslateSelectionInline().then(() => sendResponse({ ok: true }));
     return true;
   }
   return false;
