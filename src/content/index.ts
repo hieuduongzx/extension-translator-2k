@@ -189,6 +189,7 @@ function buildProviderOptions(settings: Settings): { id: ProviderId; label: stri
     { id: "google", label: "Google" },
     { id: "bing", label: "Bing" },
     { id: "gemma", label: "Gemma 4" },
+    { id: "qwen", label: "Qwen 3.7 Mmax" },
     ...settings.customModels.map((m) => ({
       id: customProviderId(m.id),
       label: m.name || "Model tuỳ chỉnh"

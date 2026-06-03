@@ -1,5 +1,5 @@
 /** Built-in providers shipped with the extension. */
-export type BuiltinProviderId = "google" | "bing" | "gemma";
+export type BuiltinProviderId = "google" | "bing" | "gemma" | "qwen";
 /**
  * A user-added custom model. Encoded as `custom:<modelId>` so the provider id
  * stays a plain string everywhere it already flows (messages, cache keys, …).
@@ -9,9 +9,9 @@ export type ProviderId = BuiltinProviderId | CustomProviderId;
 
 /**
  * Providers that talk to an OpenAI-compatible chat-completions endpoint:
- * the bundled `gemma` plus every user-added custom model.
+ * the bundled `gemma` and `qwen` plus every user-added custom model.
  */
-export type AIProviderId = "gemma" | CustomProviderId;
+export type AIProviderId = "gemma" | "qwen" | CustomProviderId;
 
 const CUSTOM_PREFIX = "custom:";
 
@@ -69,8 +69,8 @@ export interface ProviderSettings {
     /** No key required for the public endpoint, kept for future official Cloud API support. */
     apiKey?: string;
   };
-  /** Fixed developer-provided AI backend(s). Currently just Gemma. */
-  ai: { gemma: AIProviderConfig };
+  /** Fixed developer-provided AI backend(s). Gemma and Qwen. */
+  ai: { gemma: AIProviderConfig; qwen: AIProviderConfig };
 }
 
 export interface Settings {
@@ -138,7 +138,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   provider: "google",
   quickProvider: "gemma",
-  aiProvider: "gemma",
+  aiProvider: "qwen",
   aiTranslationMode: "below",
   customModels: [],
   displayMode: "bilingual",
@@ -153,6 +153,11 @@ export const DEFAULT_SETTINGS: Settings = {
         endpoint: "http://103.38.236.38:21000/v1",
         apiKey: "sk-066e7a483a1bee68-j4hdwb-4eec9401",
         model: "gemma-4-31b-it"
+      },
+      qwen: {
+        endpoint: "http://103.38.236.38:21000/v1",
+        apiKey: "sk-066e7a483a1bee68-j4hdwb-4eec9401",
+        model: "ckey/phuocanh421994/Qwen 3.7 max"
       }
     }
   },

@@ -1,4 +1,5 @@
 import type { ProviderId } from "../types";
+import { providerIcon } from "../providerIcons";
 import { ensureStyles } from "./styles";
 import { sendTranslateRequest } from "./messaging";
 import { speak as ttsSpeak, stop as ttsStop } from "./tts";
@@ -88,20 +89,6 @@ function createPopup(
   const ICON_SUN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
   const ICON_CHEVRON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
   const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
-
-  // Provider marks (inline SVG, offline-friendly). Solid fills avoid gradient
-  // id collisions when the same icon renders in both the trigger and the menu.
-  const PROVIDER_ICON_GOOGLE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 16.1 18.9 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.5-5.2l-6.2-5.3c-2.1 1.4-4.6 2.2-7.3 2.2-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.5l6.2 5.3C41 35.5 44 30.2 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>`;
-  const PROVIDER_ICON_BING = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#0078d4" d="M5 3v22.6l6.5-2.7v-12L20 14l-3 1.3 5 2.2 6 2.5L11.5 28 5 25.7V3z"/></svg>`;
-  const PROVIDER_ICON_GEMMA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1C69FF" d="M12 24A14.304 14.304 0 000 12 14.304 14.304 0 0012 0a14.305 14.305 0 0012 12 14.305 14.305 0 00-12 12"/></svg>`;
-  const PROVIDER_ICON_CUSTOM = `<svg viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg>`;
-
-  function providerIcon(id: ProviderId): string {
-    if (id === "google") return PROVIDER_ICON_GOOGLE;
-    if (id === "bing") return PROVIDER_ICON_BING;
-    if (id === "gemma") return PROVIDER_ICON_GEMMA;
-    return PROVIDER_ICON_CUSTOM;
-  }
 
   const sourceSectionHtml = config.showOriginal
     ? `

@@ -30,8 +30,14 @@ export function OptionsApp() {
   useEffect(() => {
     let unwatch: (() => void) | undefined;
     void (async () => {
-      setSettings(await loadSettings());
-      unwatch = watchSettings(setSettings);
+      const loaded = await loadSettings();
+      setSettings(loaded);
+      // Apply saved theme on load
+      document.documentElement.setAttribute("data-theme", loaded.selectionPopupTheme);
+      unwatch = watchSettings((next) => {
+        setSettings(next);
+        document.documentElement.setAttribute("data-theme", next.selectionPopupTheme);
+      });
     })();
 
     // Deep-link to a section via `#stream` / `#web`.
@@ -48,11 +54,11 @@ export function OptionsApp() {
   }
 
   return (
-    <div className="min-h-screen flex justify-center">
+    <div className="h-screen flex justify-center">
       <div className="w-full max-w-5xl flex gap-6 px-6 py-8">
         {/* Sidebar */}
         <aside className="w-60 shrink-0">
-          <div className="sticky top-8">
+          <div>
             <div className="flex items-center gap-2.5 mb-5 px-1">
               <img
                 src={chrome.runtime.getURL("public/icons/icon-128.png")}
@@ -100,12 +106,14 @@ export function OptionsApp() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
-          {section === "web" ? (
-            <WebSettings settings={settings} onChange={updateWebSettings} />
-          ) : (
-            <StreamSettings />
-          )}
+        <main className="flex-1 min-w-0 relative">
+          <div className="absolute inset-0 overflow-y-auto pr-2">
+            {section === "web" ? (
+              <WebSettings settings={settings} onChange={updateWebSettings} />
+            ) : (
+              <StreamSettings />
+            )}
+          </div>
         </main>
       </div>
     </div>

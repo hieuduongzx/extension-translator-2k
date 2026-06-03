@@ -22,16 +22,17 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Subtle teal-tinted backdrop: a soft radial wash up top fading into the
-     neutral canvas. Gives the popup depth without leaving the light theme. */
+  /* Subtle teal-tinted gradient backdrop with white base: modern, clean feel.
+     The gradient starts with a soft teal wash at top, fading to pure white. */
   body {
     background:
       radial-gradient(
         120% 80% at 50% -10%,
-        rgba(20, 184, 166, 0.08) 0%,
-        rgba(20, 184, 166, 0) 60%
+        rgba(20, 184, 166, 0.12) 0%,
+        rgba(20, 184, 166, 0.04) 40%,
+        transparent 70%
       ),
-      #f7f8f8;
+      #ffffff;
   }
 }
 
@@ -45,7 +46,7 @@
   }
 
   .section-label {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-600;
   }
 
   .status-pill {
@@ -55,7 +56,7 @@
 
   .brand-input {
     @apply h-9 px-3 rounded-lg bg-zinc-50 border border-zinc-200
-           text-[13px] text-zinc-900 placeholder:text-zinc-400
+           text-[13px] text-zinc-900 placeholder:text-zinc-500
            focus:bg-white focus:border-brand-500
            focus:ring-2 focus:ring-brand-500/20 focus:outline-none
            transition-colors;
@@ -63,7 +64,7 @@
 
   .brand-input-sm {
     @apply h-8 px-2.5 rounded-md bg-zinc-50 border border-zinc-200
-           text-[13px] text-zinc-900 placeholder:text-zinc-400
+           text-[13px] text-zinc-900 placeholder:text-zinc-500
            focus:bg-white focus:border-brand-500
            focus:ring-2 focus:ring-brand-500/20 focus:outline-none
            transition-colors;
@@ -166,8 +167,8 @@
   .segment {
     @apply flex-1 inline-flex items-center justify-center gap-1.5
            h-8 px-3 rounded-lg text-[12.5px] font-semibold tracking-tight
-           text-zinc-500 transition-all duration-150
-           hover:text-zinc-800;
+           text-zinc-600 transition-all duration-150
+           hover:text-zinc-900;
   }
   .segment-active {
     @apply bg-white text-brand-700 shadow-card;

@@ -1,13 +1,19 @@
-import { Globe2, Keyboard, MousePointerClick, Plus, Sparkles, Trash2 } from "lucide-react";
-import { GemmaIcon } from "../popup/components/ProviderSelect";
+import { Globe2, Keyboard, MousePointerClick, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
+import { GemmaIcon, QwenIcon } from "../popup/components/ProviderSelect";
+import {
+  getAllProviderOptions,
+  getAIProviderOptions
+} from "../popup/components/ProviderSelect";
 import { ModeToggle } from "../popup/components/ModeToggle";
 import { Dropdown } from "../popup/components/Dropdown";
 import {
   customProviderId,
   DEFAULT_SETTINGS,
+  type AIProviderId,
   type AutoRule,
   type CustomModel,
   type DictionaryMode,
+  type ProviderId,
   type Settings
 } from "../types";
 
@@ -103,7 +109,7 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
           Dịch Web
         </h1>
         <p className="text-[12px] text-zinc-500 mt-0.5">
-          Tuỳ chỉnh dịch trang, popup bôi đen, từ điển và dịch vụ AI.
+          Tuỳ chỉnh dịch trang, popup bôi đen, từ điển, model và dịch vụ AI.
         </p>
         <div className="accent-line mt-3" />
       </header>
@@ -253,8 +259,7 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
           </h2>
         </div>
         <p className="text-[11px] leading-snug text-zinc-500">
-          Điểm cuối tương thích OpenAI (chat completions). API key lưu cục bộ
-          trong trình duyệt.
+          Cấu hình cách hiển thị bản dịch AI trong popup.
         </p>
 
         <div className="flex flex-col gap-1.5 pt-0.5">
@@ -288,17 +293,67 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
               : "Bản dịch AI hiện trong khung riêng, ngay dưới bản dịch chính."}
           </p>
         </div>
+      </section>
+
+      <section className="surface-card p-4 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <Settings2 className="w-3.5 h-3.5 text-zinc-500" />
+          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
+            Quản lý Model
+          </h2>
+        </div>
+        <p className="text-[11px] leading-snug text-zinc-500">
+          Chọn dịch vụ dịch thuật và quản lý model tuỳ chỉnh.
+        </p>
+
+        <div className="flex flex-col gap-1.5 pt-0.5">
+          <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800">
+            Chọn dịch vụ
+          </span>
+          <p className="text-[11px] leading-snug text-zinc-500 -mt-1">
+            Cấu hình provider cho từng tính năng dịch thuật.
+          </p>
+          <div className="grid grid-cols-1 gap-2 pt-0.5 max-w-xl">
+            <div>
+              <span className="section-label">Dịch vụ dịch trang</span>
+              <Dropdown
+                value={settings.provider}
+                options={getAllProviderOptions(settings.customModels).filter(o => o.value !== "__add_custom__")}
+                onChange={(v) => onChange({ ...settings, provider: v as ProviderId })}
+              />
+            </div>
+            <div>
+              <span className="section-label">Dịch vụ bôi đen</span>
+              <Dropdown
+                value={settings.quickProvider}
+                options={getAllProviderOptions(settings.customModels).filter(o => o.value !== "__add_custom__")}
+                onChange={(v) => onChange({ ...settings, quickProvider: v as ProviderId })}
+              />
+            </div>
+            <div>
+              <span className="section-label">Dịch vụ AI</span>
+              <Dropdown
+                value={settings.aiProvider}
+                options={getAIProviderOptions(settings.customModels).filter(o => o.value !== "__add_custom__")}
+                onChange={(v) => onChange({ ...settings, aiProvider: v as AIProviderId })}
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-1.5 pt-1">
           <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800">
             Model có sẵn
           </span>
-          <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 max-w-xl">
-            <GemmaIcon />
-            <span className="text-[12.5px] font-medium text-zinc-800">Gemma 4</span>
-            <span className="ml-auto inline-flex items-center rounded-full bg-brand-100/60 border border-brand-200 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-brand-700">
-              Mặc định
-            </span>
+          <div className="flex flex-col gap-2 max-w-xl">
+            <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
+              <GemmaIcon />
+              <span className="text-[12.5px] font-medium text-zinc-800">Gemma 4</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
+              <QwenIcon />
+              <span className="text-[12.5px] font-medium text-zinc-800">Qwen 3.7 max</span>
+            </div>
           </div>
         </div>
 

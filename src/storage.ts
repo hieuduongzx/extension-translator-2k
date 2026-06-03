@@ -111,17 +111,18 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
     ? (rawQuick as ProviderId)
     : DEFAULT_SETTINGS.quickProvider;
 
-  // `gemma` is a fixed developer-provided backend: always use the bundled
-  // default and ignore any stored overrides.
+  // `gemma` and `qwen` are fixed developer-provided backends: always use the bundled
+  // defaults and ignore any stored overrides.
   const ai: Settings["providers"]["ai"] = {
-    gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma }
+    gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma },
+    qwen: { ...DEFAULT_SETTINGS.providers.ai.qwen }
   };
 
-  // The dedicated AI provider must be `gemma` or an existing custom model;
+  // The dedicated AI provider must be `gemma`, `qwen`, or an existing custom model;
   // fall back to the default otherwise (e.g. the model was deleted).
   const rawAI = stored.aiProvider as string | undefined;
   const aiProvider: AIProviderId =
-    rawAI === "gemma" || (rawAI && isCustomProvider(rawAI) && customIds.has(rawAI))
+    rawAI === "gemma" || rawAI === "qwen" || (rawAI && isCustomProvider(rawAI) && customIds.has(rawAI))
       ? (rawAI as AIProviderId)
       : DEFAULT_SETTINGS.aiProvider;
 

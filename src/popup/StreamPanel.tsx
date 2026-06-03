@@ -11,6 +11,7 @@ import {
   Type
 } from "lucide-react";
 import { Dropdown } from "./components/Dropdown";
+import { ToggleSwitch } from "./components/ToggleSwitch";
 import { LANGUAGES } from "../languages";
 import {
   DEFAULT_STREAM_STATE,
@@ -331,21 +332,7 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-[12px] font-medium text-zinc-800">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 ${
-          checked ? "bg-brand-600" : "bg-zinc-300"
-        }`}
-        aria-pressed={checked}
-        aria-label={label}
-      >
-        <span
-          className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${
-            checked ? "left-[22px]" : "left-[3px]"
-          }`}
-        />
-      </button>
+      <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={label} />
     </div>
   );
 }

@@ -72,10 +72,21 @@ async function handleTranslate(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const isNetworkError = message.includes("Failed to fetch") || message.includes("NetworkError");
+    const isTimeoutError = message.includes("timeout") || message.includes("timed out");
+    const friendlyMessage = isNetworkError
+      ? "Lỗi mạng: Kiểm tra kết nối internet"
+      : isTimeoutError
+        ? "Timeout: Dịch vụ phản hồi quá lâu"
+        : message.includes("401") || message.includes("403")
+          ? "Lỗi xác thực: Kiểm tra API key"
+          : message.includes("429")
+            ? "Quá nhiều yêu cầu: Vui lòng thử lại sau"
+            : `Lỗi dịch: ${message}`;
     return {
       type: "translate-response",
       translations: [],
-      error: message
+      error: friendlyMessage
     };
   }
 }
@@ -88,7 +99,10 @@ async function handleDictionary(
     return { type: "dictionary-response", entries };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { type: "dictionary-response", entries: [], error: message };
+    const friendlyMessage = message.includes("404") || message.includes("not found")
+      ? "Từ không tìm thấy"
+      : "Lỗi tra từ điển";
+    return { type: "dictionary-response", entries: [], error: friendlyMessage };
   }
 }
 

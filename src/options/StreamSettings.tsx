@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, KeyRound, Save, CheckCircle2, Captions, RotateCcw } from "lucide-react";
+import { ToggleSwitch } from "../popup/components/ToggleSwitch";
 import {
   DEFAULT_STREAM_STATE,
   getStreamState,
@@ -23,6 +24,7 @@ export function StreamSettings() {
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState("");
   const [overlay, setOverlay] = useState<Pick<
     StreamOverlaySettings,
     "opacity" | "displayMode" | "showSource" | "showSpeaker" | "autoScroll"
@@ -55,9 +57,22 @@ export function StreamSettings() {
   }, []);
 
   async function saveApiKey() {
+    const trimmed = apiKeyDraft.trim();
+    
+    // Validation
+    if (!trimmed) {
+      setApiKeyError("API key không được để trống");
+      return;
+    }
+    if (trimmed.length < 10) {
+      setApiKeyError("API key phải ít nhất 10 ký tự");
+      return;
+    }
+    
+    setApiKeyError("");
     const next = await sendStreamMessage({
       type: "UPDATE_API_KEY",
-      payload: { apiKey: apiKeyDraft.trim() }
+      payload: { apiKey: trimmed }
     });
     if (next) setState(next);
     dirty.current = false;
@@ -130,9 +145,10 @@ export function StreamSettings() {
               onChange={(e) => {
                 dirty.current = true;
                 setApiKeyDraft(e.target.value);
+                setApiKeyError("");
               }}
               placeholder="sk-xxxx…"
-              className="brand-input w-full pr-10 font-mono"
+              className={`brand-input w-full pr-10 font-mono ${apiKeyError ? "border-red-300 bg-red-50" : ""}`}
             />
             <button
               type="button"
@@ -146,13 +162,16 @@ export function StreamSettings() {
           <button
             type="button"
             onClick={() => void saveApiKey()}
-            disabled={apiKeyDraft.trim() === (state.apiKey ?? "")}
+            disabled={apiKeyDraft.trim() === (state.apiKey ?? "") || !!apiKeyError}
             className="btn-brand shrink-0"
           >
             <Save className="w-3.5 h-3.5" />
             Lưu
           </button>
         </div>
+        {apiKeyError && (
+          <p className="text-[11px] text-red-600 font-medium">⚠ {apiKeyError}</p>
+        )}
       </section>
 
       <section className="surface-card p-4 space-y-3">
@@ -271,19 +290,9 @@ function ToggleRow({
         <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
         <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>
       </span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 mt-0.5 ${
-          checked ? "bg-brand-600" : "bg-zinc-300"
-        }`}
-      >
-        <span
-          className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${
-            checked ? "left-[22px]" : "left-[3px]"
-          }`}
-        />
-      </button>
+      <div className="mt-0.5">
+        <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={label} />
+      </div>
     </div>
   );
 }
