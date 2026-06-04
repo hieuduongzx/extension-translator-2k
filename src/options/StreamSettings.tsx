@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Eye, EyeOff, KeyRound, Save, CheckCircle2, Captions, RotateCcw } from "lucide-react";
 import { ToggleSwitch } from "../popup/components/ToggleSwitch";
 import {
@@ -56,7 +56,7 @@ export function StreamSettings() {
     });
   }, []);
 
-  async function saveApiKey() {
+  const saveApiKey = useCallback(async () => {
     const trimmed = apiKeyDraft.trim();
     
     // Validation
@@ -77,46 +77,54 @@ export function StreamSettings() {
     if (next) setState(next);
     dirty.current = false;
     setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1500);
-  }
+    window.setTimeout(() => setSavedFlash(false), 1500);
+  }, [apiKeyDraft]);
 
-  async function patchOverlay(payload: Partial<StreamOverlaySettings>) {
+  const patchOverlay = useCallback(async (payload: Partial<StreamOverlaySettings>) => {
     setOverlay((prev) => (prev ? { ...prev, ...payload } : prev));
     await sendStreamMessage({ type: "UPDATE_OVERLAY_SETTINGS", payload });
-  }
+  }, []);
 
-  const hasApiKey = Boolean(state.apiKey && state.apiKey !== "YOUR_SONIOX_API_KEY");
+  const resetOverlay = useCallback(async () => {
+    await sendStreamMessage({ type: "RESET_OVERLAY_LAYOUT" });
+  }, []);
+
+  const hasApiKey = useMemo(() => Boolean(state.apiKey && state.apiKey !== "YOUR_SONIOX_API_KEY"), [state.apiKey]);
+  const opacityPercent = useMemo(() => overlay ? ((overlay.opacity - 10) / 90) * 100 : 0, [overlay?.opacity]);
+  const isSaveDisabled = apiKeyDraft.trim() === (state.apiKey ?? "") || !!apiKeyError;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-[18px] font-semibold tracking-tight text-zinc-900">
+    <div className="space-y-4 pb-4">
+      <header className="pb-1">
+        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">
           Dịch Stream
         </h1>
-        <p className="text-[12px] text-zinc-500 mt-0.5">
+        <p className="text-[13px] text-zinc-500 mt-1">
           Phụ đề thời gian thực cho video/stream bằng Soniox. API key và mặc định
           overlay lưu riêng cho chức năng này.
         </p>
         <div className="accent-line mt-3" />
       </header>
 
-      <section className="surface-card p-4 space-y-3">
+      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
+              <KeyRound className="w-3.5 h-3.5 text-brand-600" />
+            </div>
             <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
               Soniox API key
             </h2>
           </div>
           {hasApiKey && (
             <span
-              className={`status-pill transition-colors ${
+              className={`status-pill transition-all duration-200 ${
                 savedFlash
-                  ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-300 scale-105"
                   : "bg-emerald-50 text-emerald-700 border-emerald-200"
               }`}
             >
-              <CheckCircle2 className="w-3 h-3" />
+              <CheckCircle2 className={`w-3 h-3 ${savedFlash ? "animate-scale-in" : ""}`} />
               {savedFlash ? "Đã lưu" : "Đang hoạt động"}
             </span>
           )}
@@ -128,7 +136,7 @@ export function StreamSettings() {
             href={SONIOX_DOC_URL}
             target="_blank"
             rel="noreferrer"
-            className="text-brand-700 font-medium hover:underline"
+            className="text-brand-700 font-semibold hover:underline"
           >
             console.soniox.com
           </a>
@@ -148,12 +156,12 @@ export function StreamSettings() {
                 setApiKeyError("");
               }}
               placeholder="sk-xxxx…"
-              className={`brand-input w-full pr-10 font-mono ${apiKeyError ? "border-red-300 bg-red-50" : ""}`}
+              className={`brand-input w-full pr-10 font-mono transition-all duration-200 ${apiKeyError ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-200/50" : ""}`}
             />
             <button
               type="button"
               onClick={() => setShowApiKey((v) => !v)}
-              className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors"
+              className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg hover:bg-zinc-100"
               title={showApiKey ? "Ẩn key" : "Hiện key"}
             >
               {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -162,21 +170,23 @@ export function StreamSettings() {
           <button
             type="button"
             onClick={() => void saveApiKey()}
-            disabled={apiKeyDraft.trim() === (state.apiKey ?? "") || !!apiKeyError}
-            className="btn-brand shrink-0"
+            disabled={isSaveDisabled}
+            className="btn-brand shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-3.5 h-3.5" />
             Lưu
           </button>
         </div>
         {apiKeyError && (
-          <p className="text-[11px] text-red-600 font-medium">⚠ {apiKeyError}</p>
+          <p className="text-[11px] text-red-600 font-medium animate-scale-in">⚠ {apiKeyError}</p>
         )}
       </section>
 
-      <section className="surface-card p-4 space-y-3">
+      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
         <div className="flex items-center gap-2">
-          <Captions className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
+            <Captions className="w-3.5 h-3.5 text-brand-600" />
+          </div>
           <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
             Mặc định overlay phụ đề
           </h2>
@@ -207,7 +217,7 @@ export function StreamSettings() {
               onChange={(v) => void patchOverlay({ autoScroll: v })}
             />
 
-            <div className="h-px bg-zinc-200" />
+            <div className="h-px bg-zinc-200/60" />
 
             <div className="flex flex-col gap-1.5">
               <span className="text-[12.5px] font-medium text-zinc-800">Chế độ hiển thị</span>
@@ -222,7 +232,7 @@ export function StreamSettings() {
                     key={mode}
                     type="button"
                     onClick={() => void patchOverlay({ displayMode: mode })}
-                    className={`px-2 py-1.5 rounded-md text-[11px] font-medium tracking-tight border transition-all active:scale-[0.97] ${
+                    className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight border transition-all duration-200 active:scale-[0.97] ${
                       overlay.displayMode === mode
                         ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
@@ -234,10 +244,10 @@ export function StreamSettings() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 max-w-md">
+            <div className="flex flex-col gap-2 max-w-md">
               <div className="flex items-center justify-between text-[12.5px]">
                 <span className="font-medium text-zinc-800">Độ mờ nền</span>
-                <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
+                <span className="text-[11px] text-brand-700 font-bold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
                   {overlay.opacity}%
                 </span>
               </div>
@@ -248,20 +258,21 @@ export function StreamSettings() {
                 step="5"
                 value={overlay.opacity}
                 onChange={(e) => void patchOverlay({ opacity: Number(e.target.value) })}
-                className="w-full h-1.5 rounded-full appearance-none outline-none cursor-pointer
-                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow
-                           [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500"
+                className="w-full h-2 rounded-full appearance-none outline-none cursor-pointer
+                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md
+                           [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
+                           [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
                 style={{
-                  background: `linear-gradient(to right, #14b8a6 ${((overlay.opacity - 10) / 90) * 100}%, #e4e4e7 ${((overlay.opacity - 10) / 90) * 100}%)`
+                  background: `linear-gradient(to right, #14b8a6 ${opacityPercent}%, #e4e4e7 ${opacityPercent}%)`
                 }}
               />
             </div>
 
             <button
               type="button"
-              onClick={() => void sendStreamMessage({ type: "RESET_OVERLAY_LAYOUT" })}
-              className="btn-ghost"
+              onClick={() => void resetOverlay()}
+              className="btn-ghost hover-lift"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Đặt lại vị trí overlay
@@ -285,7 +296,7 @@ function ToggleRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex items-start justify-between gap-3 py-0.5">
       <span className="flex flex-col">
         <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
         <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>

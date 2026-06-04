@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Globe, Radio, Settings as SettingsIcon } from "lucide-react";
 import { WebPanel } from "./WebPanel";
 import { StreamPanel } from "./StreamPanel";
@@ -19,6 +19,7 @@ const TABS: { id: TabId; label: string; icon: typeof Globe }[] = [
  */
 export function Popup() {
   const [tab, setTab] = useState<TabId>("web");
+  const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -28,15 +29,19 @@ export function Popup() {
     })();
   }, []);
 
-  function selectTab(next: TabId) {
+  const selectTab = useCallback((next: TabId) => {
+    if (next === tab) return;
+    setAnimating(true);
     setTab(next);
     void chrome.storage.local.set({ [ACTIVE_TAB_KEY]: next });
-  }
+    // Reset animation flag after transition
+    window.setTimeout(() => setAnimating(false), 300);
+  }, [tab]);
 
-  function openSettings() {
+  const openSettings = useCallback(() => {
     const url = chrome.runtime.getURL(`options.html#${tab}`);
     void chrome.tabs.create({ url });
-  }
+  }, [tab]);
 
   return (
     <div className="flex flex-col h-full">
@@ -53,7 +58,7 @@ export function Popup() {
                 onClick={() => selectTab(id)}
                 className={`segment ${active ? "segment-active" : ""}`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 transition-transform duration-200 ${active ? "scale-110" : ""}`} />
                 {label}
               </button>
             );
@@ -61,20 +66,23 @@ export function Popup() {
         </div>
       </nav>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className={tab === "web" ? "" : "hidden"}>
-          <WebPanel />
-        </div>
-        <div className={tab === "stream" ? "" : "hidden"}>
-          <StreamPanel />
+      <div className="flex-1 overflow-y-auto relative">
+        <div
+          key={tab}
+          className={`${animating ? "animate-slide-up" : ""}`}
+        >
+          {tab === "web" ? <WebPanel /> : <StreamPanel />}
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-zinc-200/80 bg-white/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-end">
+      <div className="shrink-0 border-t border-zinc-200/80 bg-white/90 backdrop-blur-sm px-3 py-2 flex items-center justify-between">
+        <span className="text-[10px] text-zinc-400 font-medium tracking-tight">
+          v{chrome.runtime.getManifest().version}
+        </span>
         <button
           type="button"
           onClick={openSettings}
-          className="btn-icon-sm"
+          className="btn-icon-sm hover-lift"
           title="Cài đặt"
           aria-label="Cài đặt"
         >

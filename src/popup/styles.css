@@ -162,16 +162,43 @@
      raised white pill that floats above it. */
   .segment-track {
     @apply flex items-center gap-1 p-1 rounded-xl
-           bg-zinc-100/80 border border-zinc-200/70;
+           bg-zinc-100/80 border border-zinc-200/70
+           backdrop-blur-sm;
   }
   .segment {
     @apply flex-1 inline-flex items-center justify-center gap-1.5
            h-8 px-3 rounded-lg text-[12.5px] font-semibold tracking-tight
            text-zinc-600 transition-all duration-150
-           hover:text-zinc-900;
+           hover:text-zinc-900 relative overflow-hidden;
   }
   .segment-active {
     @apply bg-white text-brand-700 shadow-card;
+  }
+  .segment-active::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(20,184,166,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Glass surface for floating elements */
+  .glass-surface {
+    @apply bg-white/80 backdrop-blur-md border border-white/50;
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Micro-interaction utilities */
+  .hover-lift {
+    @apply transition-all duration-200;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Focus ring brand tint */
+  .focus-brand {
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Globe, Radio } from "lucide-react";
 import { WebSettings } from "./WebSettings";
 import { StreamSettings } from "./StreamSettings";
@@ -26,12 +26,14 @@ const SECTIONS: {
 export function OptionsApp() {
   const [section, setSection] = useState<SectionId>("web");
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     let unwatch: (() => void) | undefined;
     void (async () => {
       const loaded = await loadSettings();
       setSettings(loaded);
+      setIsLoaded(true);
       // Apply saved theme on load
       document.documentElement.setAttribute("data-theme", loaded.selectionPopupTheme);
       unwatch = watchSettings((next) => {
@@ -47,18 +49,18 @@ export function OptionsApp() {
     return () => unwatch?.();
   }, []);
 
-  async function updateWebSettings(next: Settings) {
+  const updateWebSettings = useCallback(async (next: Settings) => {
     const patch = diffSettings(settings, next);
     setSettings(next);
     await updateSettings(patch);
-  }
+  }, [settings]);
 
   return (
     <div className="h-screen flex justify-center">
       <div className="w-full max-w-5xl flex gap-6 px-6 py-8">
         {/* Sidebar */}
         <aside className="w-60 shrink-0">
-          <div>
+          <div className="sticky top-8">
             <div className="flex items-center gap-2.5 mb-5 px-1">
               <img
                 src={chrome.runtime.getURL("public/icons/icon-128.png")}
@@ -73,7 +75,7 @@ export function OptionsApp() {
               </div>
             </div>
 
-            <nav className="flex flex-col gap-1 rounded-xl bg-zinc-100/70 p-2">
+            <nav className="flex flex-col gap-1 rounded-xl bg-zinc-100/70 p-2 border border-zinc-200/50">
               {SECTIONS.map(({ id, label, caption, icon: Icon }) => {
                 const active = section === id;
                 return (
@@ -84,15 +86,15 @@ export function OptionsApp() {
                     className={`nav-item ${active ? "nav-item-active" : ""}`}
                   >
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-all ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-all duration-200 ${
                         active
                           ? "bg-brand-600 text-white shadow-glow-sm"
                           : "bg-white text-zinc-500 border border-zinc-200"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className={`w-4 h-4 ${active ? "scale-110" : ""} transition-transform`} />
                     </span>
-                    <span className="flex flex-col min-w-0">
+                    <span className="flex flex-col min-w-0 text-left">
                       <span className="font-semibold tracking-tight">{label}</span>
                       <span className="text-[10.5px] text-zinc-500 truncate">{caption}</span>
                     </span>
@@ -107,7 +109,7 @@ export function OptionsApp() {
 
         {/* Content */}
         <main className="flex-1 min-w-0 relative">
-          <div className="absolute inset-0 overflow-y-auto pr-2">
+          <div className={`absolute inset-0 overflow-y-auto pr-2 ${isLoaded ? "section-enter" : "opacity-0"}`}>
             {section === "web" ? (
               <WebSettings settings={settings} onChange={updateWebSettings} />
             ) : (

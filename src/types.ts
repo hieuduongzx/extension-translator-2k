@@ -1,5 +1,5 @@
 /** Built-in providers shipped with the extension. */
-export type BuiltinProviderId = "google" | "bing" | "gemma" | "qwen";
+export type BuiltinProviderId = "google" | "bing" | "gemma" | "qwen" | "hy3";
 /**
  * A user-added custom model. Encoded as `custom:<modelId>` so the provider id
  * stays a plain string everywhere it already flows (messages, cache keys, …).
@@ -9,9 +9,9 @@ export type ProviderId = BuiltinProviderId | CustomProviderId;
 
 /**
  * Providers that talk to an OpenAI-compatible chat-completions endpoint:
- * the bundled `gemma` and `qwen` plus every user-added custom model.
+ * the bundled `gemma`, `qwen` and `hy3` plus every user-added custom model.
  */
-export type AIProviderId = "gemma" | "qwen" | CustomProviderId;
+export type AIProviderId = "gemma" | "qwen" | "hy3" | CustomProviderId;
 
 const CUSTOM_PREFIX = "custom:";
 
@@ -30,8 +30,19 @@ export function customModelId(id: CustomProviderId): string {
 }
 
 export function isAIProvider(id: ProviderId): id is AIProviderId {
-  return id === "gemma" || isCustomProvider(id);
+  return id === "gemma" || id === "qwen" || id === "hy3" || isCustomProvider(id);
 }
+
+/** Shared display labels for every built-in provider. Keeping this in `types` lets
+ * the content script (selection popup) and the popup UI reuse the same names
+ * without duplicating strings. */
+export const BUILTIN_PROVIDER_LABELS: Record<BuiltinProviderId, string> = {
+  google: "Google",
+  bing: "Bing",
+  gemma: "Gemma 4",
+  qwen: "Qwen 3.7 max",
+  hy3: "Hy3 Preview"
+};
 
 export type DisplayMode = "bilingual" | "replace";
 
@@ -69,8 +80,8 @@ export interface ProviderSettings {
     /** No key required for the public endpoint, kept for future official Cloud API support. */
     apiKey?: string;
   };
-  /** Fixed developer-provided AI backend(s). Gemma and Qwen. */
-  ai: { gemma: AIProviderConfig; qwen: AIProviderConfig };
+  /** Fixed developer-provided AI backend(s). Gemma, Qwen and Hy3. */
+  ai: { gemma: AIProviderConfig; qwen: AIProviderConfig; hy3: AIProviderConfig };
 }
 
 export interface Settings {
@@ -137,8 +148,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "google",
-  quickProvider: "gemma",
-  aiProvider: "qwen",
+  quickProvider: "google",
+  aiProvider: "hy3",
   aiTranslationMode: "below",
   customModels: [],
   displayMode: "bilingual",
@@ -158,6 +169,11 @@ export const DEFAULT_SETTINGS: Settings = {
         endpoint: "http://103.38.236.38:21000/v1",
         apiKey: "sk-066e7a483a1bee68-j4hdwb-4eec9401",
         model: "ckey/phuocanh421994/Qwen 3.7 max"
+      },
+      hy3: {
+        endpoint: "http://103.38.236.38:21000/v1",
+        apiKey: "sk-066e7a483a1bee68-j4hdwb-4eec9401",
+        model: "openrouter/tencent/hy3-preview"
       }
     }
   },

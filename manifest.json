@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Translator2k",
-  "version": "2.0.2",
-  "description": "Dịch trang web (Google/Bing/AI) và phụ đề thời gian thực cho video/stream (Soniox). Hai chức năng trong một tiện ích.",
+  "version": "2.0.5",
+  "description": "Dịch trang web và phụ đề thời gian thực cho video/stream nhanh chóng. Hai chức năng trong một tiện ích.",
   "permissions": [
     "storage",
     "activeTab",

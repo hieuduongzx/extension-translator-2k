@@ -14,9 +14,10 @@ import {
 import { ensureStyles } from "./styles";
 import { normalizeSelection } from "./selectionText";
 import { loadSettings, updateSettings, watchSettings } from "../storage";
-import { customProviderId } from "../types";
+import { customProviderId, BUILTIN_PROVIDER_LABELS } from "../types";
 import type {
   ApplySettingsMessage,
+  BuiltinProviderId,
   ProviderId,
   RuntimeMessage,
   Settings,
@@ -185,11 +186,11 @@ async function openSelectionPopup(
  * services plus every user-added custom model (as `custom:<id>`).
  */
 function buildProviderOptions(settings: Settings): { id: ProviderId; label: string }[] {
+  const builtins = (Object.keys(BUILTIN_PROVIDER_LABELS) as BuiltinProviderId[]).map(
+    (id) => ({ id, label: BUILTIN_PROVIDER_LABELS[id] })
+  );
   return [
-    { id: "google", label: "Google" },
-    { id: "bing", label: "Bing" },
-    { id: "gemma", label: "Gemma 4" },
-    { id: "qwen", label: "Qwen 3.7 Mmax" },
+    ...builtins,
     ...settings.customModels.map((m) => ({
       id: customProviderId(m.id),
       label: m.name || "Model tuỳ chỉnh"
@@ -392,6 +393,7 @@ function anchorForSelection(sel: Selection | null): { x: number; y: number } | n
 }
 
 function showError(message: string): void {
+  console.warn("[Translator2k]", message);
   ensureStyles();
   if (lastError?.node?.isConnected) {
     lastError.node.querySelector("span")!.textContent = message;
@@ -418,5 +420,5 @@ function showError(message: string): void {
       banner.remove();
       lastError = null;
     }
-  }, 6000);
+  }, 12000);
 }

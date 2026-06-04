@@ -194,16 +194,16 @@ function showTriggerAt(x: number, y: number, text: string): void {
   // `x` / `y` arrive in viewport space (from getBoundingClientRect).
   // We use `position: absolute` for the trigger so it stays anchored to the
   // page when the user scrolls — convert to document coordinates here.
-  const margin = 6;
-  const size = 22;
+  const margin = 8;
+  const size = 36;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   let left = x + margin;
   let top = y + margin;
-  if (left + size > vw - 4) left = vw - size - 4;
-  if (top + size > vh - 4) top = vh - size - 4;
-  if (left < 4) left = 4;
-  if (top < 4) top = 4;
+  if (left + size > vw - 8) left = vw - size - 8;
+  if (top + size > vh - 8) top = vh - size - 8;
+  if (left < 8) left = 8;
+  if (top < 8) top = 8;
   // Remember the viewport anchor for `currentAnchor()` so the translate /
   // dictionary popup positions itself relative to where the icon appeared.
   triggerEl.dataset.x = String(left);

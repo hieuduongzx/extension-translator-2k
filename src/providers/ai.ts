@@ -13,7 +13,8 @@ import type { TranslateResult } from "./types";
  * fall back gracefully if the shape is off.
  */
 
-const AI_TIMEOUT_MS = 30_000; // models are slower than the public MT endpoints
+const AI_TIMEOUT_MS = 60_000;
+const AI_MAX_TOKENS = 4096; // models are slower than the public MT endpoints
 
 interface ChatCompletionResponse {
   choices?: { message?: { content?: string } }[];
@@ -57,6 +58,9 @@ export async function translateAI(
     body: JSON.stringify({
       model: config.model,
       temperature: 0,
+      stream: false,
+      max_tokens: AI_MAX_TOKENS,
+      reasoning: { enabled: false },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

@@ -26,6 +26,12 @@ function resolveAIConfig(provider: ProviderId, settings: Settings): AIProviderCo
     }
     return { endpoint: model.endpoint, apiKey: model.apiKey, model: model.model };
   }
+  if (provider === "qwen") {
+    return settings.providers.ai.qwen;
+  }
+  if (provider === "hy3") {
+    return settings.providers.ai.hy3;
+  }
   return settings.providers.ai.gemma;
 }
 

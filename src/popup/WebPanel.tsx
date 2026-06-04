@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Languages, Globe2, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { Languages, Globe2, Loader2, Sparkles } from "lucide-react";
 import { ProviderPair } from "./components/ProviderSelect";
 import { LanguagePair } from "./components/LanguagePair";
 import { ModeSwitch } from "./components/ModeSwitch";
@@ -104,12 +104,10 @@ export function WebPanel() {
     return /^(chrome|edge|about|chrome-extension|view-source):/i.test(tab.url);
   }, [tab]);
 
-  async function update(next: Settings, notifyTab = true): Promise<void> {
+  const isLoading = useMemo(() => (busy || status.pending > 0) && !status.active, [busy, status]);
+
+  const update = useCallback(async (next: Settings, notifyTab = true): Promise<void> => {
     setSettings(next);
-    // Persist only the fields that actually changed, merged over the freshest
-    // stored settings. This prevents the popup's snapshot from clobbering
-    // fields written elsewhere (e.g. provider/theme from an in-page popup, or
-    // host rules) between renders.
     const patch = diffSettings(settings, next);
     const saved = await updateSettings(patch);
     if (!notifyTab || !tab) return;
@@ -118,9 +116,9 @@ export function WebPanel() {
       .catch(() => {
         /* content script may not be loaded */
       });
-  }
+  }, [settings, tab]);
 
-  async function triggerTranslate(): Promise<void> {
+  const triggerTranslate = useCallback(async (): Promise<void> => {
     if (!tab || restricted) return;
     setBusy(true);
     try {
@@ -142,7 +140,7 @@ export function WebPanel() {
         setBusy(false);
       }
     }
-  }
+  }, [tab, restricted]);
 
   function getContentScriptFiles(): string[] {
     try {
@@ -154,23 +152,19 @@ export function WebPanel() {
     }
   }
 
-  async function setProvider(provider: ProviderId): Promise<void> {
+  const setProvider = useCallback(async (provider: ProviderId): Promise<void> => {
     await update({ ...settings, provider });
-  }
+  }, [settings, update]);
 
-  async function setQuickProvider(quickProvider: ProviderId): Promise<void> {
+  const setQuickProvider = useCallback(async (quickProvider: ProviderId): Promise<void> => {
     await update({ ...settings, quickProvider });
-  }
+  }, [settings, update]);
 
-  async function setAIProvider(aiProvider: AIProviderId): Promise<void> {
+  const setAIProvider = useCallback(async (aiProvider: AIProviderId): Promise<void> => {
     await update({ ...settings, aiProvider });
-  }
+  }, [settings, update]);
 
-  /**
-   * Create a blank custom model, select it for the requested role, and open the
-   * options page so the user can fill in its endpoint/model/key right away.
-   */
-  async function addCustomModel(role: "provider" | "quick" | "ai"): Promise<void> {
+  const addCustomModel = useCallback(async (role: "provider" | "quick" | "ai"): Promise<void> => {
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -188,9 +182,9 @@ export function WebPanel() {
     };
     await update(next, false);
     chrome.runtime.openOptionsPage();
-  }
+  }, [settings, update]);
 
-  async function setHostRule(rule: AutoRule): Promise<void> {
+  const setHostRule = useCallback(async (rule: AutoRule): Promise<void> => {
     if (!tab?.hostname) return;
     const hostRules = { ...settings.hostRules };
     if (rule === settings.autoRule) {
@@ -199,20 +193,23 @@ export function WebPanel() {
       hostRules[tab.hostname] = rule;
     }
     await update({ ...settings, hostRules });
-  }
+  }, [settings, tab, update]);
 
-  const buttonLabel = status.active
+  const buttonLabel = useMemo(() => status.active
     ? "Hiện bản gốc"
-    : status.pending > 0 || busy
+    : isLoading
       ? "Đang dịch…"
-      : "Dịch trang này";
+      : "Dịch trang này", [status.active, isLoading]);
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="p-3 space-y-3 animate-fade-in">
+      {/* Site info + mode switch */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <Globe2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          <p className="text-[11.5px] font-medium text-zinc-600 truncate max-w-[210px] leading-tight">
+          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
+            <Globe2 className="w-3 h-3 text-zinc-500" />
+          </div>
+          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight">
             {tab?.hostname || "Không có tab nào"}
           </p>
         </div>
@@ -222,20 +219,21 @@ export function WebPanel() {
         />
       </div>
 
+      {/* Primary CTA */}
       <button
         type="button"
         onClick={triggerTranslate}
         disabled={!tab || restricted || busy}
-        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all text-[14px] font-semibold tracking-tight active:scale-[0.99] ${
+        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 text-[14px] font-semibold tracking-tight active:scale-[0.98] hover-lift ${
           status.active
             ? "bg-white border-zinc-200 text-zinc-900 shadow-card hover:border-zinc-300 hover:shadow-card-hover"
-            : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700"
-        } disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none`}
+            : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]"
+        } disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:hover:translate-y-0`}
       >
-        {(busy || status.pending > 0) && !status.active ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin-slow" />
         ) : (
-          <Languages className="w-4 h-4" />
+          <Languages className={`w-4 h-4 transition-transform duration-200 ${status.active ? "" : "group-hover:scale-110"}`} />
         )}
         {restricted ? "Không thể dịch trang này" : buttonLabel}
       </button>
@@ -251,7 +249,8 @@ export function WebPanel() {
 
       <StatusBadge active={status.active} count={status.count} pending={status.pending} />
 
-      <section className="surface-card p-2.5 flex flex-col gap-2.5">
+      {/* Settings card */}
+      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2.5 transition-all duration-200">
         <LanguagePair
           source={settings.sourceLang}
           target={settings.targetLang}
@@ -259,6 +258,8 @@ export function WebPanel() {
           onTargetChange={(targetLang) => update({ ...settings, targetLang })}
           bare
         />
+
+        <div className="h-px bg-zinc-200/60" />
 
         <ProviderPair
           provider={settings.provider}
@@ -275,17 +276,21 @@ export function WebPanel() {
         />
       </section>
 
-      <section className="surface-card p-2.5 flex flex-col gap-1.5">
-        <h2 className="section-label">
-          Tự động dịch
-        </h2>
-        <div className="flex gap-1 justify-center">
+      {/* Auto-translate */}
+      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3 text-zinc-400" />
+          <h2 className="section-label">
+            Tự động dịch
+          </h2>
+        </div>
+        <div className="flex gap-1.5">
           {(["always", "ask", "never"] as AutoRule[]).map((r) => (
             <button
               key={r}
               type="button"
               onClick={() => setHostRule(r)}
-              className={`flex-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border transition-all active:scale-[0.97] ${
+              className={`flex-1 px-2 py-1 rounded-lg text-[10.5px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
                 hostRule === r
                   ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
                   : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"

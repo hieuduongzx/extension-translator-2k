@@ -1,7 +1,5 @@
 import {
   DEFAULT_SETTINGS,
-  customProviderId,
-  isCustomProvider,
   type AIProviderId,
   type CustomModel,
   type ProviderId,
@@ -91,40 +89,30 @@ function sanitizeCustomModels(raw: unknown): CustomModel[] {
 
 export function mergeSettings(stored: Partial<Settings> & { provider?: string }): Settings {
   const customModels = sanitizeCustomModels(stored.customModels);
-  const customIds = new Set(customModels.map((m) => customProviderId(m.id)));
-
-  const isValidProvider = (id: string): id is ProviderId =>
-    id === "google" ||
-    id === "bing" ||
-    id === "gemma" ||
-    (isCustomProvider(id) && customIds.has(id));
 
   const raw = stored.provider as string | undefined;
   let provider: ProviderId = DEFAULT_SETTINGS.provider;
-  if (raw === "microsoft") provider = "bing"; // legacy migration
-  // Discontinued providers fall back to the default.
+  if (raw === "microsoft") provider = "bing";
   else if (raw === "lingva" || raw === "mymemory") provider = DEFAULT_SETTINGS.provider;
-  else if (raw && isValidProvider(raw)) provider = raw;
+  else if (raw) provider = raw as ProviderId;
 
   const rawQuick = stored.quickProvider as string | undefined;
-  const quickProvider: ProviderId = rawQuick && isValidProvider(rawQuick)
+  const quickProvider: ProviderId = rawQuick
     ? (rawQuick as ProviderId)
     : DEFAULT_SETTINGS.quickProvider;
 
-  // `gemma` and `qwen` are fixed developer-provided backends: always use the bundled
+  // `gemma`, `qwen` and `hy3` are fixed developer-provided backends: always use the bundled
   // defaults and ignore any stored overrides.
   const ai: Settings["providers"]["ai"] = {
     gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma },
-    qwen: { ...DEFAULT_SETTINGS.providers.ai.qwen }
+    qwen: { ...DEFAULT_SETTINGS.providers.ai.qwen },
+    hy3: { ...DEFAULT_SETTINGS.providers.ai.hy3 }
   };
 
-  // The dedicated AI provider must be `gemma`, `qwen`, or an existing custom model;
-  // fall back to the default otherwise (e.g. the model was deleted).
   const rawAI = stored.aiProvider as string | undefined;
-  const aiProvider: AIProviderId =
-    rawAI === "gemma" || rawAI === "qwen" || (rawAI && isCustomProvider(rawAI) && customIds.has(rawAI))
-      ? (rawAI as AIProviderId)
-      : DEFAULT_SETTINGS.aiProvider;
+  const aiProvider: AIProviderId = rawAI
+    ? (rawAI as AIProviderId)
+    : DEFAULT_SETTINGS.aiProvider;
 
   // The AI translation presentation mode falls back to the default for any
   // value outside the known set.

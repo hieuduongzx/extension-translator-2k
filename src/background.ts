@@ -25,9 +25,9 @@ import type {
 async function handleTranslate(
   request: TranslateRequestMessage
 ): Promise<TranslateResponseMessage> {
+  const settings = await loadSettings();
+  const provider = request.provider ?? settings.provider;
   try {
-    const settings = await loadSettings();
-    const provider = request.provider ?? settings.provider;
     const { translations, detected: cachedDetected } = await readCache(
       provider,
       request.target,
@@ -74,15 +74,16 @@ async function handleTranslate(
     const message = err instanceof Error ? err.message : String(err);
     const isNetworkError = message.includes("Failed to fetch") || message.includes("NetworkError");
     const isTimeoutError = message.includes("timeout") || message.includes("timed out");
+    const providerLabel = provider === "qwen" ? "Qwen" : provider === "gemma" ? "Gemma" : provider;
     const friendlyMessage = isNetworkError
-      ? "Lỗi mạng: Kiểm tra kết nối internet"
+      ? `[${providerLabel}] Lỗi mạng: Kiểm tra kết nối internet`
       : isTimeoutError
-        ? "Timeout: Dịch vụ phản hồi quá lâu"
+        ? `[${providerLabel}] Timeout: Dịch vụ phản hồi quá lâu`
         : message.includes("401") || message.includes("403")
-          ? "Lỗi xác thực: Kiểm tra API key"
+          ? `[${providerLabel}] Lỗi xác thực: Kiểm tra API key`
           : message.includes("429")
-            ? "Quá nhiều yêu cầu: Vui lòng thử lại sau"
-            : `Lỗi dịch: ${message}`;
+            ? `[${providerLabel}] Quá nhiều yêu cầu: Vui lòng thử lại sau`
+            : `[${providerLabel}] Lỗi dịch: ${message}`;
     return {
       type: "translate-response",
       translations: [],
