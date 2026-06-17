@@ -26,7 +26,7 @@ export function ModeSwitch({ value, onChange }: ModeSwitchProps) {
       onClick={() => onChange(next)}
       title={`Chế độ: ${meta.label} · bấm để đổi`}
       aria-label={`Chế độ hiển thị: ${meta.label}. Bấm để đổi.`}
-      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
+      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 transition-colors dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
     >
       <Icon className="w-3.5 h-3.5 text-brand-600" />
       {meta.label}

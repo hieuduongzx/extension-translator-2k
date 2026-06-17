@@ -1,23 +1,27 @@
 import { useEffect, useState, useCallback } from "react";
-import { Globe, Radio, Settings as SettingsIcon } from "lucide-react";
+import { Globe, Radio, Settings as SettingsIcon, Languages } from "lucide-react";
 import { WebPanel } from "./WebPanel";
 import { StreamPanel } from "./StreamPanel";
+import { QuickPanel } from "./QuickPanel";
+import { useTheme } from "../shared/useTheme";
 
-type TabId = "web" | "stream";
+type TabId = "web" | "stream" | "quick";
 
 const ACTIVE_TAB_KEY = "translator2k:activeTab";
 
 const TABS: { id: TabId; label: string; icon: typeof Globe }[] = [
   { id: "web", label: "Dịch Web", icon: Globe },
-  { id: "stream", label: "Dịch Stream", icon: Radio }
+  { id: "stream", label: "Dịch Stream", icon: Radio },
+  { id: "quick", label: "Dịch nhanh", icon: Languages }
 ];
 
 /**
- * Root popup shell. Hosts the two features as tabs ("Dịch Web" for page
- * translation, "Dịch Stream" for real-time audio subtitles). The last-used tab
- * is remembered in `chrome.storage.local` so the popup reopens where you left.
+ * Root popup shell. Hosts three tabs: page translation, real-time audio
+ * subtitles, and a standalone quick translator. The last-used tab is remembered
+ * in `chrome.storage.local` so the popup reopens where you left.
  */
 export function Popup() {
+  useTheme();
   const [tab, setTab] = useState<TabId>("web");
   const [animating, setAnimating] = useState(false);
 
@@ -25,7 +29,7 @@ export function Popup() {
     void (async () => {
       const stored = await chrome.storage.local.get(ACTIVE_TAB_KEY);
       const saved = stored[ACTIVE_TAB_KEY] as TabId | undefined;
-      if (saved === "web" || saved === "stream") setTab(saved);
+      if (saved === "web" || saved === "stream" || saved === "quick") setTab(saved);
     })();
   }, []);
 
@@ -39,7 +43,8 @@ export function Popup() {
   }, [tab]);
 
   const openSettings = useCallback(() => {
-    const url = chrome.runtime.getURL(`options.html#${tab}`);
+    const hash = tab === "quick" ? "web" : tab;
+    const url = chrome.runtime.getURL(`options.html#${hash}`);
     void chrome.tabs.create({ url });
   }, [tab]);
 
@@ -71,7 +76,9 @@ export function Popup() {
           key={tab}
           className={`${animating ? "animate-slide-up" : ""}`}
         >
-          {tab === "web" ? <WebPanel /> : <StreamPanel />}
+          {tab === "web" && <WebPanel />}
+          {tab === "stream" && <StreamPanel />}
+          {tab === "quick" && <QuickPanel />}
         </div>
       </div>
 

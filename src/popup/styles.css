@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Lab Studio Design System — Light theme (teal brand)
-   Mirror of bookmark-manager/src/index.css. Re-skin via tailwind brand color.
+   Popup shell — Lab Studio light/dark theme (teal brand).
+   The shared component vocabulary lives in src/shared/ui.css.
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   html,
   body,
   #root {
-    width: 380px;
+    width: 420px;
     height: 600px;
     margin: 0;
     overflow: hidden;
@@ -22,8 +22,6 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Subtle teal-tinted gradient backdrop with white base: modern, clean feel.
-     The gradient starts with a soft teal wash at top, fading to pure white. */
   body {
     background:
       radial-gradient(
@@ -36,210 +34,19 @@
   }
 }
 
-@layer components {
-  .surface-card {
-    @apply rounded-xl border border-zinc-200/80 bg-white shadow-card
-           transition-shadow duration-200;
-  }
-  .surface-card-hover {
-    @apply hover:shadow-card-hover;
-  }
-
-  .section-label {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-600;
-  }
-
-  .status-pill {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-           text-[10px] font-bold uppercase tracking-wider border;
-  }
-
-  .brand-input {
-    @apply h-9 px-3 rounded-lg bg-zinc-50 border border-zinc-200
-           text-[13px] text-zinc-900 placeholder:text-zinc-500
-           focus:bg-white focus:border-brand-500
-           focus:ring-2 focus:ring-brand-500/20 focus:outline-none
-           transition-colors;
-  }
-
-  .brand-input-sm {
-    @apply h-8 px-2.5 rounded-md bg-zinc-50 border border-zinc-200
-           text-[13px] text-zinc-900 placeholder:text-zinc-500
-           focus:bg-white focus:border-brand-500
-           focus:ring-2 focus:ring-brand-500/20 focus:outline-none
-           transition-colors;
-  }
-
-  .btn-brand {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-semibold
-           bg-brand-600 text-white shadow-glow-sm
-           hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-brand-sm {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-md text-[13px] font-medium
-           bg-brand-600 text-white shadow-glow-sm
-           hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-medium
-           bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-ghost-sm {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-md text-[13px] font-medium
-           bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-icon {
-    @apply inline-flex items-center justify-center shrink-0
-           h-9 w-9 rounded-lg text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
-  }
-
-  .btn-icon-sm {
-    @apply inline-flex items-center justify-center shrink-0
-           h-7 w-7 rounded-md text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
-  }
-
-  /* ── Lab Studio signature elements ── */
-
-  .brand-logo {
-    @apply relative flex items-center justify-center shrink-0
-           h-10 w-10 rounded-xl text-white
-           bg-gradient-to-br from-brand-500 to-brand-600
-           shadow-glow;
-  }
-
-  .accent-line {
-    @apply h-px w-full;
-    background-image: linear-gradient(
-      to right,
-      transparent 0%,
-      rgb(var(--brand-rgb, 24 24 27) / 0.35) 50%,
-      transparent 100%
-    );
-  }
-
-  /* Inline keyboard cap used in shortcut hints. */
-  .kbd-key {
-    @apply inline-flex items-center justify-center
-           min-w-[20px] h-[18px] px-1
-           rounded border border-zinc-300 bg-zinc-50
-           text-[10px] font-semibold text-zinc-700 leading-none
-           shadow-[inset_0_-1px_0_rgba(0,0,0,0.05)];
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  }
-
-  /* Segmented control — pill-style tab group used for the popup's two
-     features. The track is a soft inset surface; the active segment is a
-     raised white pill that floats above it. */
-  .segment-track {
-    @apply flex items-center gap-1 p-1 rounded-xl
-           bg-zinc-100/80 border border-zinc-200/70
-           backdrop-blur-sm;
-  }
-  .segment {
-    @apply flex-1 inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-lg text-[12.5px] font-semibold tracking-tight
-           text-zinc-600 transition-all duration-150
-           hover:text-zinc-900 relative overflow-hidden;
-  }
-  .segment-active {
-    @apply bg-white text-brand-700 shadow-card;
-  }
-  .segment-active::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(20,184,166,0.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  /* Glass surface for floating elements */
-  .glass-surface {
-    @apply bg-white/80 backdrop-blur-md border border-white/50;
-    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
-  }
-
-  /* Micro-interaction utilities */
-  .hover-lift {
-    @apply transition-all duration-200;
-  }
-  .hover-lift:hover {
-    transform: translateY(-1px);
-  }
-
-  /* Focus ring brand tint */
-  .focus-brand {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500;
-  }
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root {
+  color: #e4e4e7;
 }
 
-/* ── Scrollbars ──
-   Slim, rounded, brand-tinted on hover. Applied to the whole popup and to any
-   element opting in via .custom-scrollbar (e.g. the language dropdown list). */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #d4d4d8 transparent;
-}
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: #d4d4d8 transparent;
-}
-
-::-webkit-scrollbar,
-.custom-scrollbar::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-track,
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb,
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover,
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--brand-rgb, 161 161 170));
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* Brand RGB token used by .accent-line (teal-500). */
-:root {
-  --brand-rgb: 20 184 166;
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(
+      120% 80% at 50% -10%,
+      rgba(20, 184, 166, 0.14) 0%,
+      rgba(20, 184, 166, 0.05) 40%,
+      transparent 70%
+    ),
+    #111318;
 }

@@ -1,15 +1,17 @@
-{
+﻿{
   "manifest_version": 3,
   "name": "Translator2k",
-  "version": "2.0.5",
-  "description": "Dịch trang web và phụ đề thời gian thực cho video/stream nhanh chóng. Hai chức năng trong một tiện ích.",
+  "version": "2.0.6",
+  "description": "Dịch trang web, dịch nhanh trong popup và phụ đề thời gian thực cho video/stream nhanh chóng. Ba chức năng trong một tiện ích.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "contextMenus",
     "offscreen",
-    "tabCapture"
+    "tabCapture",
+    "clipboardRead",
+    "clipboardWrite"
   ],
   "host_permissions": ["<all_urls>"],
   "icons": {
@@ -37,7 +39,10 @@
     {
       "matches": ["<all_urls>"],
       "js": ["src/content/index.ts"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true
     }
   ],
   "commands": {

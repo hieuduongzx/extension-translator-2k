@@ -113,13 +113,29 @@ export function StreamPanel() {
   const fontPercent = useMemo(() => ((fontScaleDraft - 30) / (180 - 30)) * 100, [fontScaleDraft]);
   const opacityPercent = useMemo(() => ((opacityDraft - 10) / 90) * 100, [opacityDraft]);
 
+  const startStopClass = busy
+    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-700"
+    : state.isActive
+      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:shadow-card dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+      : "bg-brand-600 text-white border-brand-600 shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]";
+
+  const pauseClass = !state.isActive
+    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-600"
+    : state.isPaused
+      ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30"
+      : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600";
+
+  const resetClass = !state.isActive
+    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-600"
+    : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600";
+
   return (
     <div className="p-3 space-y-3 animate-fade-in">
       {/* Status header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
-            <Radio className="w-3 h-3 text-zinc-500" />
+          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0 dark:bg-zinc-800 dark:border-zinc-700">
+            <Radio className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
           </div>
           <span
             className={`status-pill ${
@@ -172,13 +188,7 @@ export function StreamPanel() {
           type="button"
           onClick={() => void toggleTranslation()}
           disabled={busy}
-          className={`group flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-200 border active:scale-[0.98] hover-lift ${
-            busy
-              ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200"
-              : state.isActive
-                ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:shadow-card"
-                : "bg-brand-600 text-white border-brand-600 shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]"
-          }`}
+          className={`group flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-200 border active:scale-[0.98] hover-lift ${startStopClass}`}
         >
           {state.isActive ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />}
           <span>{state.isActive ? "Dừng dịch" : "Bắt đầu dịch"}</span>
@@ -188,13 +198,7 @@ export function StreamPanel() {
           type="button"
           onClick={() => void togglePause()}
           disabled={busy || !state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${
-            state.isActive
-              ? state.isPaused
-                ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300"
-              : "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-          }`}
+          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${pauseClass}`}
           title={state.isPaused ? "Tiếp tục" : "Tạm dừng"}
         >
           {state.isPaused ? (
@@ -208,11 +212,7 @@ export function StreamPanel() {
           type="button"
           onClick={() => void resetOverlayLayout()}
           disabled={!state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${
-            state.isActive
-              ? "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300"
-              : "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-          }`}
+          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${resetClass}`}
           title="Đặt lại vị trí overlay"
         >
           <RefreshCcw className={`w-3.5 h-3.5 ${state.isActive ? "hover:rotate-180 transition-transform duration-500" : ""}`} />
@@ -231,7 +231,7 @@ export function StreamPanel() {
           }`}
         />
         <p
-          className="text-[11px] font-medium text-zinc-500 truncate max-w-[300px]"
+          className="text-[11px] font-medium text-zinc-500 truncate max-w-[300px] dark:text-zinc-400"
           title={state.statusMessage}
         >
           {state.statusMessage}
@@ -242,7 +242,7 @@ export function StreamPanel() {
       <div className="surface-card surface-card-hover p-2.5 flex flex-col gap-2.5 transition-all duration-200">
         <div className="flex flex-col gap-1">
           <span className="section-label flex items-center gap-1.5">
-            <Globe2 className="w-3 h-3 text-zinc-400" />
+            <Globe2 className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
             Dịch sang
           </span>
           <div className={busy ? "opacity-60 pointer-events-none transition-opacity" : "transition-opacity"}>
@@ -250,7 +250,7 @@ export function StreamPanel() {
           </div>
         </div>
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
 
         <ToggleRow
           label="Hiện bản gốc"
@@ -268,10 +268,10 @@ export function StreamPanel() {
           onChange={(v) => void updateOverlaySettings({ autoScroll: v })}
         />
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
 
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[12px] font-medium text-zinc-800">Chế độ hiển thị</span>
+          <span className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200">Chế độ hiển thị</span>
           <div className="grid grid-cols-2 gap-1.5">
             {(
               [
@@ -285,8 +285,8 @@ export function StreamPanel() {
                 onClick={() => void updateOverlaySettings({ displayMode: mode })}
                 className={`px-2 py-1 rounded-lg text-[11px] font-semibold tracking-tight border transition-all duration-200 active:scale-[0.97] ${
                   state.displayMode === mode
-                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
                 }`}
               >
                 {label}
@@ -295,7 +295,7 @@ export function StreamPanel() {
           </div>
         </div>
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
 
         <SliderRow
           label="Cỡ phụ đề"
@@ -371,11 +371,11 @@ function SliderRow({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-[12px]">
-        <span className="font-medium text-zinc-800 flex items-center gap-1.5">
+        <span className="font-medium text-zinc-800 flex items-center gap-1.5 dark:text-zinc-200">
           {icon}
           {label}
         </span>
-        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
+        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md dark:bg-brand-900/30 dark:text-brand-300">
           {value}
           {suffix}
         </span>
@@ -393,7 +393,7 @@ function SliderRow({
                    [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
                    [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
         style={{
-          background: `linear-gradient(to right, #14b8a6 ${percent}%, #e4e4e7 ${percent}%)`
+          background: `linear-gradient(to right, var(--brand-500) ${percent}%, var(--slider-track) ${percent}%)`
         }}
       />
     </div>

@@ -23,6 +23,14 @@ let triggerEl: HTMLButtonElement | null = null;
 let lastShownText = "";
 let isInstalled = false;
 let installedHandlers: SelectionTriggerHandlers | null = null;
+let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Snapshot of the last non-empty selection, captured on `selectionchange`. */
+let cachedSelection: {
+  text: string;
+  rects: DOMRectList | null;
+  boundingRect: DOMRect | null;
+} | null = null;
 
 const ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d="m5 8 6 6"/>
@@ -39,6 +47,7 @@ export function installSelectionTrigger(handlers: SelectionTriggerHandlers): voi
   isInstalled = true;
 
   document.addEventListener("mouseup", onMouseUp, true);
+  document.addEventListener("pointerup", onPointerUp, true);
   document.addEventListener("mousedown", onMouseDown, true);
   document.addEventListener("selectionchange", onSelectionChange, true);
   document.addEventListener("keydown", onKeyDown, true);
@@ -50,7 +59,9 @@ export function uninstallSelectionTrigger(): void {
   if (!isInstalled) return;
   isInstalled = false;
   installedHandlers = null;
+  cachedSelection = null;
   document.removeEventListener("mouseup", onMouseUp, true);
+  document.removeEventListener("pointerup", onPointerUp, true);
   document.removeEventListener("mousedown", onMouseDown, true);
   document.removeEventListener("selectionchange", onSelectionChange, true);
   document.removeEventListener("keydown", onKeyDown, true);
@@ -60,13 +71,14 @@ export function uninstallSelectionTrigger(): void {
 }
 
 function onMouseUp(e: MouseEvent): void {
-  // Ignore clicks that originated inside our own popup/trigger.
   if (isOurOwnNode(e.target as Node | null)) return;
-  // Remember where the pointer was released — that's where the user's
-  // attention is, and the most convenient place to surface the icon.
-  const point = { x: e.clientX, y: e.clientY };
-  // Defer to next tick so the selection has settled.
-  window.setTimeout(() => maybeShowTrigger(point), 0);
+  showForCachedSelection({ x: e.clientX, y: e.clientY });
+}
+
+function onPointerUp(e: PointerEvent): void {
+  if (e.button !== 0) return;
+  if (isOurOwnNode(e.target as Node | null)) return;
+  showForCachedSelection({ x: e.clientX, y: e.clientY });
 }
 
 function onMouseDown(e: MouseEvent): void {
@@ -76,10 +88,54 @@ function onMouseDown(e: MouseEvent): void {
 }
 
 function onSelectionChange(): void {
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || sel.toString().trim().length === 0) {
+  const snapshot = captureSelection();
+  if (!snapshot) {
+    cachedSelection = null;
     hideTrigger();
+    return;
   }
+
+  // Cache the current selection data immediately. Some sites (e.g. YouTube live
+  // chat) clear the selection on mouse-up, so by the time the mouse-up handler
+  // runs `window.getSelection()` may already be empty. We snapshot text and
+  // rects here on every selection change.
+  cachedSelection = snapshot;
+}
+
+/**
+ * Read the current live selection into a snapshot, or `null` when there is no
+ * usable non-empty selection. `window.getSelection()` always reflects the
+ * up-to-date state, so this is safe to call directly from `mouseup` without
+ * waiting for the (asynchronous, coalesced) `selectionchange` event to fire.
+ */
+function captureSelection(): {
+  text: string;
+  rects: DOMRectList | null;
+  boundingRect: DOMRect | null;
+} | null {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+
+  const text = sel.toString().trim();
+  if (!text) return null;
+
+  const range = sel.getRangeAt(0);
+
+  let rects: DOMRectList | null = null;
+  try {
+    rects = range.getClientRects();
+  } catch {
+    /* shadow/shady DOM can throw */
+  }
+
+  let boundingRect: DOMRect | null = null;
+  try {
+    boundingRect = range.getBoundingClientRect();
+  } catch {
+    /* ignore */
+  }
+
+  return { text, rects, boundingRect };
 }
 
 function onKeyDown(e: KeyboardEvent): void {
@@ -105,28 +161,51 @@ function isInsideEditableField(node: Node | null): boolean {
   return !!editable;
 }
 
-function maybeShowTrigger(point?: { x: number; y: number }): void {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-  const text = sel.toString().trim();
-  if (!text) return;
+/**
+ * Show the trigger using the selection cached by `onSelectionChange`.
+ * This avoids re-reading `window.getSelection()` on mouse-up because sites
+ * like YouTube live chat clear the selection before our deferred handler
+ * runs.
+ */
+function showForCachedSelection(point: { x: number; y: number }): void {
+  try {
+    // Prefer the live selection at mouse-up time: `window.getSelection()` is
+    // always up to date, whereas `cachedSelection` depends on the asynchronous
+    // `selectionchange` event which may not have fired yet. Falling back to the
+    // cache covers sites (e.g. YouTube live chat) that clear the selection on
+    // mouse-up.
+    const snapshot = captureSelection() ?? cachedSelection;
+    if (!snapshot) return;
 
-  const range = sel.getRangeAt(0);
-  if (isInsideEditableField(range.startContainer)) return;
-  if (isOurOwnNode(range.startContainer)) return;
+    const { text, rects, boundingRect } = snapshot;
+    if (!text) return;
 
-  const rects = range.getClientRects();
-  if (rects.length === 0) return;
+    // Validate the cached selection is still worth showing (quick guard).
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (isInsideEditableField(range.startContainer)) return;
+      if (isOurOwnNode(range.startContainer)) return;
+    }
 
-  // Anchor next to where the user released the mouse — for a downward
-  // selection that's the bottom-right of the last line, for an upward
-  // selection the top of the first line. Falling back to the geometric last
-  // rectangle keeps keyboard / programmatic selections working.
-  const anchor = point
-    ? anchorNearPoint(rects, point)
-    : { x: rects[rects.length - 1].right, y: rects[rects.length - 1].bottom };
+    let anchor: { x: number; y: number } | null = null;
 
-  showTriggerAt(anchor.x, anchor.y, text);
+    if (rects && rects.length > 0) {
+      anchor = anchorNearPoint(rects, point);
+    } else if (boundingRect && boundingRect.width > 0 && boundingRect.height > 0) {
+      anchor = {
+        x: Math.min(Math.max(point.x, boundingRect.left), boundingRect.right),
+        y: boundingRect.bottom
+      };
+    } else {
+      anchor = point;
+    }
+
+    if (!anchor) return;
+    showTriggerAt(anchor.x, anchor.y, text);
+  } catch {
+    /* silently ignore */
+  }
 }
 
 /**
@@ -180,22 +259,28 @@ function showTriggerAt(x: number, y: number, text: string): void {
     triggerEl.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const handlers = installedHandlers;
-      if (!handlers) return;
-      const anchor = currentAnchor();
-      const finalText = lastShownText;
-      hideTrigger();
-      handlers.onTranslate(finalText, anchor);
+      clearHoverTimer();
+      fireTranslate();
+    });
+    triggerEl.addEventListener("mouseenter", () => {
+      triggerEl!.classList.add("wt-hovering");
+      hoverTimer = setTimeout(() => {
+        fireTranslate();
+      }, 1000);
+    });
+    triggerEl.addEventListener("mouseleave", () => {
+      triggerEl!.classList.remove("wt-hovering");
+      clearHoverTimer();
     });
     document.body.appendChild(triggerEl);
   }
 
   lastShownText = text;
   // `x` / `y` arrive in viewport space (from getBoundingClientRect).
-  // We use `position: absolute` for the trigger so it stays anchored to the
-  // page when the user scrolls — convert to document coordinates here.
-  const margin = 8;
-  const size = 36;
+  // With `position: fixed` the trigger is positioned relative to the viewport,
+  // so we use the viewport coordinates directly.
+  const margin = 6;
+  const size = 22;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   let left = x + margin;
@@ -208,8 +293,8 @@ function showTriggerAt(x: number, y: number, text: string): void {
   // dictionary popup positions itself relative to where the icon appeared.
   triggerEl.dataset.x = String(left);
   triggerEl.dataset.y = String(top);
-  triggerEl.style.left = `${left + window.scrollX}px`;
-  triggerEl.style.top = `${top + window.scrollY}px`;
+  triggerEl.style.left = `${left}px`;
+  triggerEl.style.top = `${top}px`;
   triggerEl.style.display = "flex";
 }
 
@@ -220,8 +305,26 @@ function currentAnchor(): { x: number; y: number } {
   return { x, y };
 }
 
+function clearHoverTimer(): void {
+  if (hoverTimer !== null) {
+    clearTimeout(hoverTimer);
+    hoverTimer = null;
+  }
+}
+
+function fireTranslate(): void {
+  const handlers = installedHandlers;
+  if (!handlers) return;
+  const anchor = currentAnchor();
+  const finalText = lastShownText;
+  hideTrigger();
+  handlers.onTranslate(finalText, anchor);
+}
+
 function hideTrigger(): void {
   if (!triggerEl) return;
+  clearHoverTimer();
+  triggerEl.classList.remove("wt-hovering");
   triggerEl.style.display = "none";
   lastShownText = "";
 }

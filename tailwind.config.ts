@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 import colors from "tailwindcss/colors";
 
 export default {
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: ["./popup.html", "./options.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {

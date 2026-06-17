@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { normalizeSelection } from "./selectionText";
 
 describe("normalizeSelection", () => {
-  it("collapses single newlines from inline widgets into spaces", () => {
-    // The reported case: an icon/badge widget split the sentence with `\n`s.
+  it("preserves single newlines for line-by-line translation", () => {
     const raw =
       "This will be the leveling setup I'll be using to level then swap to\n" +
       "Gemling Legionnaire\n" +
       "in maps once I've gone through the new alt quality gems.";
     expect(normalizeSelection(raw)).toBe(
-      "This will be the leveling setup I'll be using to level then swap to " +
-        "Gemling Legionnaire in maps once I've gone through the new alt quality gems."
+      "This will be the leveling setup I'll be using to level then swap to\n" +
+        "Gemling Legionnaire\n" +
+        "in maps once I've gone through the new alt quality gems."
     );
   });
 
@@ -25,11 +25,11 @@ describe("normalizeSelection", () => {
   });
 
   it("normalizes CRLF line endings", () => {
-    expect(normalizeSelection("line one\r\nline two")).toBe("line one line two");
+    expect(normalizeSelection("line one\r\nline two")).toBe("line one\nline two");
   });
 
-  it("collapses surrounding tabs/spaces around the break", () => {
-    expect(normalizeSelection("a \t\n\t b")).toBe("a b");
+  it("trims whitespace around newlines", () => {
+    expect(normalizeSelection("a \t\n\t b")).toBe("a\nb");
   });
 
   it("trims leading and trailing whitespace", () => {
@@ -40,10 +40,20 @@ describe("normalizeSelection", () => {
     expect(normalizeSelection("just a sentence")).toBe("just a sentence");
   });
 
-  it("keeps multi-paragraph layout while flattening inline breaks", () => {
+  it("keeps multi-paragraph layout with line breaks", () => {
     const raw = "Intro line with\nan icon here.\n\nNext real paragraph.";
     expect(normalizeSelection(raw)).toBe(
-      "Intro line with an icon here.\n\nNext real paragraph."
+      "Intro line with\nan icon here.\n\nNext real paragraph."
     );
+  });
+
+  it("preserves line breaks in multi-line selections", () => {
+    const raw = "第一行\n第二行\n第三行";
+    expect(normalizeSelection(raw)).toBe("第一行\n第二行\n第三行");
+  });
+
+  it("preserves line breaks with mixed content", () => {
+    const raw = "Header\nitem 1\nitem 2\nitem 3";
+    expect(normalizeSelection(raw)).toBe("Header\nitem 1\nitem 2\nitem 3");
   });
 });

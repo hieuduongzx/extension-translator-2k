@@ -1,5 +1,8 @@
 import {
   DEFAULT_SETTINGS,
+  isAIProvider,
+  isCustomProvider,
+  customProviderId,
   type AIProviderId,
   type CustomModel,
   type ProviderId,
@@ -87,19 +90,39 @@ function sanitizeCustomModels(raw: unknown): CustomModel[] {
   return models;
 }
 
+const BUILTIN_PROVIDERS: ProviderId[] = ["google", "bing", "gemma", "qwen", "hy3"];
+
+function isValidProvider(id: string): id is ProviderId {
+  return BUILTIN_PROVIDERS.includes(id as ProviderId) || isCustomProvider(id);
+}
+
+function resolveProvider(raw: string | undefined, customModels: CustomModel[]): ProviderId {
+  if (!raw) return DEFAULT_SETTINGS.provider;
+  if (raw === "microsoft") return "bing";
+  if (raw === "lingva" || raw === "mymemory") return DEFAULT_SETTINGS.provider;
+  if (!isValidProvider(raw)) return DEFAULT_SETTINGS.provider;
+  if (isCustomProvider(raw)) {
+    const exists = customModels.some((m) => customProviderId(m.id) === raw);
+    return exists ? raw : DEFAULT_SETTINGS.provider;
+  }
+  return raw;
+}
+
+function resolveAIProvider(raw: string | undefined, customModels: CustomModel[]): AIProviderId {
+  if (!raw) return DEFAULT_SETTINGS.aiProvider;
+  if (!isAIProvider(raw as ProviderId)) return DEFAULT_SETTINGS.aiProvider;
+  if (isCustomProvider(raw as ProviderId)) {
+    const exists = customModels.some((m) => customProviderId(m.id) === raw);
+    return exists ? (raw as AIProviderId) : DEFAULT_SETTINGS.aiProvider;
+  }
+  return raw as AIProviderId;
+}
+
 export function mergeSettings(stored: Partial<Settings> & { provider?: string }): Settings {
   const customModels = sanitizeCustomModels(stored.customModels);
 
-  const raw = stored.provider as string | undefined;
-  let provider: ProviderId = DEFAULT_SETTINGS.provider;
-  if (raw === "microsoft") provider = "bing";
-  else if (raw === "lingva" || raw === "mymemory") provider = DEFAULT_SETTINGS.provider;
-  else if (raw) provider = raw as ProviderId;
-
-  const rawQuick = stored.quickProvider as string | undefined;
-  const quickProvider: ProviderId = rawQuick
-    ? (rawQuick as ProviderId)
-    : DEFAULT_SETTINGS.quickProvider;
+  const provider = resolveProvider(stored.provider, customModels);
+  const quickProvider = resolveProvider(stored.quickProvider as string | undefined, customModels);
 
   // `gemma`, `qwen` and `hy3` are fixed developer-provided backends: always use the bundled
   // defaults and ignore any stored overrides.
@@ -109,10 +132,7 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
     hy3: { ...DEFAULT_SETTINGS.providers.ai.hy3 }
   };
 
-  const rawAI = stored.aiProvider as string | undefined;
-  const aiProvider: AIProviderId = rawAI
-    ? (rawAI as AIProviderId)
-    : DEFAULT_SETTINGS.aiProvider;
+  const aiProvider = resolveAIProvider(stored.aiProvider as string | undefined, customModels);
 
   // The AI translation presentation mode falls back to the default for any
   // value outside the known set.

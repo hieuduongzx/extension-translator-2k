@@ -3,9 +3,8 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Options page — full-window variant of the Lab Studio light theme.
-   Shares the same component vocabulary as the popup (surface-card, btn-*, …)
-   but without the 380px width clamp so the sidebar layout can breathe.
+   Options page shell — full-window variant of the Lab Studio theme.
+   The shared component vocabulary lives in src/shared/ui.css.
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -21,8 +20,6 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Teal-tinted radial wash anchored to the top, fading into white
-     — clean, modern look that matches the popup. */
   body {
     background:
       radial-gradient(
@@ -35,148 +32,10 @@
   }
 }
 
-@layer components {
-  .surface-card {
-    @apply rounded-xl border border-zinc-200/80 bg-white shadow-card
-           transition-shadow duration-200;
-  }
-  .surface-card-hover {
-    @apply hover:shadow-card-hover;
-  }
-
-  .section-label {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
-  }
-
-  .status-pill {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-           text-[10px] font-bold uppercase tracking-wider border;
-  }
-
-  .brand-input {
-    @apply h-9 px-3 rounded-lg bg-zinc-50 border border-zinc-200
-           text-[13px] text-zinc-900 placeholder:text-zinc-400
-           focus:bg-white focus:border-brand-500
-           focus:ring-2 focus:ring-brand-500/20 focus:outline-none
-           transition-colors;
-  }
-
-  .btn-brand {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-semibold
-           bg-brand-600 text-white shadow-glow-sm
-           hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-medium
-           bg-white border border-zinc-200 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
-  }
-
-  .btn-icon {
-    @apply inline-flex items-center justify-center shrink-0
-           h-9 w-9 rounded-lg text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
-  }
-
-  .btn-icon-sm {
-    @apply inline-flex items-center justify-center shrink-0
-           h-7 w-7 rounded-md text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
-  }
-
-  .accent-line {
-    @apply h-px w-full;
-    background-image: linear-gradient(
-      to right,
-      transparent 0%,
-      rgb(var(--brand-rgb, 24 24 27) / 0.35) 50%,
-      transparent 100%
-    );
-  }
-
-  /* Sidebar navigation entry. */
-  .nav-item {
-    @apply w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
-           text-[13px] font-medium text-left text-zinc-600
-           hover:bg-white hover:text-zinc-900 transition-all duration-200
-           relative overflow-hidden;
-  }
-  .nav-item-active {
-    @apply bg-white text-brand-700 shadow-card border border-zinc-200;
-  }
-  .nav-item-active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 20px;
-    background: linear-gradient(to bottom, #14b8a6, #0d9488);
-    border-radius: 0 3px 3px 0;
-  }
-
-  /* Glass surface for floating elements */
-  .glass-surface {
-    @apply bg-white/80 backdrop-blur-md border border-white/50;
-    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
-  }
-
-  /* Section entrance animation */
-  .section-enter {
-    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-}
-
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #d4d4d8 transparent;
-}
-::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--brand-rgb, 161 161 170));
-  background-clip: padding-box;
-}
-
-:root {
-  --brand-rgb: 20 184 166;
-}
-
-/* Dark theme support */
-html[data-theme="dark"] {
-  color-scheme: dark;
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root {
+  color: #e4e4e7;
 }
 
 html[data-theme="dark"] body {
@@ -188,37 +47,4 @@ html[data-theme="dark"] body {
       transparent 70%
     ),
     #111318;
-  color: #e4e4e7;
-}
-
-html[data-theme="dark"] .surface-card {
-  @apply bg-zinc-900 border-zinc-700/50;
-}
-
-html[data-theme="dark"] .section-label {
-  @apply text-zinc-400;
-}
-
-html[data-theme="dark"] .btn-ghost {
-  @apply bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700 hover:border-zinc-600;
-}
-
-html[data-theme="dark"] .btn-icon {
-  @apply text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700;
-}
-
-html[data-theme="dark"] .btn-icon-sm {
-  @apply text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700;
-}
-
-html[data-theme="dark"] .brand-input {
-  @apply bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-700;
-}
-
-html[data-theme="dark"] .nav-item {
-  @apply text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100;
-}
-
-html[data-theme="dark"] .nav-item-active {
-  @apply bg-zinc-800 text-brand-400 border-zinc-700;
 }

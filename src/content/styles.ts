@@ -554,42 +554,46 @@ const STYLES = `
 
 /* ===== Floating selection trigger ===== */
 .wt-selection-trigger {
-  position: absolute;
+  position: fixed;
   z-index: 2147483646;
-  width: 36px;
-  height: 36px;
+  width: 22px;
+  height: 22px;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f0fdfc 100%);
+  background: #ffffff;
   color: #0d9488;
-  border: 1px solid rgba(13, 148, 136, 0.2);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.25),
-    0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(13, 148, 136, 0.3);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   cursor: pointer;
-  font: 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui,
+  font: 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui,
     sans-serif;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: wt-trigger-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .wt-selection-trigger:hover {
-  background: linear-gradient(135deg, #f0fdfc 0%, #ccfbf1 100%);
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.08);
+  background: #f0fdfa;
+  border-color: rgba(13, 148, 136, 0.5);
+  transform: scale(1.12);
+  box-shadow: 0 3px 12px rgba(13, 148, 136, 0.25);
 }
-.wt-selection-trigger:active { transform: translateY(0) scale(1); }
+.wt-selection-trigger:active { transform: scale(0.95); }
 .wt-selection-trigger svg {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   display: block;
+}
+.wt-selection-trigger.wt-hovering {
+  background: #ccfbf1;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15), 0 3px 12px rgba(13, 148, 136, 0.25);
 }
 
 @keyframes wt-trigger-in {
-  from { opacity: 0; transform: translateY(4px) scale(0.9); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* ===== Dictionary popup ===== */

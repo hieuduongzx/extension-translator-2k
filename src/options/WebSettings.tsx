@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { Globe2, Keyboard, MousePointerClick, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { GemmaIcon, QwenIcon, Hy3Icon } from "../popup/components/ProviderSelect";
 import {
@@ -17,10 +17,12 @@ import {
   type ProviderId,
   type Settings
 } from "../types";
+import { matchesSearch } from "../shared/search";
 
 interface WebSettingsProps {
   settings: Settings;
   onChange: (settings: Settings) => void;
+  query: string;
 }
 
 const AUTO_RULE_LABELS: Record<AutoRule, string> = {
@@ -57,12 +59,30 @@ const DICTIONARY_MODE_OPTIONS: {
 ];
 
 /**
+ * Wrapper that hides a settings section when the search query does not match
+ * any of its keywords. Keywords should include the section title, descriptions,
+ * labels, and any distinctive control text.
+ */
+function Section({
+  query,
+  keywords,
+  children
+}: {
+  query: string;
+  keywords: string[];
+  children: ReactNode;
+}) {
+  if (!matchesSearch(query, ...keywords)) return null;
+  return <>{children}</>;
+}
+
+/**
  * Settings for the web/page translation feature. Operates on the shared
  * {@link Settings} object (selection popup, dictionary, AI providers,
  * auto-translate rules). This is the former popup `SettingsPanel`, reshaped for
  * the full-width options layout (no back button — the sidebar navigates).
  */
-export function WebSettings({ settings, onChange }: WebSettingsProps) {
+export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
   const removeHostRule = useCallback((host: string) => {
     const next = { ...settings.hostRules };
     delete next[host];
@@ -113,10 +133,26 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
     [settings.customModels]
   );
 
+  const sectionKeywords = {
+    shortcuts: ["Phím tắt", "Dịch / bỏ dịch cả trang", "Dịch phần đã bôi đen", "Alt", "chrome://extensions/shortcuts"],
+    display: ["Chế độ hiển thị bản dịch", "Song ngữ", "Chỉ bản dịch"],
+    selection: ["Popup chọn văn bản", "Hiện biểu tượng dịch nổi", "Cách tra từ điển", "Hiện văn bản gốc", "Giao diện popup", "Sáng", "Tối"],
+    ai: ["Dịch vụ AI", "Khi bấm dịch bằng AI", "Hiện bên dưới", "Thay thế bản cũ"],
+    models: ["Quản lý Model", "Chọn dịch vụ", "Dịch vụ dịch trang", "Dịch vụ bôi đen", "Dịch vụ AI", "Model có sẵn", "Model tuỳ chỉnh", "Gemma 4", "Qwen 3.7 max", "Hy3 Preview"],
+    defaultRule: ["Hành vi mặc định", "Luôn luôn", "Hỏi", "Không bao giờ"],
+    hostRules: [
+      "Quy tắc theo trang",
+      ...Object.keys(settings.hostRules),
+      ...Object.values(settings.hostRules).map((r) => AUTO_RULE_LABELS[r])
+    ]
+  };
+
+  const hasMatch = Object.values(sectionKeywords).some((kws) => matchesSearch(query, ...kws));
+
   return (
     <div className="space-y-4 pb-4">
       <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">
+        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
           Dịch Web
         </h1>
         <p className="text-[13px] text-zinc-500 mt-1">
@@ -125,76 +161,81 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
         <div className="accent-line mt-3" />
       </header>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Keyboard className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.shortcuts}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Keyboard className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Phím tắt
+            </h2>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Phím tắt
-          </h2>
-        </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
-          Tăng tốc thao tác dịch ngay trên trang. Có thể đổi phím tại{" "}
-          <button
-            type="button"
-            onClick={() => chrome.tabs.create({ url: "chrome://extensions/shortcuts" })}
-            className="text-brand-700 font-medium hover:underline"
-          >
-            chrome://extensions/shortcuts
-          </button>
-          .
-        </p>
-        <ul className="flex flex-col gap-2 max-w-md">
-          <ShortcutRow
-            keys={["Alt", "A"]}
-            label="Dịch / bỏ dịch cả trang"
-            description="Bật hoặc tắt dịch toàn bộ trang đang xem."
-          />
-          <ShortcutRow
-            keys={["Alt", "S"]}
-            label="Dịch phần đã bôi đen"
-            description="Bôi đen một đoạn rồi nhấn để chỉ dịch đoạn đó tại chỗ."
-          />
-        </ul>
-      </section>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Tăng tốc thao tác dịch ngay trên trang. Có thể đổi phím tại{" "}
+            <button
+              type="button"
+              onClick={() => chrome.tabs.create({ url: "chrome://extensions/shortcuts" })}
+              className="text-brand-700 font-medium hover:underline"
+            >
+              chrome://extensions/shortcuts
+            </button>
+            .
+          </p>
+          <ul className="flex flex-col gap-2 max-w-md">
+            <ShortcutRow
+              keys={["Alt", "A"]}
+              label="Dịch / bỏ dịch cả trang"
+              description="Bật hoặc tắt dịch toàn bộ trang đang xem."
+            />
+            <ShortcutRow
+              keys={["Alt", "S"]}
+              label="Dịch phần đã bôi đen"
+              description="Bôi đen một đoạn rồi nhấn để chỉ dịch đoạn đó tại chỗ."
+            />
+          </ul>
+        </section>
+      </Section>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Globe2 className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.display}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Globe2 className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Chế độ hiển thị bản dịch
+            </h2>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Chế độ hiển thị bản dịch
-          </h2>
-        </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
+        <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           Cách hiển thị nội dung sau khi dịch trang.
         </p>
-        <div className="max-w-md">
-          <ModeToggle
-            value={settings.displayMode}
-            onChange={(displayMode) => onChange({ ...settings, displayMode })}
-          />
-        </div>
-      </section>
-
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <MousePointerClick className="w-3.5 h-3.5 text-brand-600" />
+          <div className="max-w-md">
+            <ModeToggle
+              value={settings.displayMode}
+              onChange={(displayMode) => onChange({ ...settings, displayMode })}
+            />
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Popup chọn văn bản
-          </h2>
-        </div>
+        </section>
+      </Section>
+
+      <Section query={query} keywords={sectionKeywords.selection}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <MousePointerClick className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Popup chọn văn bản
+            </h2>
+          </div>
 
         <label className="flex items-start justify-between gap-3 cursor-pointer group">
           <span className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-800 group-hover:text-zinc-900 transition-colors">
+            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
               Hiện biểu tượng dịch nổi
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500">
+            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               Hiển thị một biểu tượng cạnh đoạn bạn bôi đen. Bấm vào đó để
               mở popup dịch mà không cần dùng menu chuột phải.
             </span>
@@ -209,10 +250,10 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
 
         <div className="flex items-start justify-between gap-3">
           <span className="flex flex-col flex-1 min-w-0">
-            <span className="text-[12.5px] font-medium text-zinc-800">
+            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
               Cách tra từ điển
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500">
+            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               Mở popup từ điển (định nghĩa, phát âm, ví dụ). Tự chuyển sang trình
               dịch khi không tìm thấy từ.
             </span>
@@ -230,10 +271,10 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
 
         <label className="flex items-start justify-between gap-3 cursor-pointer group">
           <span className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-800 group-hover:text-zinc-900 transition-colors">
+            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
               Hiện văn bản gốc
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500">
+            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               Khi popup mở ra, hiển thị cả văn bản gốc bên cạnh bản dịch.
             </span>
           </span>
@@ -248,7 +289,7 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
         </label>
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="text-[12.5px] font-medium text-zinc-800">Giao diện popup</span>
+          <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Giao diện popup</span>
           <div className="grid grid-cols-2 gap-1.5">
             {(["light", "dark"] as const).map((t) => (
               <button
@@ -257,8 +298,8 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                 onClick={() => onChange({ ...settings, selectionPopupTheme: t })}
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
                   settings.selectionPopupTheme === t
-                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
                 }`}
               >
                 {THEME_LABELS[t]}
@@ -266,25 +307,27 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
             ))}
           </div>
         </div>
-      </section>
+        </section>
+      </Section>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.ai}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Dịch vụ AI
+            </h2>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Dịch vụ AI
-          </h2>
-        </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
-          Cấu hình cách hiển thị bản dịch AI trong popup.
-        </p>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Cấu hình cách hiển thị bản dịch AI trong popup.
+          </p>
 
-        <div className="flex flex-col gap-2 pt-0.5">
-          <span className="text-[11.5px] font-medium text-zinc-800">
-            Khi bấm dịch bằng AI
-          </span>
+          <div className="flex flex-col gap-2 pt-0.5">
+            <span className="text-[11.5px] font-medium text-zinc-800">
+              Khi bấm dịch bằng AI
+            </span>
           <div className="grid grid-cols-2 gap-1.5 max-w-xs">
             {(
               [
@@ -298,40 +341,42 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                 onClick={() => onChange({ ...settings, aiTranslationMode: mode })}
                 className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight border transition-all duration-200 active:scale-[0.97] ${
                   settings.aiTranslationMode === mode
-                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
                 }`}
               >
                 {label}
               </button>
             ))}
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
-            {settings.aiTranslationMode === "replace"
-              ? "Bản dịch AI sẽ ghi đè lên bản dịch chính trong popup."
-              : "Bản dịch AI hiện trong khung riêng, ngay dưới bản dịch chính."}
-          </p>
-        </div>
-      </section>
-
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Settings2 className="w-3.5 h-3.5 text-brand-600" />
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+              {settings.aiTranslationMode === "replace"
+                ? "Bản dịch AI sẽ ghi đè lên bản dịch chính trong popup."
+                : "Bản dịch AI hiện trong khung riêng, ngay dưới bản dịch chính."}
+            </p>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Quản lý Model
-          </h2>
-        </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
-          Chọn dịch vụ dịch thuật và quản lý model tuỳ chỉnh.
-        </p>
+        </section>
+      </Section>
 
-        <div className="flex flex-col gap-2 pt-0.5">
-          <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800">
-            Chọn dịch vụ
-          </span>
-          <p className="text-[11px] leading-snug text-zinc-500 -mt-1">
+      <Section query={query} keywords={sectionKeywords.models}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Settings2 className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Quản lý Model
+            </h2>
+          </div>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Chọn dịch vụ dịch thuật và quản lý model tuỳ chỉnh.
+          </p>
+
+          <div className="flex flex-col gap-2 pt-0.5">
+            <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+              Chọn dịch vụ
+            </span>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
             Cấu hình provider cho từng tính năng dịch thuật.
           </p>
           <div className="grid grid-cols-1 gap-2.5 pt-0.5 max-w-xl">
@@ -363,46 +408,46 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
         </div>
 
         <div className="flex flex-col gap-2 pt-1">
-          <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800">
+          <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
             Model có sẵn
           </span>
           <div className="flex flex-col gap-2 max-w-xl">
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200">
+            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
               <GemmaIcon />
-              <span className="text-[12.5px] font-medium text-zinc-800">Gemma 4</span>
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Gemma 4</span>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200">
+            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
               <QwenIcon />
-              <span className="text-[12.5px] font-medium text-zinc-800">Qwen 3.7 max</span>
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Qwen 3.7 max</span>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200">
+            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
               <Hy3Icon />
-              <span className="text-[12.5px] font-medium text-zinc-800">Hy3 Preview</span>
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Hy3 Preview</span>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-2 pt-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800">
+            <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
               Model tuỳ chỉnh
             </span>
             <button
               type="button"
               onClick={addCustomModel}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-semibold text-zinc-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 transition-all duration-200 active:scale-[0.97]"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-semibold text-zinc-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 transition-all duration-200 active:scale-[0.97] dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-900/20 dark:hover:text-brand-300"
             >
               <Plus className="w-3 h-3" />
               Thêm model
             </button>
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500 -mt-1">
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
             Thêm endpoint tương thích OpenAI của riêng bạn. Mỗi model sẽ xuất
             hiện trong danh sách chọn dịch vụ.
           </p>
 
           {settings.customModels.length === 0 ? (
-            <p className="text-[11px] leading-snug text-zinc-400 italic">
+            <p className="text-[11px] leading-snug text-zinc-400 italic dark:text-zinc-500">
               Chưa có model nào. Bấm &ldquo;Thêm model&rdquo; để tạo.
             </p>
           ) : (
@@ -410,7 +455,7 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
               {settings.customModels.map((m) => (
                 <div
                   key={m.id}
-                  className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 hover:border-zinc-300 transition-colors duration-200"
+                  className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
                 >
                   <div className="flex items-center gap-2">
                     <input
@@ -419,20 +464,20 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                       value={m.name}
                       onChange={(e) => updateCustomModel(m.id, { name: e.target.value })}
                       placeholder="Tên hiển thị"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-medium text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-medium text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
                     />
                     <button
                       type="button"
                       onClick={() => removeCustomModel(m.id)}
                       aria-label="Xoá model"
                       title="Xoá model"
-                      className="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                      className="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200 dark:text-zinc-500 dark:hover:bg-red-900/20"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
                       Endpoint
                     </span>
                     <input
@@ -441,11 +486,11 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                       value={m.endpoint}
                       onChange={(e) => updateCustomModel(m.id, { endpoint: e.target.value })}
                       placeholder="http://host:port/v1"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all"
+                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
                     />
                   </label>
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
                       Model
                     </span>
                     <input
@@ -454,11 +499,11 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                       value={m.model}
                       onChange={(e) => updateCustomModel(m.id, { model: e.target.value })}
                       placeholder="model-name"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all"
+                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
                     />
                   </label>
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
                       API key
                     </span>
                     <input
@@ -468,20 +513,22 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                       value={m.apiKey}
                       onChange={(e) => updateCustomModel(m.id, { apiKey: e.target.value })}
                       placeholder="sk-…"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all"
+                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
                     />
                   </label>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      </section>
+              </div>
+            )}
+          </div>
+        </section>
+      </Section>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-          Hành vi mặc định
-        </h2>
+      <Section query={query} keywords={sectionKeywords.defaultRule}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Hành vi mặc định
+          </h2>
         <div className="grid grid-cols-3 gap-1.5 max-w-sm">
           {(["always", "ask", "never"] as AutoRule[]).map((rule) => (
             <button
@@ -490,30 +537,32 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
               onClick={() => onChange({ ...settings, autoRule: rule })}
               className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
                 settings.autoRule === rule
-                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
               }`}
             >
               {AUTO_RULE_LABELS[rule]}
             </button>
           ))}
         </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
-          Áp dụng cho các trang chưa có quy tắc riêng bên dưới.
-        </p>
-      </section>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Áp dụng cho các trang chưa có quy tắc riêng bên dưới.
+          </p>
+        </section>
+      </Section>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Globe2 className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.hostRules}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Globe2 className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Quy tắc theo trang
+            </h2>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Quy tắc theo trang
-          </h2>
-        </div>
         {Object.keys(settings.hostRules).length === 0 ? (
-          <p className="text-[11px] leading-snug text-zinc-500">
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
             Chưa có quy tắc nào. Đặt một quy tắc từ popup chính khi đang xem trang.
           </p>
         ) : (
@@ -521,19 +570,19 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
             {Object.entries(settings.hostRules).map(([host, rule]) => (
               <li
                 key={host}
-                className="flex items-center justify-between bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2 hover:border-zinc-300 transition-colors duration-200"
+                className="flex items-center justify-between bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
               >
-                <span className="text-[12.5px] font-medium text-zinc-800 truncate">
+                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 truncate">
                   {host}
                 </span>
                 <span className="flex items-center gap-2">
                   <span
                     className={`px-2 py-0.5 rounded-md border text-[10px] uppercase font-bold tracking-wider ${
                       rule === "always"
-                        ? "bg-brand-100/60 border-brand-200 text-brand-700"
+                        ? "bg-brand-100/60 border-brand-200 text-brand-700 dark:bg-brand-900/30 dark:border-brand-800 dark:text-brand-300"
                         : rule === "never"
-                          ? "bg-red-100/60 border-red-200 text-red-700"
-                          : "bg-zinc-100 border-zinc-200 text-zinc-600"
+                          ? "bg-red-100/60 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300"
+                          : "bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400"
                     }`}
                   >
                     {AUTO_RULE_LABELS[rule]}
@@ -541,16 +590,25 @@ export function WebSettings({ settings, onChange }: WebSettingsProps) {
                   <button
                     type="button"
                     onClick={() => removeHostRule(host)}
-                    className="text-[10.5px] font-semibold text-zinc-400 hover:text-red-600 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50"
+                    className="text-[10.5px] font-semibold text-zinc-400 hover:text-red-600 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50 dark:text-zinc-500 dark:hover:bg-red-900/20"
                   >
                     Xoá
                   </button>
                 </span>
               </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              ))}
+            </ul>
+          )}
+        </section>
+      </Section>
+
+      {!hasMatch && query.trim().length > 0 && (
+        <div className="text-center py-8 animate-fade-in">
+          <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+            Không tìm thấy kết quả cho &ldquo;{query}&rdquo;
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -565,16 +623,16 @@ function ShortcutRow({
   description: string;
 }) {
   return (
-    <li className="flex items-start justify-between gap-3 bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2.5 hover:border-zinc-300 transition-colors duration-200">
+    <li className="flex items-start justify-between gap-3 bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2.5 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600">
       <span className="flex flex-col min-w-0">
-        <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
-        <span className="text-[11px] leading-snug text-zinc-500">{description}</span>
+        <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{label}</span>
+        <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span>
       </span>
       <span className="flex items-center gap-1 shrink-0 pt-0.5">
         {keys.map((k, i) => (
           <span key={i} className="flex items-center gap-1">
-            {i > 0 && <span className="text-[10px] text-zinc-400">+</span>}
-            <kbd className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md border border-zinc-300 bg-white text-[11px] font-bold text-zinc-700 shadow-sm">
+            {i > 0 && <span className="text-[10px] text-zinc-400 dark:text-zinc-500">+</span>}
+            <kbd className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md border border-zinc-300 bg-white text-[11px] font-bold text-zinc-700 shadow-sm dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-300">
               {k}
             </kbd>
           </span>

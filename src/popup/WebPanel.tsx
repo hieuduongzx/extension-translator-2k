@@ -201,15 +201,19 @@ export function WebPanel() {
       ? "Đang dịch…"
       : "Dịch trang này", [status.active, isLoading]);
 
+  const ctaClass = status.active
+    ? "bg-white border-zinc-200 text-zinc-900 shadow-card hover:border-zinc-300 hover:shadow-card-hover dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:border-zinc-600"
+    : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]";
+
   return (
     <div className="p-3 space-y-3 animate-fade-in">
       {/* Site info + mode switch */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
-            <Globe2 className="w-3 h-3 text-zinc-500" />
+          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0 dark:bg-zinc-800 dark:border-zinc-700">
+            <Globe2 className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
           </div>
-          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight">
+          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight dark:text-zinc-300">
             {tab?.hostname || "Không có tab nào"}
           </p>
         </div>
@@ -224,11 +228,7 @@ export function WebPanel() {
         type="button"
         onClick={triggerTranslate}
         disabled={!tab || restricted || busy}
-        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 text-[14px] font-semibold tracking-tight active:scale-[0.98] hover-lift ${
-          status.active
-            ? "bg-white border-zinc-200 text-zinc-900 shadow-card hover:border-zinc-300 hover:shadow-card-hover"
-            : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]"
-        } disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:hover:translate-y-0`}
+        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 text-[14px] font-semibold tracking-tight active:scale-[0.98] hover-lift ${ctaClass} disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:hover:translate-y-0`}
       >
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin-slow" />
@@ -239,7 +239,7 @@ export function WebPanel() {
       </button>
 
       {!restricted && (
-        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500">
+        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500 dark:text-zinc-400">
           <span>Phím tắt:</span>
           <kbd className="kbd-key">Alt</kbd>
           <span className="opacity-60">+</span>
@@ -259,7 +259,7 @@ export function WebPanel() {
           bare
         />
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
 
         <ProviderPair
           provider={settings.provider}
@@ -279,7 +279,7 @@ export function WebPanel() {
       {/* Auto-translate */}
       <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
         <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-zinc-400" />
+          <Sparkles className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
           <h2 className="section-label">
             Tự động dịch
           </h2>
@@ -292,8 +292,8 @@ export function WebPanel() {
               onClick={() => setHostRule(r)}
               className={`flex-1 px-2 py-1 rounded-lg text-[10.5px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
                 hostRule === r
-                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
               }`}
             >
               {AUTO_RULE_LABELS[r]}

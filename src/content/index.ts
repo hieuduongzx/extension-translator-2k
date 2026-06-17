@@ -14,7 +14,7 @@ import {
 import { ensureStyles } from "./styles";
 import { normalizeSelection } from "./selectionText";
 import { loadSettings, updateSettings, watchSettings } from "../storage";
-import { customProviderId, BUILTIN_PROVIDER_LABELS } from "../types";
+import { customProviderId, BUILTIN_PROVIDER_LABELS, DEFAULT_SETTINGS } from "../types";
 import type {
   ApplySettingsMessage,
   BuiltinProviderId,
@@ -33,7 +33,16 @@ let cachedSettings: Settings | null = null;
 let tabId: number | null = null;
 
 async function getSettings(): Promise<Settings> {
-  if (!cachedSettings) cachedSettings = await loadSettings();
+  if (!cachedSettings) {
+    try {
+      cachedSettings = await loadSettings();
+    } catch {
+      // In the MAIN world `chrome.storage` can be unavailable or throw before
+      // the extension context is fully wired. Fall back to defaults so callers
+      // (e.g. the selection trigger) keep working instead of silently dying.
+      cachedSettings = { ...DEFAULT_SETTINGS };
+    }
+  }
   return cachedSettings;
 }
 
@@ -248,10 +257,26 @@ function selectionAnchor(): { x: number; y: number } | null {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return null;
   const range = selection.getRangeAt(0);
-  const rects = range.getClientRects();
-  if (rects.length === 0) return null;
-  const last = rects[rects.length - 1];
-  return { x: last.left, y: last.bottom };
+  let rects: DOMRectList | null = null;
+  try {
+    rects = range.getClientRects();
+  } catch {
+    /* shadow DOM can throw */
+  }
+  if (rects && rects.length > 0) {
+    const last = rects[rects.length - 1];
+    return { x: last.left, y: last.bottom };
+  }
+  let boundingRect: DOMRect | null = null;
+  try {
+    boundingRect = range.getBoundingClientRect();
+  } catch {
+    /* ignore */
+  }
+  if (boundingRect && boundingRect.width > 0 && boundingRect.height > 0) {
+    return { x: boundingRect.right, y: boundingRect.bottom };
+  }
+  return null;
 }
 
 document.addEventListener(
@@ -310,9 +335,22 @@ watchSettings((settings) => {
   }
 });
 
+// Attach the selection-trigger listeners synchronously at module load using
+// defaults. The async settings load below reconciles this (uninstalling it if
+// the user turned the feature off). This guarantees the floating icon works on
+// the first selection even if `chrome.storage` is slow or throws.
+syncSelectionTrigger(DEFAULT_SETTINGS);
+
 void (async () => {
+  // Install the selection trigger up front using whatever settings load (or
+  // defaults) so the floating icon works on the very first selection, without
+  // waiting on the engine/auto-enable logic below. Previously this lived after
+  // `await getSettings()` and a throw there (common in the MAIN world before
+  // `chrome.storage` is ready) left the listeners uninstalled until a later
+  // re-sync (e.g. after a right-click translate).
   const settings = await getSettings();
   syncSelectionTrigger(settings);
+
   const host = window.location.hostname;
   const rule = settings.hostRules[host] ?? settings.autoRule;
 
@@ -386,10 +424,27 @@ async function handleDoubleClick(e: MouseEvent): Promise<void> {
 
 function anchorForSelection(sel: Selection | null): { x: number; y: number } | null {
   if (!sel || sel.rangeCount === 0) return null;
-  const rects = sel.getRangeAt(0).getClientRects();
-  if (rects.length === 0) return null;
-  const last = rects[rects.length - 1];
-  return { x: last.left, y: last.bottom };
+  const range = sel.getRangeAt(0);
+  let rects: DOMRectList | null = null;
+  try {
+    rects = range.getClientRects();
+  } catch {
+    /* shadow DOM can throw */
+  }
+  if (rects && rects.length > 0) {
+    const last = rects[rects.length - 1];
+    return { x: last.left, y: last.bottom };
+  }
+  let boundingRect: DOMRect | null = null;
+  try {
+    boundingRect = range.getBoundingClientRect();
+  } catch {
+    /* ignore */
+  }
+  if (boundingRect && boundingRect.width > 0 && boundingRect.height > 0) {
+    return { x: boundingRect.right, y: boundingRect.bottom };
+  }
+  return null;
 }
 
 function showError(message: string): void {

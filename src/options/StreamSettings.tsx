@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+﻿import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import { Eye, EyeOff, KeyRound, Save, CheckCircle2, Captions, RotateCcw } from "lucide-react";
 import { ToggleSwitch } from "../popup/components/ToggleSwitch";
+import { matchesSearch } from "../shared/search";
 import {
   DEFAULT_STREAM_STATE,
   getStreamState,
@@ -13,13 +14,33 @@ import {
 
 const SONIOX_DOC_URL = "https://console.soniox.com";
 
+interface StreamSettingsProps {
+  query: string;
+}
+
+/**
+ * Hides a settings section when the search query does not match any keyword.
+ */
+function Section({
+  query,
+  keywords,
+  children
+}: {
+  query: string;
+  keywords: string[];
+  children: ReactNode;
+}) {
+  if (!matchesSearch(query, ...keywords)) return null;
+  return <>{children}</>;
+}
+
 /**
  * Settings for the real-time stream translator feature. Reads/writes the
  * background worker's overlay settings (`streamTranslatorSettings`) plus the
  * Soniox API key. Each control round-trips through the background so a live
  * session picks up changes immediately.
  */
-export function StreamSettings() {
+export function StreamSettings({ query }: StreamSettingsProps) {
   const [state, setState] = useState<StreamRuntimeState>(DEFAULT_STREAM_STATE);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
@@ -93,10 +114,27 @@ export function StreamSettings() {
   const opacityPercent = useMemo(() => overlay ? ((overlay.opacity - 10) / 90) * 100 : 0, [overlay?.opacity]);
   const isSaveDisabled = apiKeyDraft.trim() === (state.apiKey ?? "") || !!apiKeyError;
 
+  const sectionKeywords = {
+    apiKey: ["Soniox API key", "API key", "console.soniox.com", "Lưu", "Đang hoạt động"],
+    overlay: [
+      "Mặc định overlay phụ đề",
+      "Hiện văn bản gốc",
+      "Hiện người nói",
+      "Tự cuộn tới dòng mới",
+      "Chế độ hiển thị",
+      "Liên tục",
+      "Theo câu",
+      "Độ mờ nền",
+      "Đặt lại vị trí overlay"
+    ]
+  };
+
+  const hasMatch = Object.values(sectionKeywords).some((kws) => matchesSearch(query, ...kws));
+
   return (
     <div className="space-y-4 pb-4">
       <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">
+        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
           Dịch Stream
         </h1>
         <p className="text-[13px] text-zinc-500 mt-1">
@@ -106,16 +144,17 @@ export function StreamSettings() {
         <div className="accent-line mt-3" />
       </header>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-              <KeyRound className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.apiKey}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+                <KeyRound className="w-3.5 h-3.5 text-brand-600" />
+              </div>
+              <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                Soniox API key
+              </h2>
             </div>
-            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-              Soniox API key
-            </h2>
-          </div>
           {hasApiKey && (
             <span
               className={`status-pill transition-all duration-200 ${
@@ -129,7 +168,7 @@ export function StreamSettings() {
             </span>
           )}
         </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
+        <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           Nhập Soniox API key để bật dịch giọng nói thời gian thực. Key được lưu
           cục bộ trong trình duyệt. Lấy key tại{" "}
           <a
@@ -161,7 +200,7 @@ export function StreamSettings() {
             <button
               type="button"
               onClick={() => setShowApiKey((v) => !v)}
-              className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg hover:bg-zinc-100"
+              className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg hover:bg-zinc-100 dark:text-zinc-500 dark:hover:text-zinc-200 dark:hover:bg-zinc-700"
               title={showApiKey ? "Ẩn key" : "Hiện key"}
             >
               {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -177,21 +216,23 @@ export function StreamSettings() {
             Lưu
           </button>
         </div>
-        {apiKeyError && (
-          <p className="text-[11px] text-red-600 font-medium animate-scale-in">⚠ {apiKeyError}</p>
-        )}
-      </section>
+          {apiKeyError && (
+            <p className="text-[11px] text-red-600 font-medium animate-scale-in">⚠ {apiKeyError}</p>
+          )}
+        </section>
+      </Section>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Captions className="w-3.5 h-3.5 text-brand-600" />
+      <Section query={query} keywords={sectionKeywords.overlay}>
+        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center dark:bg-brand-900/20 dark:border-brand-800">
+              <Captions className="w-3.5 h-3.5 text-brand-600" />
+            </div>
+            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Mặc định overlay phụ đề
+            </h2>
           </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-            Mặc định overlay phụ đề
-          </h2>
-        </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
+        <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           Các thiết lập này áp dụng cho khung phụ đề hiển thị trên trang. Có thể
           chỉnh nhanh ngay trên overlay khi đang dịch.
         </p>
@@ -217,10 +258,10 @@ export function StreamSettings() {
               onChange={(v) => void patchOverlay({ autoScroll: v })}
             />
 
-            <div className="h-px bg-zinc-200/60" />
+            <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[12.5px] font-medium text-zinc-800">Chế độ hiển thị</span>
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Chế độ hiển thị</span>
               <div className="grid grid-cols-2 gap-1.5 max-w-xs">
                 {(
                   [
@@ -234,8 +275,8 @@ export function StreamSettings() {
                     onClick={() => void patchOverlay({ displayMode: mode })}
                     className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight border transition-all duration-200 active:scale-[0.97] ${
                       overlay.displayMode === mode
-                        ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm"
-                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+                        ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
                     }`}
                   >
                     {label}
@@ -246,8 +287,8 @@ export function StreamSettings() {
 
             <div className="flex flex-col gap-2 max-w-md">
               <div className="flex items-center justify-between text-[12.5px]">
-                <span className="font-medium text-zinc-800">Độ mờ nền</span>
-                <span className="text-[11px] text-brand-700 font-bold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">Độ mờ nền</span>
+                <span className="text-[11px] text-brand-700 font-bold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md dark:bg-brand-900/30 dark:text-brand-300">
                   {overlay.opacity}%
                 </span>
               </div>
@@ -264,22 +305,31 @@ export function StreamSettings() {
                            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
                            [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
                 style={{
-                  background: `linear-gradient(to right, #14b8a6 ${opacityPercent}%, #e4e4e7 ${opacityPercent}%)`
+                  background: `linear-gradient(to right, var(--brand-500) ${opacityPercent}%, var(--slider-track) ${opacityPercent}%)`
                 }}
               />
             </div>
 
-            <button
-              type="button"
-              onClick={() => void resetOverlay()}
-              className="btn-ghost hover-lift"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Đặt lại vị trí overlay
-            </button>
-          </div>
-        )}
-      </section>
+              <button
+                type="button"
+                onClick={() => void resetOverlay()}
+                className="btn-ghost hover-lift"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Đặt lại vị trí overlay
+              </button>
+            </div>
+          )}
+        </section>
+      </Section>
+
+      {!hasMatch && query.trim().length > 0 && (
+        <div className="text-center py-8 animate-fade-in">
+          <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+            Không tìm thấy kết quả cho &ldquo;{query}&rdquo;
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -298,8 +348,8 @@ function ToggleRow({
   return (
     <div className="flex items-start justify-between gap-3 py-0.5">
       <span className="flex flex-col">
-        <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
-        <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>
+        <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{label}</span>
+        <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{hint}</span>
       </span>
       <div className="mt-0.5">
         <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={label} />
