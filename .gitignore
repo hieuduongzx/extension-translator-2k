@@ -1,8 +1,14 @@
 node_modules
 dist
+dist.zip
 *.log
-*.zip
+.env
+.env.local
+.env.*.local
 .DS_Store
 Thumbs.db
 .vscode
 .idea
+coverage/
+
+

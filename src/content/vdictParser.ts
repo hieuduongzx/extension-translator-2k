@@ -48,8 +48,7 @@ export function parseVdictHtml(html: string, word: string): DictionaryEntry[] {
   }
 
   const phonetic =
-    doc.querySelector(".word-header .pronunciation")?.textContent?.trim() ||
-    undefined;
+    doc.querySelector(".word-header .pronunciation")?.textContent?.trim() || undefined;
 
   // Try the friendly definition first — it's richer and bilingual.
   const friendly = doc.getElementById("friendlyDefinition");
@@ -62,10 +61,7 @@ export function parseVdictHtml(html: string, word: string): DictionaryEntry[] {
 
   if (meanings.length === 0) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[web-translator] VDict: parsed page but extracted 0 meanings for",
-        word
-      );
+      console.warn("[web-translator] VDict: parsed page but extracted 0 meanings for", word);
     }
     return [];
   }
@@ -134,9 +130,7 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
     } else {
       // No POS strong tag → treat as advanced/idiom row attached to the
       // current POS group.
-      const def = normaliseText(
-        group.querySelector(".meaning-value")?.textContent || ""
-      );
+      const def = normaliseText(group.querySelector(".meaning-value")?.textContent || "");
       const exampleEl = group.querySelector<HTMLElement>(".example");
       const exampleText = normaliseText(exampleEl?.textContent || "");
       const { en, vi } = splitBilingualSentence(exampleText);
@@ -159,14 +153,11 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
   for (const h of Array.from(allHeadings)) {
     const label = h.textContent?.trim().toLowerCase() || "";
     if (!label.startsWith("ví dụ")) continue;
-    let cur: Element | null = h.nextElementSibling;
+    const cur: Element | null = h.nextElementSibling;
     if (!cur || !cur.classList.contains("meanings-list")) continue;
     const groups = cur.querySelectorAll<HTMLElement>(".meaning");
     for (const g of Array.from(groups)) {
-      const posText = g
-        .querySelector(".meaning-value strong")
-        ?.textContent?.trim()
-        .toLowerCase();
+      const posText = g.querySelector(".meaning-value strong")?.textContent?.trim().toLowerCase();
       if (!posText) continue;
       const pos = POS_NORMALISE[posText];
       if (!pos) continue;
@@ -186,9 +177,7 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
             example: en,
             exampleVi: vi || list[nextSlot].exampleVi
           };
-          nextSlot = list.findIndex(
-            (d, i) => i > nextSlot! && !d.example
-          );
+          nextSlot = list.findIndex((d, i) => i > nextSlot! && !d.example);
         }
       }
       partGroups.set(pos, list);
@@ -196,9 +185,7 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
   }
 
   for (const [pos, defs] of partGroups) {
-    const cleaned = defs.filter(
-      (d) => d.definition.trim().length > 0 || d.example
-    );
+    const cleaned = defs.filter((d) => d.definition.trim().length > 0 || d.example);
     if (cleaned.length === 0) continue;
     meanings.push({
       partOfSpeech: pos,
@@ -226,16 +213,11 @@ function readAcademic(root: HTMLElement): DictionaryEntry["meanings"] {
   const meanings: DictionaryEntry["meanings"] = [];
   const sections = root.querySelectorAll<HTMLElement>(".word-type-section");
   for (const section of Array.from(sections)) {
-    const posText = section
-      .querySelector(".word-type")
-      ?.textContent?.trim()
-      .toLowerCase();
+    const posText = section.querySelector(".word-type")?.textContent?.trim().toLowerCase();
     if (!posText) continue;
     const pos = POS_NORMALISE[posText] ?? posText;
     const defs: RawDef[] = [];
-    const items = section.querySelectorAll<HTMLElement>(
-      ".meanings-list > .meaning .meaning-value"
-    );
+    const items = section.querySelectorAll<HTMLElement>(".meanings-list > .meaning .meaning-value");
     for (const it of Array.from(items)) {
       const def = normaliseText(it.textContent || "");
       if (def) defs.push({ definition: def });

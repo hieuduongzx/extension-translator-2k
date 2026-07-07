@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Popup shell — Lab Studio light/dark theme (teal brand).
-   The shared component vocabulary lives in src/shared/ui.css.
-   ───────────────────────────────────────────────────────────────────────── */
+    Popup shell — clean minimal light/dark theme (teal brand).
+    Near-flat background, no decorative gradients. The shared component
+    vocabulary lives in src/shared/ui.css.
+    ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   html,
@@ -17,20 +18,18 @@
     overflow: hidden;
     color: #18181b;
     font-family:
-      "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+      "Space Grotesk",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   body {
-    background:
-      radial-gradient(
-        120% 80% at 50% -10%,
-        rgba(20, 184, 166, 0.12) 0%,
-        rgba(20, 184, 166, 0.04) 40%,
-        transparent 70%
-      ),
-      #ffffff;
+    background: #ffffff;
   }
 }
 
@@ -41,12 +40,5 @@ html[data-theme="dark"] #root {
 }
 
 html[data-theme="dark"] body {
-  background:
-    radial-gradient(
-      120% 80% at 50% -10%,
-      rgba(20, 184, 166, 0.14) 0%,
-      rgba(20, 184, 166, 0.05) 40%,
-      transparent 70%
-    ),
-    #111318;
+  background: #09090b;
 }

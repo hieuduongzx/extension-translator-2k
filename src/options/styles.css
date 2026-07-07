@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Options page shell — full-window variant of the Lab Studio theme.
-   The shared component vocabulary lives in src/shared/ui.css.
-   ───────────────────────────────────────────────────────────────────────── */
+    Options page shell — clean minimal full-window variant (teal brand).
+    Near-flat background, no decorative gradients. The shared component
+    vocabulary lives in src/shared/ui.css.
+    ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   html,
@@ -15,20 +16,18 @@
     min-height: 100vh;
     color: #18181b;
     font-family:
-      "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+      "Space Grotesk",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   body {
-    background:
-      radial-gradient(
-        80% 50% at 50% -5%,
-        rgba(20, 184, 166, 0.1) 0%,
-        rgba(20, 184, 166, 0.03) 40%,
-        transparent 70%
-      ),
-      #ffffff;
+    background: #fafafa;
   }
 }
 
@@ -39,12 +38,5 @@ html[data-theme="dark"] #root {
 }
 
 html[data-theme="dark"] body {
-  background:
-    radial-gradient(
-      80% 50% at 50% -5%,
-      rgba(20, 184, 166, 0.15) 0%,
-      rgba(20, 184, 166, 0.05) 40%,
-      transparent 70%
-    ),
-    #111318;
+  background: #09090b;
 }

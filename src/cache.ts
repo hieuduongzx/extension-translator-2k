@@ -10,6 +10,10 @@ import type { ProviderId } from "./types";
  *
  * Persistence is debounced: rapid `set()` calls during a page translation are
  * coalesced into a single storage write to avoid hammering the disk.
+ *
+ * Eviction is LRU: `readCache` re-inserts touched entries to move them to the
+ * most-recently-used end of the Map, so the overflow trim in `writeCache`
+ * drops the least-recently-used entries first.
  */
 
 interface CacheEntry {
@@ -99,6 +103,12 @@ export async function readCache(
       return null;
     }
     if (!detected && entry.detected) detected = entry.detected;
+    // LRU touch: move the entry to the most-recently-used position so the
+    // eviction below drops the least-recently-used entries first. JS Map
+    // preserves insertion order and `set` on an existing key does NOT move
+    // it, so we delete + re-insert.
+    memory.delete(key);
+    memory.set(key, entry);
     return entry.text;
   });
   return { translations, detected };

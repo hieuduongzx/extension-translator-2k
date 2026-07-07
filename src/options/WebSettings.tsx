@@ -1,10 +1,15 @@
 import { useCallback, useMemo, type ReactNode } from "react";
-import { Globe2, Keyboard, MousePointerClick, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
-import { GemmaIcon, QwenIcon, Hy3Icon } from "../popup/components/ProviderSelect";
 import {
-  getAllProviderOptions,
-  getAIProviderOptions
-} from "../popup/components/ProviderSelect";
+  Globe2,
+  Keyboard,
+  MousePointerClick,
+  Plus,
+  Settings2,
+  Sparkles,
+  Trash2
+} from "lucide-react";
+import { GemmaIcon, QwenIcon, Hy3Icon } from "../popup/components/ProviderSelect";
+import { getAllProviderOptions, getAIProviderOptions } from "../popup/components/ProviderSelect";
 import { ModeToggle } from "../popup/components/ModeToggle";
 import { Dropdown } from "../popup/components/Dropdown";
 import {
@@ -83,20 +88,24 @@ function Section({
  * the full-width options layout (no back button — the sidebar navigates).
  */
 export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
-  const removeHostRule = useCallback((host: string) => {
-    const next = { ...settings.hostRules };
-    delete next[host];
-    onChange({ ...settings, hostRules: next });
-  }, [settings, onChange]);
+  const removeHostRule = useCallback(
+    (host: string) => {
+      const next = { ...settings.hostRules };
+      delete next[host];
+      onChange({ ...settings, hostRules: next });
+    },
+    [settings, onChange]
+  );
 
-  const updateCustomModel = useCallback((id: string, patch: Partial<CustomModel>) => {
-    onChange({
-      ...settings,
-      customModels: settings.customModels.map((m) =>
-        m.id === id ? { ...m, ...patch } : m
-      )
-    });
-  }, [settings, onChange]);
+  const updateCustomModel = useCallback(
+    (id: string, patch: Partial<CustomModel>) => {
+      onChange({
+        ...settings,
+        customModels: settings.customModels.map((m) => (m.id === id ? { ...m, ...patch } : m))
+      });
+    },
+    [settings, onChange]
+  );
 
   const addCustomModel = useCallback(() => {
     const id =
@@ -112,33 +121,60 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
     });
   }, [settings, onChange]);
 
-  const removeCustomModel = useCallback((id: string) => {
-    const pid = customProviderId(id);
-    onChange({
-      ...settings,
-      customModels: settings.customModels.filter((m) => m.id !== id),
-      provider: settings.provider === pid ? DEFAULT_SETTINGS.provider : settings.provider,
-      aiProvider:
-        settings.aiProvider === pid ? DEFAULT_SETTINGS.aiProvider : settings.aiProvider
-    });
-  }, [settings, onChange]);
+  const removeCustomModel = useCallback(
+    (id: string) => {
+      const pid = customProviderId(id);
+      onChange({
+        ...settings,
+        customModels: settings.customModels.filter((m) => m.id !== id),
+        provider: settings.provider === pid ? DEFAULT_SETTINGS.provider : settings.provider,
+        aiProvider: settings.aiProvider === pid ? DEFAULT_SETTINGS.aiProvider : settings.aiProvider
+      });
+    },
+    [settings, onChange]
+  );
 
-  const providerOptions = useMemo(() => 
-    getAllProviderOptions(settings.customModels).filter(o => o.value !== "__add_custom__"),
+  const providerOptions = useMemo(
+    () => getAllProviderOptions(settings.customModels).filter((o) => o.value !== "__add_custom__"),
     [settings.customModels]
   );
 
-  const aiProviderOptions = useMemo(() => 
-    getAIProviderOptions(settings.customModels).filter(o => o.value !== "__add_custom__"),
+  const aiProviderOptions = useMemo(
+    () => getAIProviderOptions(settings.customModels).filter((o) => o.value !== "__add_custom__"),
     [settings.customModels]
   );
 
   const sectionKeywords = {
-    shortcuts: ["Phím tắt", "Dịch / bỏ dịch cả trang", "Dịch phần đã bôi đen", "Alt", "chrome://extensions/shortcuts"],
+    shortcuts: [
+      "Phím tắt",
+      "Dịch / bỏ dịch cả trang",
+      "Dịch phần đã bôi đen",
+      "Alt",
+      "chrome://extensions/shortcuts"
+    ],
     display: ["Chế độ hiển thị bản dịch", "Song ngữ", "Chỉ bản dịch"],
-    selection: ["Popup chọn văn bản", "Hiện biểu tượng dịch nổi", "Cách tra từ điển", "Hiện văn bản gốc", "Giao diện popup", "Sáng", "Tối"],
+    selection: [
+      "Popup chọn văn bản",
+      "Hiện biểu tượng dịch nổi",
+      "Cách tra từ điển",
+      "Hiện văn bản gốc",
+      "Giao diện popup",
+      "Sáng",
+      "Tối"
+    ],
     ai: ["Dịch vụ AI", "Khi bấm dịch bằng AI", "Hiện bên dưới", "Thay thế bản cũ"],
-    models: ["Quản lý Model", "Chọn dịch vụ", "Dịch vụ dịch trang", "Dịch vụ bôi đen", "Dịch vụ AI", "Model có sẵn", "Model tuỳ chỉnh", "Gemma 4", "Qwen 3.7 max", "Hy3 Preview"],
+    models: [
+      "Quản lý Model",
+      "Chọn dịch vụ",
+      "Dịch vụ dịch trang",
+      "Dịch vụ bôi đen",
+      "Dịch vụ AI",
+      "Model có sẵn",
+      "Model tuỳ chỉnh",
+      "Gemma 4",
+      "Qwen 3.7 max",
+      "Hy3 Preview"
+    ],
     defaultRule: ["Hành vi mặc định", "Luôn luôn", "Hỏi", "Không bao giờ"],
     hostRules: [
       "Quy tắc theo trang",
@@ -207,9 +243,9 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
               Chế độ hiển thị bản dịch
             </h2>
           </div>
-        <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-          Cách hiển thị nội dung sau khi dịch trang.
-        </p>
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Cách hiển thị nội dung sau khi dịch trang.
+          </p>
           <div className="max-w-md">
             <ModeToggle
               value={settings.displayMode}
@@ -230,83 +266,83 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
             </h2>
           </div>
 
-        <label className="flex items-start justify-between gap-3 cursor-pointer group">
-          <span className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
-              Hiện biểu tượng dịch nổi
+          <label className="flex items-start justify-between gap-3 cursor-pointer group">
+            <span className="flex flex-col">
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
+                Hiện biểu tượng dịch nổi
+              </span>
+              <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Hiển thị một biểu tượng cạnh đoạn bạn bôi đen. Bấm vào đó để mở popup dịch mà không
+                cần dùng menu chuột phải.
+              </span>
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              Hiển thị một biểu tượng cạnh đoạn bạn bôi đen. Bấm vào đó để
-              mở popup dịch mà không cần dùng menu chuột phải.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={settings.selectionTrigger}
-            onChange={(e) => onChange({ ...settings, selectionTrigger: e.target.checked })}
-            className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
-          />
-        </label>
-
-        <div className="flex items-start justify-between gap-3">
-          <span className="flex flex-col flex-1 min-w-0">
-            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
-              Cách tra từ điển
-            </span>
-            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              Mở popup từ điển (định nghĩa, phát âm, ví dụ). Tự chuyển sang trình
-              dịch khi không tìm thấy từ.
-            </span>
-          </span>
-          <div className="w-[200px] shrink-0">
-            <Dropdown
-              value={settings.dictionaryMode}
-              options={DICTIONARY_MODE_OPTIONS}
-              onChange={(dictionaryMode) =>
-                onChange({ ...settings, dictionaryMode: dictionaryMode as DictionaryMode })
-              }
+            <input
+              type="checkbox"
+              checked={settings.selectionTrigger}
+              onChange={(e) => onChange({ ...settings, selectionTrigger: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
             />
-          </div>
-        </div>
+          </label>
 
-        <label className="flex items-start justify-between gap-3 cursor-pointer group">
-          <span className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
-              Hiện văn bản gốc
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex flex-col flex-1 min-w-0">
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+                Cách tra từ điển
+              </span>
+              <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Mở popup từ điển (định nghĩa, phát âm, ví dụ). Tự chuyển sang trình dịch khi không
+                tìm thấy từ.
+              </span>
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              Khi popup mở ra, hiển thị cả văn bản gốc bên cạnh bản dịch.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={settings.showSelectionOriginal}
-            onChange={(e) =>
-              onChange({ ...settings, showSelectionOriginal: e.target.checked })
-            }
-            className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
-          />
-        </label>
-
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Giao diện popup</span>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(["light", "dark"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => onChange({ ...settings, selectionPopupTheme: t })}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
-                  settings.selectionPopupTheme === t
-                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
-                }`}
-              >
-                {THEME_LABELS[t]}
-              </button>
-            ))}
+            <div className="w-[200px] shrink-0">
+              <Dropdown
+                value={settings.dictionaryMode}
+                options={DICTIONARY_MODE_OPTIONS}
+                onChange={(dictionaryMode) =>
+                  onChange({ ...settings, dictionaryMode: dictionaryMode as DictionaryMode })
+                }
+              />
+            </div>
           </div>
-        </div>
+
+          <label className="flex items-start justify-between gap-3 cursor-pointer group">
+            <span className="flex flex-col">
+              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">
+                Hiện văn bản gốc
+              </span>
+              <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Khi popup mở ra, hiển thị cả văn bản gốc bên cạnh bản dịch.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.showSelectionOriginal}
+              onChange={(e) => onChange({ ...settings, showSelectionOriginal: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
+            />
+          </label>
+
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+              Giao diện popup
+            </span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(["light", "dark"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onChange({ ...settings, selectionPopupTheme: t })}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-colors duration-200 active:scale-[0.97] ${
+                    settings.selectionPopupTheme === t
+                      ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                      : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
+                  }`}
+                >
+                  {THEME_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
       </Section>
 
@@ -325,30 +361,28 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
           </p>
 
           <div className="flex flex-col gap-2 pt-0.5">
-            <span className="text-[11.5px] font-medium text-zinc-800">
-              Khi bấm dịch bằng AI
-            </span>
-          <div className="grid grid-cols-2 gap-1.5 max-w-xs">
-            {(
-              [
-                ["below", "Hiện bên dưới"],
-                ["replace", "Thay thế bản cũ"]
-              ] as const
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => onChange({ ...settings, aiTranslationMode: mode })}
-                className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight border transition-all duration-200 active:scale-[0.97] ${
-                  settings.aiTranslationMode === mode
-                    ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+            <span className="text-[11.5px] font-medium text-zinc-800">Khi bấm dịch bằng AI</span>
+            <div className="grid grid-cols-2 gap-1.5 max-w-xs">
+              {(
+                [
+                  ["below", "Hiện bên dưới"],
+                  ["replace", "Thay thế bản cũ"]
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onChange({ ...settings, aiTranslationMode: mode })}
+                  className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-tight border transition-colors duration-200 active:scale-[0.97] ${
+                    settings.aiTranslationMode === mode
+                      ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                      : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {settings.aiTranslationMode === "replace"
                 ? "Bản dịch AI sẽ ghi đè lên bản dịch chính trong popup."
@@ -376,148 +410,154 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
             <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
               Chọn dịch vụ
             </span>
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
-            Cấu hình provider cho từng tính năng dịch thuật.
-          </p>
-          <div className="grid grid-cols-1 gap-2.5 pt-0.5 max-w-xl">
-            <div>
-              <span className="section-label">Dịch vụ dịch trang</span>
-              <Dropdown
-                value={settings.provider}
-                options={providerOptions}
-                onChange={(v) => onChange({ ...settings, provider: v as ProviderId })}
-              />
-            </div>
-            <div>
-              <span className="section-label">Dịch vụ bôi đen</span>
-              <Dropdown
-                value={settings.quickProvider}
-                options={providerOptions}
-                onChange={(v) => onChange({ ...settings, quickProvider: v as ProviderId })}
-              />
-            </div>
-            <div>
-              <span className="section-label">Dịch vụ AI</span>
-              <Dropdown
-                value={settings.aiProvider}
-                options={aiProviderOptions}
-                onChange={(v) => onChange({ ...settings, aiProvider: v as AIProviderId })}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 pt-1">
-          <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
-            Model có sẵn
-          </span>
-          <div className="flex flex-col gap-2 max-w-xl">
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
-              <GemmaIcon />
-              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Gemma 4</span>
-            </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
-              <QwenIcon />
-              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Qwen 3.7 max</span>
-            </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
-              <Hy3Icon />
-              <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">Hy3 Preview</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 pt-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
-              Model tuỳ chỉnh
-            </span>
-            <button
-              type="button"
-              onClick={addCustomModel}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-semibold text-zinc-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 transition-all duration-200 active:scale-[0.97] dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-900/20 dark:hover:text-brand-300"
-            >
-              <Plus className="w-3 h-3" />
-              Thêm model
-            </button>
-          </div>
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
-            Thêm endpoint tương thích OpenAI của riêng bạn. Mỗi model sẽ xuất
-            hiện trong danh sách chọn dịch vụ.
-          </p>
-
-          {settings.customModels.length === 0 ? (
-            <p className="text-[11px] leading-snug text-zinc-400 italic dark:text-zinc-500">
-              Chưa có model nào. Bấm &ldquo;Thêm model&rdquo; để tạo.
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
+              Cấu hình provider cho từng tính năng dịch thuật.
             </p>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-              {settings.customModels.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      spellCheck={false}
-                      value={m.name}
-                      onChange={(e) => updateCustomModel(m.id, { name: e.target.value })}
-                      placeholder="Tên hiển thị"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-medium text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeCustomModel(m.id)}
-                      aria-label="Xoá model"
-                      title="Xoá model"
-                      className="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200 dark:text-zinc-500 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+            <div className="grid grid-cols-1 gap-2.5 pt-0.5 max-w-xl">
+              <div>
+                <span className="section-label">Dịch vụ dịch trang</span>
+                <Dropdown
+                  value={settings.provider}
+                  options={providerOptions}
+                  onChange={(v) => onChange({ ...settings, provider: v as ProviderId })}
+                />
+              </div>
+              <div>
+                <span className="section-label">Dịch vụ bôi đen</span>
+                <Dropdown
+                  value={settings.quickProvider}
+                  options={providerOptions}
+                  onChange={(v) => onChange({ ...settings, quickProvider: v as ProviderId })}
+                />
+              </div>
+              <div>
+                <span className="section-label">Dịch vụ AI</span>
+                <Dropdown
+                  value={settings.aiProvider}
+                  options={aiProviderOptions}
+                  onChange={(v) => onChange({ ...settings, aiProvider: v as AIProviderId })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+              Model có sẵn
+            </span>
+            <div className="flex flex-col gap-2 max-w-xl">
+              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
+                <GemmaIcon />
+                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+                  Gemma 4
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
+                <QwenIcon />
+                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+                  Qwen 3.7 max
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
+                <Hy3Icon />
+                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
+                  Hy3 Preview
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11.5px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+                Model tuỳ chỉnh
+              </span>
+              <button
+                type="button"
+                onClick={addCustomModel}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-semibold text-zinc-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 transition-all duration-200 active:scale-[0.97] dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-900/20 dark:hover:text-brand-300"
+              >
+                <Plus className="w-3 h-3" />
+                Thêm model
+              </button>
+            </div>
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 -mt-1">
+              Thêm endpoint tương thích OpenAI của riêng bạn. Mỗi model sẽ xuất hiện trong danh sách
+              chọn dịch vụ.
+            </p>
+
+            {settings.customModels.length === 0 ? (
+              <p className="text-[11px] leading-snug text-zinc-400 italic dark:text-zinc-500">
+                Chưa có model nào. Bấm &ldquo;Thêm model&rdquo; để tạo.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                {settings.customModels.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        spellCheck={false}
+                        value={m.name}
+                        onChange={(e) => updateCustomModel(m.id, { name: e.target.value })}
+                        placeholder="Tên hiển thị"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] font-medium text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCustomModel(m.id)}
+                        aria-label="Xoá model"
+                        title="Xoá model"
+                        className="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200 dark:text-zinc-500 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
+                        Endpoint
+                      </span>
+                      <input
+                        type="text"
+                        spellCheck={false}
+                        value={m.endpoint}
+                        onChange={(e) => updateCustomModel(m.id, { endpoint: e.target.value })}
+                        placeholder="http://host:port/v1"
+                        className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
+                        Model
+                      </span>
+                      <input
+                        type="text"
+                        spellCheck={false}
+                        value={m.model}
+                        onChange={(e) => updateCustomModel(m.id, { model: e.target.value })}
+                        placeholder="model-name"
+                        className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
+                        API key
+                      </span>
+                      <input
+                        type="password"
+                        spellCheck={false}
+                        autoComplete="off"
+                        value={m.apiKey}
+                        onChange={(e) => updateCustomModel(m.id, { apiKey: e.target.value })}
+                        placeholder="sk-…"
+                        className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+                      />
+                    </label>
                   </div>
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
-                      Endpoint
-                    </span>
-                    <input
-                      type="text"
-                      spellCheck={false}
-                      value={m.endpoint}
-                      onChange={(e) => updateCustomModel(m.id, { endpoint: e.target.value })}
-                      placeholder="http://host:port/v1"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
-                      Model
-                    </span>
-                    <input
-                      type="text"
-                      spellCheck={false}
-                      value={m.model}
-                      onChange={(e) => updateCustomModel(m.id, { model: e.target.value })}
-                      placeholder="model-name"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold dark:text-zinc-400">
-                      API key
-                    </span>
-                    <input
-                      type="password"
-                      spellCheck={false}
-                      autoComplete="off"
-                      value={m.apiKey}
-                      onChange={(e) => updateCustomModel(m.id, { apiKey: e.target.value })}
-                      placeholder="sk-…"
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-[12px] text-zinc-800 focus:border-brand-400 focus:ring-2 focus:ring-brand-200/50 outline-none transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
-                    />
-                  </label>
-                </div>
-              ))}
+                ))}
               </div>
             )}
           </div>
@@ -529,22 +569,22 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
           <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             Hành vi mặc định
           </h2>
-        <div className="grid grid-cols-3 gap-1.5 max-w-sm">
-          {(["always", "ask", "never"] as AutoRule[]).map((rule) => (
-            <button
-              key={rule}
-              type="button"
-              onClick={() => onChange({ ...settings, autoRule: rule })}
-              className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
-                settings.autoRule === rule
-                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
-              }`}
-            >
-              {AUTO_RULE_LABELS[rule]}
-            </button>
-          ))}
-        </div>
+          <div className="grid grid-cols-3 gap-1.5 max-w-sm">
+            {(["always", "ask", "never"] as AutoRule[]).map((rule) => (
+              <button
+                key={rule}
+                type="button"
+                onClick={() => onChange({ ...settings, autoRule: rule })}
+                className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider border transition-colors duration-200 active:scale-[0.97] ${
+                  settings.autoRule === rule
+                    ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                    : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
+                }`}
+              >
+                {AUTO_RULE_LABELS[rule]}
+              </button>
+            ))}
+          </div>
           <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
             Áp dụng cho các trang chưa có quy tắc riêng bên dưới.
           </p>
@@ -561,41 +601,41 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
               Quy tắc theo trang
             </h2>
           </div>
-        {Object.keys(settings.hostRules).length === 0 ? (
-          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-            Chưa có quy tắc nào. Đặt một quy tắc từ popup chính khi đang xem trang.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {Object.entries(settings.hostRules).map(([host, rule]) => (
-              <li
-                key={host}
-                className="flex items-center justify-between bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
-              >
-                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                  {host}
-                </span>
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded-md border text-[10px] uppercase font-bold tracking-wider ${
-                      rule === "always"
-                        ? "bg-brand-100/60 border-brand-200 text-brand-700 dark:bg-brand-900/30 dark:border-brand-800 dark:text-brand-300"
-                        : rule === "never"
-                          ? "bg-red-100/60 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300"
-                          : "bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400"
-                    }`}
-                  >
-                    {AUTO_RULE_LABELS[rule]}
+          {Object.keys(settings.hostRules).length === 0 ? (
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+              Chưa có quy tắc nào. Đặt một quy tắc từ popup chính khi đang xem trang.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {Object.entries(settings.hostRules).map(([host, rule]) => (
+                <li
+                  key={host}
+                  className="flex items-center justify-between bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600"
+                >
+                  <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                    {host}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeHostRule(host)}
-                    className="text-[10.5px] font-semibold text-zinc-400 hover:text-red-600 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50 dark:text-zinc-500 dark:hover:bg-red-900/20"
-                  >
-                    Xoá
-                  </button>
-                </span>
-              </li>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-md border text-[10px] uppercase font-bold tracking-wider ${
+                        rule === "always"
+                          ? "bg-brand-100/60 border-brand-200 text-brand-700 dark:bg-brand-900/30 dark:border-brand-800 dark:text-brand-300"
+                          : rule === "never"
+                            ? "bg-red-100/60 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300"
+                            : "bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400"
+                      }`}
+                    >
+                      {AUTO_RULE_LABELS[rule]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeHostRule(host)}
+                      className="text-[10.5px] font-semibold text-zinc-400 hover:text-red-600 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50 dark:text-zinc-500 dark:hover:bg-red-900/20"
+                    >
+                      Xoá
+                    </button>
+                  </span>
+                </li>
               ))}
             </ul>
           )}
@@ -626,7 +666,9 @@ function ShortcutRow({
     <li className="flex items-start justify-between gap-3 bg-zinc-50 border border-zinc-200/70 rounded-lg px-3 py-2.5 hover:border-zinc-300 transition-colors duration-200 dark:bg-zinc-800/60 dark:border-zinc-700 dark:hover:border-zinc-600">
       <span className="flex flex-col min-w-0">
         <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">{label}</span>
-        <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span>
+        <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {description}
+        </span>
       </span>
       <span className="flex items-center gap-1 shrink-0 pt-0.5">
         {keys.map((k, i) => (

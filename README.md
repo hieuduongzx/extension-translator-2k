@@ -1,15 +1,16 @@
 # Translator2k
 
 Chrome extension built with React + Vite + TypeScript + TailwindCSS. It bundles
-**two translation features** into one extension, switchable from a tabbed popup:
+**three translation features** into one extension, switchable from a tabbed popup:
 
 1. **Dịch Web** — translate any web page (Google / Bing / AI), selection popup
    and Vietnamese dictionary.
 2. **Dịch Stream** — real-time speech-to-text + translation overlay for
    videos/streams, powered by [Soniox](https://soniox.com).
+3. **Dịch nhanh** — standalone quick translator in the popup for ad-hoc text.
 
 Each feature has its own settings, reachable from a single options page with a
-sidebar listing both functions.
+sidebar listing all three functions.
 
 ## Features
 
@@ -59,8 +60,12 @@ Settings are stored separately per feature: web settings under
 
 ```bash
 npm install
+cp .env.example .env   # fill in VITE_GEMMA_* / VITE_QWEN_* / VITE_HY3_* then build
 npm run dev
 ```
+
+Without `.env` the extension still builds, but the built-in AI backends will
+fail with a friendly "endpoint not configured" error until the vars are set.
 
 ## Build
 
@@ -70,14 +75,29 @@ npm run build
 
 Load the `dist` folder in `chrome://extensions` with Developer Mode enabled.
 
-## Testing
+## Testing & linting
 
 ```bash
-npm test
+npm test          # vitest run (pure logic, no browser)
+npm run lint       # eslint, fails on any warning
+npm run format     # prettier write
 ```
 
-Unit tests cover the pure logic (response parsing, batching, language-code
-mapping). They run under Vitest and do not require a browser.
+A Husky pre-commit hook runs `lint-staged` (eslint --fix + prettier) on staged
+files automatically.
+
+## Security
+
+The built-in AI backends (Gemma / Qwen / Hy3) read their endpoint and API key
+from `import.meta.env.VITE_*` at build time (see `.env.example`). **Never
+commit `.env`.** If a key was ever committed to git history:
+
+```bash
+# install once: npm i -g git-filter-repo
+git filter-repo --invert-paths --path .env --path src/types.ts
+git push --force-with-lease origin
+# rotate the leaked key on the provider side too
+```
 
 ## Privacy & limitations
 

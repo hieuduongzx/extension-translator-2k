@@ -49,11 +49,14 @@ export function OptionsApp() {
     return () => unwatch?.();
   }, []);
 
-  const updateWebSettings = useCallback(async (next: Settings) => {
-    const patch = diffSettings(settings, next);
-    setSettings(next);
-    await updateSettings(patch);
-  }, [settings]);
+  const updateWebSettings = useCallback(
+    async (next: Settings) => {
+      const patch = diffSettings(settings, next);
+      setSettings(next);
+      await updateSettings(patch);
+    },
+    [settings]
+  );
 
   return (
     <div className="h-screen flex justify-center">
@@ -65,13 +68,15 @@ export function OptionsApp() {
               <img
                 src={chrome.runtime.getURL("public/icons/icon-128.png")}
                 alt="Translator2k"
-                className="w-9 h-9 rounded-xl shadow-card ring-1 ring-zinc-200/70 dark:ring-zinc-700/70"
+                className="w-9 h-9 rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800"
               />
               <div>
                 <h1 className="text-[15px] font-bold tracking-tight text-zinc-900 leading-tight dark:text-zinc-100">
                   Translator2k
                 </h1>
-                <p className="text-[11px] text-zinc-500 leading-tight dark:text-zinc-400">Cài đặt</p>
+                <p className="text-[11px] text-zinc-500 leading-tight dark:text-zinc-400">
+                  Cài đặt
+                </p>
               </div>
             </div>
 
@@ -86,17 +91,21 @@ export function OptionsApp() {
                     className={`nav-item ${active ? "nav-item-active" : ""}`}
                   >
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-all duration-200 ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors duration-200 ${
                         active
-                          ? "bg-brand-600 text-white shadow-glow-sm"
-                          : "bg-white text-zinc-500 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
+                          ? "bg-brand-600 text-white"
+                          : "bg-white text-zinc-500 border border-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-800"
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${active ? "scale-110" : ""} transition-transform`} />
+                      <Icon
+                        className={`w-4 h-4 ${active ? "scale-110" : ""} transition-transform`}
+                      />
                     </span>
                     <span className="flex flex-col min-w-0 text-left">
                       <span className="font-semibold tracking-tight">{label}</span>
-                      <span className="text-[10.5px] text-zinc-500 truncate dark:text-zinc-400">{caption}</span>
+                      <span className="text-[10.5px] text-zinc-500 truncate dark:text-zinc-400">
+                        {caption}
+                      </span>
                     </span>
                   </button>
                 );
@@ -122,7 +131,9 @@ export function OptionsApp() {
 
         {/* Content */}
         <main className="flex-1 min-w-0 relative">
-          <div className={`absolute inset-0 overflow-y-auto pr-2 ${isLoaded ? "section-enter" : "opacity-0"}`}>
+          <div
+            className={`absolute inset-0 overflow-y-auto pr-2 ${isLoaded ? "section-enter" : "opacity-0"}`}
+          >
             {section === "web" && (
               <WebSettings settings={settings} onChange={updateWebSettings} query={query} />
             )}

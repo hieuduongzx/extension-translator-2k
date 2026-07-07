@@ -32,10 +32,10 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
             key={mode.id}
             type="button"
             onClick={() => onChange(mode.id)}
-            className={`group flex items-start gap-2 p-3 rounded-xl border transition-all text-left active:scale-[0.98] ${
+            className={`group flex items-start gap-2 p-3 rounded-xl border transition-colors text-left active:scale-[0.98] ${
               active
-                ? "bg-brand-50 border-brand-300 ring-1 ring-brand-200 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:ring-brand-500/20"
-                : "bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-card-hover dark:bg-zinc-800 dark:border-zinc-700 dark:hover:border-zinc-600"
+                ? "bg-brand-50 border-brand-300 ring-1 ring-brand-200 dark:bg-brand-900/30 dark:border-brand-500/50 dark:ring-brand-500/20"
+                : "bg-white border-zinc-200/80 hover:border-zinc-300 dark:bg-zinc-800 dark:border-zinc-800 dark:hover:border-zinc-700"
             }`}
           >
             <div
@@ -57,7 +57,9 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
               </span>
               <span
                 className={`text-[10.5px] leading-snug ${
-                  active ? "text-brand-700/80 dark:text-brand-300/80" : "text-zinc-500 dark:text-zinc-400"
+                  active
+                    ? "text-brand-700/80 dark:text-brand-300/80"
+                    : "text-zinc-500 dark:text-zinc-400"
                 }`}
               >
                 {mode.subtitle}

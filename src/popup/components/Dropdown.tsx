@@ -65,9 +65,7 @@ export function Dropdown<T extends string>({
     setPosition({
       left: rect.left,
       width: rect.width,
-      ...(flipUp
-        ? { bottom: window.innerHeight - rect.top + GAP }
-        : { top: rect.bottom + GAP }),
+      ...(flipUp ? { bottom: window.innerHeight - rect.top + GAP } : { top: rect.bottom + GAP }),
       maxHeight: Math.min(256, Math.max(flipUp ? spaceAbove : spaceBelow, 96))
     });
   };
@@ -169,10 +167,10 @@ export function Dropdown<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:border-brand-400 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100 ${
+        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 ${
           open
-            ? "border-brand-300 ring-1 ring-brand-200 dark:border-brand-500/50 dark:ring-brand-500/20"
-            : "border-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-600"
+            ? "border-brand-500 ring-1 ring-brand-500/15 dark:border-brand-500/60 dark:ring-brand-500/20"
+            : "border-zinc-200/80 hover:border-zinc-300 dark:hover:border-zinc-700"
         }`}
       >
         <span className="flex items-center gap-2 min-w-0">
@@ -188,15 +186,14 @@ export function Dropdown<T extends string>({
         />
       </button>
 
-      {open && position &&
+      {open &&
+        position &&
         createPortal(
           <div
             id={listboxId}
             role="listbox"
             tabIndex={-1}
-            aria-activedescendant={
-              activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined
-            }
+            aria-activedescendant={activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
             onKeyDown={onListKeyDown}
             ref={(node) => {
               listRef.current = node;
@@ -210,7 +207,7 @@ export function Dropdown<T extends string>({
               bottom: position.bottom,
               maxHeight: position.maxHeight
             }}
-            className="z-[1000] bg-white border border-zinc-200 rounded-md shadow-float-light overflow-hidden animate-slide-up p-1 flex flex-col overflow-y-auto custom-scrollbar outline-none dark:bg-zinc-900 dark:border-zinc-700"
+            className="z-[1000] bg-white border border-zinc-200/80 rounded-lg shadow-float-light overflow-hidden animate-slide-up p-1 flex flex-col overflow-y-auto custom-scrollbar outline-none dark:bg-zinc-900 dark:border-zinc-800"
           >
             {options.map((option, index) => {
               const selected = option.value === value;
@@ -238,9 +235,7 @@ export function Dropdown<T extends string>({
                       selected ? "text-brand-600 dark:text-brand-400" : "text-transparent"
                     }`}
                   />
-                  {option.icon && (
-                    <span className="mt-0.5 shrink-0">{option.icon}</span>
-                  )}
+                  {option.icon && <span className="mt-0.5 shrink-0">{option.icon}</span>}
                   <span className="flex flex-col min-w-0">
                     <span className="text-[12.5px] font-semibold tracking-tight truncate">
                       {option.label}

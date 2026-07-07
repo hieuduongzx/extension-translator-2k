@@ -41,10 +41,7 @@ export async function updateSettings(patch: Partial<Settings>): Promise<Settings
 }
 
 export function watchSettings(callback: (settings: Settings) => void): () => void {
-  const listener = (
-    changes: { [key: string]: chrome.storage.StorageChange },
-    area: string
-  ) => {
+  const listener = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
     if (area !== "local" || !(SETTINGS_KEY in changes)) return;
     const next = changes[SETTINGS_KEY]?.newValue as Partial<Settings> | undefined;
     callback(next ? mergeSettings(next) : { ...DEFAULT_SETTINGS });
@@ -90,7 +87,7 @@ function sanitizeCustomModels(raw: unknown): CustomModel[] {
   return models;
 }
 
-const BUILTIN_PROVIDERS: ProviderId[] = ["google", "bing", "gemma", "qwen", "hy3"];
+const BUILTIN_PROVIDERS: ProviderId[] = ["google", "bing", "gemma"];
 
 function isValidProvider(id: string): id is ProviderId {
   return BUILTIN_PROVIDERS.includes(id as ProviderId) || isCustomProvider(id);
@@ -99,6 +96,8 @@ function isValidProvider(id: string): id is ProviderId {
 function resolveProvider(raw: string | undefined, customModels: CustomModel[]): ProviderId {
   if (!raw) return DEFAULT_SETTINGS.provider;
   if (raw === "microsoft") return "bing";
+  // Retired bundled AI backends: migrate to the remaining one.
+  if (raw === "qwen" || raw === "hy3") return "gemma";
   if (raw === "lingva" || raw === "mymemory") return DEFAULT_SETTINGS.provider;
   if (!isValidProvider(raw)) return DEFAULT_SETTINGS.provider;
   if (isCustomProvider(raw)) {
@@ -110,6 +109,8 @@ function resolveProvider(raw: string | undefined, customModels: CustomModel[]): 
 
 function resolveAIProvider(raw: string | undefined, customModels: CustomModel[]): AIProviderId {
   if (!raw) return DEFAULT_SETTINGS.aiProvider;
+  // Retired bundled AI backends: migrate to the remaining one.
+  if (raw === "qwen" || raw === "hy3") return "gemma";
   if (!isAIProvider(raw as ProviderId)) return DEFAULT_SETTINGS.aiProvider;
   if (isCustomProvider(raw as ProviderId)) {
     const exists = customModels.some((m) => customProviderId(m.id) === raw);

@@ -208,7 +208,7 @@ export function QuickPanel() {
         type="button"
         onClick={() => void handleTranslate()}
         disabled={!canTranslate}
-        className="group w-full h-10 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold bg-brand-600 text-white shadow-glow hover:bg-brand-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+        className="group w-full h-10 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {busy ? (
           <Loader2 className="w-4 h-4 animate-spin-slow" />

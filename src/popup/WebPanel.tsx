@@ -106,17 +106,18 @@ export function WebPanel() {
 
   const isLoading = useMemo(() => (busy || status.pending > 0) && !status.active, [busy, status]);
 
-  const update = useCallback(async (next: Settings, notifyTab = true): Promise<void> => {
-    setSettings(next);
-    const patch = diffSettings(settings, next);
-    const saved = await updateSettings(patch);
-    if (!notifyTab || !tab) return;
-    chrome.tabs
-      .sendMessage(tab.tabId, { type: "apply-settings", settings: saved })
-      .catch(() => {
+  const update = useCallback(
+    async (next: Settings, notifyTab = true): Promise<void> => {
+      setSettings(next);
+      const patch = diffSettings(settings, next);
+      const saved = await updateSettings(patch);
+      if (!notifyTab || !tab) return;
+      chrome.tabs.sendMessage(tab.tabId, { type: "apply-settings", settings: saved }).catch(() => {
         /* content script may not be loaded */
       });
-  }, [settings, tab]);
+    },
+    [settings, tab]
+  );
 
   const triggerTranslate = useCallback(async (): Promise<void> => {
     if (!tab || restricted) return;
@@ -152,58 +153,72 @@ export function WebPanel() {
     }
   }
 
-  const setProvider = useCallback(async (provider: ProviderId): Promise<void> => {
-    await update({ ...settings, provider });
-  }, [settings, update]);
+  const setProvider = useCallback(
+    async (provider: ProviderId): Promise<void> => {
+      await update({ ...settings, provider });
+    },
+    [settings, update]
+  );
 
-  const setQuickProvider = useCallback(async (quickProvider: ProviderId): Promise<void> => {
-    await update({ ...settings, quickProvider });
-  }, [settings, update]);
+  const setQuickProvider = useCallback(
+    async (quickProvider: ProviderId): Promise<void> => {
+      await update({ ...settings, quickProvider });
+    },
+    [settings, update]
+  );
 
-  const setAIProvider = useCallback(async (aiProvider: AIProviderId): Promise<void> => {
-    await update({ ...settings, aiProvider });
-  }, [settings, update]);
+  const setAIProvider = useCallback(
+    async (aiProvider: AIProviderId): Promise<void> => {
+      await update({ ...settings, aiProvider });
+    },
+    [settings, update]
+  );
 
-  const addCustomModel = useCallback(async (role: "provider" | "quick" | "ai"): Promise<void> => {
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `m${Date.now()}`;
-    const model: CustomModel = { id, name: "", endpoint: "", apiKey: "", model: "" };
-    const pid = customProviderId(id);
-    const next: Settings = {
-      ...settings,
-      customModels: [...settings.customModels, model],
-      ...(role === "provider"
-        ? { provider: pid }
-        : role === "quick"
-          ? { quickProvider: pid }
-          : { aiProvider: pid })
-    };
-    await update(next, false);
-    chrome.runtime.openOptionsPage();
-  }, [settings, update]);
+  const addCustomModel = useCallback(
+    async (role: "provider" | "quick" | "ai"): Promise<void> => {
+      const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `m${Date.now()}`;
+      const model: CustomModel = { id, name: "", endpoint: "", apiKey: "", model: "" };
+      const pid = customProviderId(id);
+      const next: Settings = {
+        ...settings,
+        customModels: [...settings.customModels, model],
+        ...(role === "provider"
+          ? { provider: pid }
+          : role === "quick"
+            ? { quickProvider: pid }
+            : { aiProvider: pid })
+      };
+      await update(next, false);
+      chrome.runtime.openOptionsPage();
+    },
+    [settings, update]
+  );
 
-  const setHostRule = useCallback(async (rule: AutoRule): Promise<void> => {
-    if (!tab?.hostname) return;
-    const hostRules = { ...settings.hostRules };
-    if (rule === settings.autoRule) {
-      delete hostRules[tab.hostname];
-    } else {
-      hostRules[tab.hostname] = rule;
-    }
-    await update({ ...settings, hostRules });
-  }, [settings, tab, update]);
+  const setHostRule = useCallback(
+    async (rule: AutoRule): Promise<void> => {
+      if (!tab?.hostname) return;
+      const hostRules = { ...settings.hostRules };
+      if (rule === settings.autoRule) {
+        delete hostRules[tab.hostname];
+      } else {
+        hostRules[tab.hostname] = rule;
+      }
+      await update({ ...settings, hostRules });
+    },
+    [settings, tab, update]
+  );
 
-  const buttonLabel = useMemo(() => status.active
-    ? "Hiện bản gốc"
-    : isLoading
-      ? "Đang dịch…"
-      : "Dịch trang này", [status.active, isLoading]);
+  const buttonLabel = useMemo(
+    () => (status.active ? "Hiện bản gốc" : isLoading ? "Đang dịch…" : "Dịch trang này"),
+    [status.active, isLoading]
+  );
 
   const ctaClass = status.active
-    ? "bg-white border-zinc-200 text-zinc-900 shadow-card hover:border-zinc-300 hover:shadow-card-hover dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:border-zinc-600"
-    : "bg-brand-600 border-brand-600 text-white shadow-glow hover:bg-brand-700 hover:shadow-[0_12px_32px_-8px_rgba(20,184,166,0.5)]";
+    ? "bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-700"
+    : "bg-brand-600 border-brand-600 text-white hover:bg-brand-700";
 
   return (
     <div className="p-3 space-y-3 animate-fade-in">
@@ -233,7 +248,9 @@ export function WebPanel() {
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin-slow" />
         ) : (
-          <Languages className={`w-4 h-4 transition-transform duration-200 ${status.active ? "" : "group-hover:scale-110"}`} />
+          <Languages
+            className={`w-4 h-4 transition-transform duration-200 ${status.active ? "" : "group-hover:scale-110"}`}
+          />
         )}
         {restricted ? "Không thể dịch trang này" : buttonLabel}
       </button>
@@ -280,9 +297,7 @@ export function WebPanel() {
       <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
-          <h2 className="section-label">
-            Tự động dịch
-          </h2>
+          <h2 className="section-label">Tự động dịch</h2>
         </div>
         <div className="flex gap-1.5">
           {(["always", "ask", "never"] as AutoRule[]).map((r) => (
@@ -290,10 +305,10 @@ export function WebPanel() {
               key={r}
               type="button"
               onClick={() => setHostRule(r)}
-              className={`flex-1 px-2 py-1 rounded-lg text-[10.5px] font-semibold uppercase tracking-wider border transition-all duration-200 active:scale-[0.97] ${
+              className={`flex-1 px-2 py-1 rounded-lg text-[10.5px] font-semibold uppercase tracking-wider border transition-colors duration-200 active:scale-[0.97] ${
                 hostRule === r
-                  ? "bg-brand-50 border-brand-300 text-brand-700 shadow-glow-sm dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                  : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600"
+                  ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
+                  : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
               }`}
             >
               {AUTO_RULE_LABELS[r]}

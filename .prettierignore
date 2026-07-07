@@ -1,0 +1,6 @@
+dist/
+node_modules/
+*.zip
+public/offscreen.js
+public/pcm-processor.js
+package-lock.json

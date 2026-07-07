@@ -53,8 +53,7 @@ async function bootstrapSession(): Promise<BingSession> {
   const res = await fetchWithTimeout(TRANSLATOR_URL, {
     method: "GET",
     headers: {
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9"
     },
     credentials: "include"
@@ -64,33 +63,42 @@ async function bootstrapSession(): Promise<BingSession> {
   }
   const html = await res.text();
 
-  const ig = match(html, /IG:"([^"]+)"/);
-  const iid = match(html, /data-iid="([^"]+)"/);
-  const helper = match(
-    html,
-    /var params_AbusePreventionHelper\s*=\s*\[([^\]]+)\]/
-  );
-  if (!ig || !iid || !helper) {
+  const parsed = parseBootstrapTokens(html);
+  if (!parsed) {
     throw new Error("Bing Translator bootstrap failed: missing tokens");
   }
+  return {
+    ig: parsed.ig,
+    iid: parsed.iid,
+    key: parsed.key,
+    token: parsed.token,
+    expiresAt: Date.now() + parsed.ttlMs,
+    count: 0
+  };
+}
+
+/**
+ * Extract the IG / IID / abuse-prevention token trio from the Bing Translator
+ * HTML page. Exposed for unit testing — the regex anchors are the brittle
+ * part of the Bing integration and this function makes them testable without
+ * a network round-trip. Returns `null` when any required piece is missing or
+ * the helper tuple is malformed.
+ */
+export function parseBootstrapTokens(
+  html: string
+): { ig: string; iid: string; key: string; token: string; ttlMs: number } | null {
+  const ig = match(html, /IG:"([^"]+)"/);
+  const iid = match(html, /data-iid="([^"]+)"/);
+  const helper = match(html, /var params_AbusePreventionHelper\s*=\s*\[([^\]]+)\]/);
+  if (!ig || !iid || !helper) return null;
 
   // helper looks like: 1234567890,"abcd...token...",3600000
   const parts = helper.split(",").map((p) => p.trim());
   const key = parts[0]?.replace(/"/g, "");
   const token = parts[1]?.replace(/"/g, "");
-  const ttl = Number(parts[2]?.replace(/[^0-9]/g, "")) || 30 * 60 * 1000;
-  if (!key || !token) {
-    throw new Error("Bing Translator bootstrap failed: malformed helper");
-  }
-
-  return {
-    ig,
-    iid,
-    key,
-    token,
-    expiresAt: Date.now() + ttl,
-    count: 0
-  };
+  const ttlMs = Number(parts[2]?.replace(/[^0-9]/g, "")) || 30 * 60 * 1000;
+  if (!key || !token) return null;
+  return { ig, iid, key, token, ttlMs };
 }
 
 function match(input: string, pattern: RegExp): string | null {
@@ -98,7 +106,7 @@ function match(input: string, pattern: RegExp): string | null {
   return m ? m[1] : null;
 }
 
-function toBingCode(code: string): string {
+export function toBingCode(code: string): string {
   if (code === "auto") return "auto-detect";
   // Bing accepts the same Microsoft-style codes (zh-Hans, zh-Hant, fil, ...).
   return toMicrosoftCode(code) ?? code;
@@ -178,8 +186,11 @@ export async function translateBing(
       session.count++;
       let attempt = 0;
       while (attempt < 2) {
-        const { text: translated, detected: detectedLang, needsRefresh } =
-          await translateOne(text, source, target, session);
+        const {
+          text: translated,
+          detected: detectedLang,
+          needsRefresh
+        } = await translateOne(text, source, target, session);
         if (needsRefresh && attempt === 0) {
           // Refresh token once and retry this segment.
           session = await getSession(true);
@@ -198,9 +209,7 @@ export async function translateBing(
     }
   }
 
-  const workers = Array.from({ length: Math.min(CONCURRENCY, texts.length) }, () =>
-    worker()
-  );
+  const workers = Array.from({ length: Math.min(CONCURRENCY, texts.length) }, () => worker());
   await Promise.all(workers);
 
   return { translations: results, detected };
