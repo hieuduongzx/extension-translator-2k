@@ -125,12 +125,10 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
   const provider = resolveProvider(stored.provider, customModels);
   const quickProvider = resolveProvider(stored.quickProvider as string | undefined, customModels);
 
-  // `gemma`, `qwen` and `hy3` are fixed developer-provided backends: always use the bundled
+  // `gemma` is a fixed developer-provided backend: always use the bundled
   // defaults and ignore any stored overrides.
   const ai: Settings["providers"]["ai"] = {
-    gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma },
-    qwen: { ...DEFAULT_SETTINGS.providers.ai.qwen },
-    hy3: { ...DEFAULT_SETTINGS.providers.ai.hy3 }
+    gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma }
   };
 
   const aiProvider = resolveAIProvider(stored.aiProvider as string | undefined, customModels);

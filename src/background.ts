@@ -74,7 +74,7 @@ async function handleTranslate(
     const message = err instanceof Error ? err.message : String(err);
     const isNetworkError = message.includes("Failed to fetch") || message.includes("NetworkError");
     const isTimeoutError = message.includes("timeout") || message.includes("timed out");
-    const providerLabel = provider === "qwen" ? "Qwen" : provider === "gemma" ? "Gemma" : provider;
+    const providerLabel = provider === "gemma" ? "Gemma" : provider;
     const friendlyMessage = isNetworkError
       ? `[${providerLabel}] Lỗi mạng: Kiểm tra kết nối internet`
       : isTimeoutError
@@ -100,9 +100,10 @@ async function handleDictionary(
     return { type: "dictionary-response", entries };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const friendlyMessage = message.includes("404") || message.includes("not found")
-      ? "Từ không tìm thấy"
-      : "Lỗi tra từ điển";
+    const friendlyMessage =
+      message.includes("404") || message.includes("not found")
+        ? "Từ không tìm thấy"
+        : "Lỗi tra từ điển";
     return { type: "dictionary-response", entries: [], error: friendlyMessage };
   }
 }
@@ -119,9 +120,7 @@ async function handleWiktionary(
   }
 }
 
-async function handleLaban(
-  request: LabanRequestMessage
-): Promise<LabanResponseMessage> {
+async function handleLaban(request: LabanRequestMessage): Promise<LabanResponseMessage> {
   try {
     const html = await fetchLabanHtml(request.word);
     return { type: "laban-response", html };
@@ -131,9 +130,7 @@ async function handleLaban(
   }
 }
 
-async function handleVdict(
-  request: VdictRequestMessage
-): Promise<VdictResponseMessage> {
+async function handleVdict(request: VdictRequestMessage): Promise<VdictResponseMessage> {
   try {
     const html = await fetchVdictHtml(request.word);
     return { type: "vdict-response", html };

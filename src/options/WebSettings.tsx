@@ -8,7 +8,7 @@ import {
   Sparkles,
   Trash2
 } from "lucide-react";
-import { GemmaIcon, QwenIcon, Hy3Icon } from "../popup/components/ProviderSelect";
+import { GemmaIcon } from "../popup/components/ProviderSelect";
 import { getAllProviderOptions, getAIProviderOptions } from "../popup/components/ProviderSelect";
 import { ModeToggle } from "../popup/components/ModeToggle";
 import { Dropdown } from "../popup/components/Dropdown";
@@ -171,9 +171,7 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
       "Dịch vụ AI",
       "Model có sẵn",
       "Model tuỳ chỉnh",
-      "Gemma 4",
-      "Qwen 3.7 max",
-      "Hy3 Preview"
+      "Gemma 4"
     ],
     defaultRule: ["Hành vi mặc định", "Luôn luôn", "Hỏi", "Không bao giờ"],
     hostRules: [
@@ -450,18 +448,6 @@ export function WebSettings({ settings, onChange, query }: WebSettingsProps) {
                 <GemmaIcon />
                 <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
                   Gemma 4
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
-                <QwenIcon />
-                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
-                  Qwen 3.7 max
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 hover:border-brand-200 hover:bg-brand-50/30 transition-colors duration-200 dark:bg-zinc-800/80 dark:border-zinc-700 dark:hover:border-brand-500/30 dark:hover:bg-brand-900/20">
-                <Hy3Icon />
-                <span className="text-[12.5px] font-medium text-zinc-800 dark:text-zinc-200">
-                  Hy3 Preview
                 </span>
               </div>
             </div>
