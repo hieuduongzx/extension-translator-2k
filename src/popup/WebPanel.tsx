@@ -5,8 +5,8 @@ import { LanguagePair } from "./components/LanguagePair";
 import { ModeSwitch } from "./components/ModeSwitch";
 import { StatusBadge } from "./components/StatusBadge";
 import { loadSettings, updateSettings, watchSettings, diffSettings } from "../storage";
-import type { AIProviderId, AutoRule, CustomModel, ProviderId, Settings } from "../types";
-import { customProviderId, DEFAULT_SETTINGS } from "../types";
+import type { AIProviderId, AutoRule, ProviderId, Settings } from "../types";
+import { DEFAULT_SETTINGS } from "../types";
 
 /** Vietnamese labels for the per-site auto-translate rules. */
 const AUTO_RULE_LABELS: Record<AutoRule, string> = {
@@ -37,6 +37,7 @@ export function WebPanel() {
   const [tab, setTab] = useState<TabContext | null>(null);
   const [status, setStatus] = useState<PageStatus>({ active: false, count: 0, pending: 0 });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   // Initial load
   useEffect(() => {
@@ -122,6 +123,7 @@ export function WebPanel() {
   const triggerTranslate = useCallback(async (): Promise<void> => {
     if (!tab || restricted) return;
     setBusy(true);
+    setError("");
     try {
       await chrome.tabs.sendMessage(tab.tabId, { type: "toggle" });
       window.close();
@@ -138,6 +140,7 @@ export function WebPanel() {
         window.close();
       } catch (err) {
         console.warn("Failed to translate page", err);
+        setError("Không thể dịch trang này. Hãy tải lại trang rồi thử lại.");
         setBusy(false);
       }
     }
@@ -174,28 +177,24 @@ export function WebPanel() {
     [settings, update]
   );
 
-  const addCustomModel = useCallback(
-    async (role: "provider" | "quick" | "ai"): Promise<void> => {
-      const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `m${Date.now()}`;
-      const model: CustomModel = { id, name: "", endpoint: "", apiKey: "", model: "" };
-      const pid = customProviderId(id);
-      const next: Settings = {
-        ...settings,
-        customModels: [...settings.customModels, model],
-        ...(role === "provider"
-          ? { provider: pid }
-          : role === "quick"
-            ? { quickProvider: pid }
-            : { aiProvider: pid })
-      };
-      await update(next, false);
-      chrome.runtime.openOptionsPage();
-    },
-    [settings, update]
-  );
+  /**
+   * Jump to the full settings "Quản lý Model" panel so the user can add a
+   * model there — we deliberately do NOT pre-create a blank model or
+   * auto-select it as the active provider from the popup.
+   */
+  const openModelSettings = useCallback(() => {
+    const url = chrome.runtime.getURL("options.html#models");
+    void chrome.tabs.create({ url });
+  }, []);
+
+  const swapLangs = useCallback(async (): Promise<void> => {
+    if (settings.sourceLang === "auto") return;
+    await update({
+      ...settings,
+      sourceLang: settings.targetLang,
+      targetLang: settings.sourceLang
+    });
+  }, [settings, update]);
 
   const setHostRule = useCallback(
     async (rule: AutoRule): Promise<void> => {
@@ -217,18 +216,18 @@ export function WebPanel() {
   );
 
   const ctaClass = status.active
-    ? "bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-700"
+    ? "bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50"
     : "bg-brand-600 border-brand-600 text-white hover:bg-brand-700";
 
   return (
-    <div className="p-3 space-y-3 animate-fade-in">
+    <div className="p-3 space-y-3">
       {/* Site info + mode switch */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0 dark:bg-zinc-800 dark:border-zinc-700">
-            <Globe2 className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
+            <Globe2 className="w-3 h-3 text-zinc-500" />
           </div>
-          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight dark:text-zinc-300">
+          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight">
             {tab?.hostname || "Không có tab nào"}
           </p>
         </div>
@@ -256,12 +255,18 @@ export function WebPanel() {
       </button>
 
       {!restricted && (
-        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500">
           <span>Phím tắt:</span>
           <kbd className="kbd-key">Alt</kbd>
           <span className="opacity-60">+</span>
           <kbd className="kbd-key">A</kbd>
         </div>
+      )}
+
+      {error && (
+        <p role="alert" className="text-[11px] text-red-600 font-medium animate-scale-in">
+          {error}
+        </p>
       )}
 
       <StatusBadge active={status.active} count={status.count} pending={status.pending} />
@@ -273,10 +278,12 @@ export function WebPanel() {
           target={settings.targetLang}
           onSourceChange={(sourceLang) => update({ ...settings, sourceLang })}
           onTargetChange={(targetLang) => update({ ...settings, targetLang })}
+          onSwap={swapLangs}
+          swapDisabled={settings.sourceLang === "auto"}
           bare
         />
 
-        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
+        <div className="h-px bg-zinc-200/60" />
 
         <ProviderPair
           provider={settings.provider}
@@ -286,9 +293,9 @@ export function WebPanel() {
           onProviderChange={setProvider}
           onQuickProviderChange={setQuickProvider}
           onAIProviderChange={setAIProvider}
-          onAddProvider={() => void addCustomModel("provider")}
-          onAddQuickProvider={() => void addCustomModel("quick")}
-          onAddAIProvider={() => void addCustomModel("ai")}
+          onAddProvider={openModelSettings}
+          onAddQuickProvider={openModelSettings}
+          onAddAIProvider={openModelSettings}
           bare
         />
       </section>
@@ -296,7 +303,7 @@ export function WebPanel() {
       {/* Auto-translate */}
       <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
         <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+          <Sparkles className="w-3 h-3 text-zinc-400" />
           <h2 className="section-label">Tự động dịch</h2>
         </div>
         <div className="flex gap-1.5">
@@ -305,10 +312,9 @@ export function WebPanel() {
               key={r}
               type="button"
               onClick={() => setHostRule(r)}
-              className={`flex-1 px-2 py-1 rounded-lg text-[10.5px] font-semibold uppercase tracking-wider border transition-colors duration-200 active:scale-[0.97] ${
-                hostRule === r
-                  ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                  : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
+              aria-pressed={hostRule === r}
+              className={`choice-chip uppercase text-[10.5px] tracking-wider ${
+                hostRule === r ? "choice-chip-active" : ""
               }`}
             >
               {AUTO_RULE_LABELS[r]}

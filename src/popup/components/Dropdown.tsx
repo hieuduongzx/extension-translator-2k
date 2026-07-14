@@ -16,6 +16,11 @@ interface DropdownProps<T extends string> {
   onChange: (value: T) => void;
   /** Optional override for the displayed label (defaults to selected option label). */
   buttonLabel?: string;
+  /**
+   * Accessible name for the trigger. Without it screen readers announce only
+   * the selected value — "Tiếng Việt" with no hint of what the control picks.
+   */
+  ariaLabel?: string;
   className?: string;
 }
 
@@ -41,6 +46,7 @@ export function Dropdown<T extends string>({
   options,
   onChange,
   buttonLabel,
+  ariaLabel,
   className = ""
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false);
@@ -165,23 +171,24 @@ export function Dropdown<T extends string>({
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onButtonKeyDown}
         aria-haspopup="listbox"
+        aria-label={ariaLabel}
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 ${
+        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 ${
           open
-            ? "border-brand-500 ring-1 ring-brand-500/15 dark:border-brand-500/60 dark:ring-brand-500/20"
-            : "border-zinc-200/80 hover:border-zinc-300 dark:hover:border-zinc-700"
+            ? "border-brand-500 ring-1 ring-brand-500/15"
+            : "border-zinc-200/80 hover:border-zinc-300"
         }`}
       >
         <span className="flex items-center gap-2 min-w-0">
           {current?.icon && <span className="shrink-0">{current.icon}</span>}
-          <span className="text-[13px] font-semibold tracking-tight text-zinc-900 truncate dark:text-zinc-100">
+          <span className="text-[13px] font-semibold tracking-tight text-zinc-900 truncate">
             {buttonLabel ?? current?.label ?? value}
           </span>
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-zinc-400 transition-transform shrink-0 dark:text-zinc-500 ${
-            open ? "rotate-180 text-zinc-700 dark:text-zinc-300" : ""
+          className={`w-3.5 h-3.5 text-zinc-400 transition-transform shrink-0 ${
+            open ? "rotate-180 text-zinc-700" : ""
           }`}
         />
       </button>
@@ -207,7 +214,7 @@ export function Dropdown<T extends string>({
               bottom: position.bottom,
               maxHeight: position.maxHeight
             }}
-            className="z-[1000] bg-white border border-zinc-200/80 rounded-lg shadow-float-light overflow-hidden animate-slide-up p-1 flex flex-col overflow-y-auto custom-scrollbar outline-none dark:bg-zinc-900 dark:border-zinc-800"
+            className="z-[1000] bg-white border border-zinc-200/80 rounded-lg shadow-float-light overflow-hidden animate-slide-up p-1 flex flex-col overflow-y-auto custom-scrollbar outline-none"
           >
             {options.map((option, index) => {
               const selected = option.value === value;
@@ -224,15 +231,15 @@ export function Dropdown<T extends string>({
                   onClick={() => commit(index)}
                   className={`flex items-start gap-2 px-2 py-1.5 rounded text-left transition-colors ${
                     selected
-                      ? "bg-brand-50 text-brand-900 dark:bg-brand-900/30 dark:text-brand-300"
+                      ? "bg-brand-50 text-brand-900"
                       : highlighted
-                        ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                        : "text-zinc-700 dark:text-zinc-100"
+                        ? "bg-zinc-100 text-zinc-900"
+                        : "text-zinc-700"
                   }`}
                 >
                   <Check
                     className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                      selected ? "text-brand-600 dark:text-brand-400" : "text-transparent"
+                      selected ? "text-brand-600" : "text-transparent"
                     }`}
                   />
                   {option.icon && <span className="mt-0.5 shrink-0">{option.icon}</span>}
@@ -243,9 +250,7 @@ export function Dropdown<T extends string>({
                     {option.description && (
                       <span
                         className={`text-[10.5px] leading-snug ${
-                          selected
-                            ? "text-brand-700/80 dark:text-brand-300/80"
-                            : "text-zinc-500 dark:text-zinc-400"
+                          selected ? "text-brand-700/80" : "text-zinc-500"
                         }`}
                       >
                         {option.description}

@@ -35,19 +35,41 @@ interface PopupHandle {
 }
 
 let activeHandle: PopupHandle | null = null;
+let activeConfigKey = "";
+
+/**
+ * Serializable fingerprint of the config the live popup was built with.
+ * When it changes (provider/language/theme edited elsewhere while a popup is
+ * open), the popup is rebuilt instead of silently reusing stale settings.
+ */
+function configKey(config: SelectionPopupConfig): string {
+  return JSON.stringify([
+    config.provider,
+    config.aiProvider,
+    config.aiTranslationMode,
+    config.source,
+    config.target,
+    config.showOriginal,
+    config.theme,
+    config.providerOptions
+  ]);
+}
 
 export function showSelectionPopup(
   text: string,
   anchor: { x: number; y: number },
   config: SelectionPopupConfig
 ): PopupHandle {
-  if (activeHandle) {
+  const key = configKey(config);
+  if (activeHandle && key === activeConfigKey) {
     activeHandle.show(text, anchor);
     return activeHandle;
   }
+  activeHandle?.destroy();
   ensureStyles();
   const handle = createPopup(text, anchor, config);
   activeHandle = handle;
+  activeConfigKey = key;
   return handle;
 }
 
@@ -304,11 +326,7 @@ function createPopup(
   }
 
   /** Reassemble the translated segments back into the original line layout. */
-  function stitch(
-    parts: string[],
-    idx: number[],
-    translations: string[]
-  ): string {
+  function stitch(parts: string[], idx: number[], translations: string[]): string {
     const out = [...parts];
     for (let i = 0; i < idx.length; i++) {
       const at = idx[i];

@@ -1,12 +1,18 @@
 import { batchSegments, type SegmentBatch } from "./batching";
-import { BATCH_CONCURRENCY, BILINGUAL_CLASS, FONT_PATCH_ATTR, GENERIC_FONT_FAMILIES, ORIGINAL_ATTR, TRANSLATED_ATTR, TRANSLATED_FONT_FALLBACK } from "./constants";
+import {
+  BATCH_CONCURRENCY,
+  BILINGUAL_CLASS,
+  FONT_PATCH_ATTR,
+  GENERIC_FONT_FAMILIES,
+  ORIGINAL_ATTR,
+  TRANSLATED_ATTR,
+  TRANSLATED_FONT_FALLBACK,
+  TRANSLATING_CLASS
+} from "./constants";
 import { sendTranslateRequest } from "./messaging";
-import { ensureStyles, removeStyles } from "./styles";
+import { ensureStyles } from "./styles";
 import { collectSegments, collectSelectionSegments, type TextSegment } from "./walker";
-import type {
-  DisplayMode,
-  ProviderId
-} from "../types";
+import type { DisplayMode, ProviderId } from "../types";
 
 interface EngineConfig {
   provider: ProviderId;
@@ -28,6 +34,13 @@ interface AppliedRecord {
  */
 export class TranslationEngine {
   private active = false;
+  /**
+   * Bumped on every enable()/disable(). Batch workers capture the generation
+   * they were started under and bail once it changes, so re-enabling with a
+   * new config can't let stale in-flight batches apply old-config translations
+   * on top of the fresh run.
+   */
+  private generation = 0;
   private config: EngineConfig;
   private records: AppliedRecord[] = [];
   private observer?: MutationObserver;
@@ -40,6 +53,12 @@ export class TranslationEngine {
    * still translated on later mutation passes.
    */
   private translatedNodes = new WeakSet<Text>();
+  /**
+   * Ref-count of in-flight batches touching each element, so the "đang dịch"
+   * pulse only clears once the *last* batch covering that element resolves
+   * (sibling text nodes can land in different batches).
+   */
+  private translatingCount = new Map<Element, number>();
   private onProgress?: (state: { active: boolean; count: number; pending: number }) => void;
   private onError?: (message: string) => void;
 
@@ -47,7 +66,9 @@ export class TranslationEngine {
     this.config = config;
   }
 
-  setProgressHandler(fn: (state: { active: boolean; count: number; pending: number }) => void): void {
+  setProgressHandler(
+    fn: (state: { active: boolean; count: number; pending: number }) => void
+  ): void {
     this.onProgress = fn;
   }
 
@@ -64,12 +85,16 @@ export class TranslationEngine {
   }
 
   async enable(config: EngineConfig): Promise<void> {
+    // Frames without a body (about:blank, srcdoc shells) have nothing to
+    // translate and would make `observer.observe(document.body)` throw.
+    if (!document.body) return;
     this.config = config;
     if (this.active) {
       // Reset and re-translate with the new config.
       this.disable({ keepStyles: true });
     }
     this.active = true;
+    this.generation++;
     ensureStyles();
     this.startObserver();
     await this.translateRoot(document.body);
@@ -92,12 +117,15 @@ export class TranslationEngine {
     this.emitProgress();
   }
 
-  disable(opts: { keepStyles?: boolean } = {}): void {
-    if (!this.active && this.records.length === 0) {
-      if (!opts.keepStyles) removeStyles();
-      return;
-    }
+  /**
+   * Note: the shared stylesheet is intentionally left in place — it also
+   * styles the selection/dictionary popups and the error banner, which may be
+   * open while page translation toggles off. The sheet is inert when unused.
+   */
+  disable(_opts: { keepStyles?: boolean } = {}): void {
+    if (!this.active && this.records.length === 0) return;
     this.active = false;
+    this.generation++;
     this.observer?.disconnect();
     this.observer = undefined;
     if (this.pendingFlush !== undefined) {
@@ -106,14 +134,17 @@ export class TranslationEngine {
     }
     this.pendingNodes.clear();
     this.restoreAll();
-    if (!opts.keepStyles) removeStyles();
     this.emitProgress();
   }
 
   private async translateRoot(root: Node): Promise<void> {
     const segments = collectSegments(root, (n) => this.translatedNodes.has(n));
     if (segments.length === 0) return;
-    const batches = batchSegments(segments);
+    // Viewport priority: batch the segments the user can currently see first,
+    // then everything else. On long pages this gets visible text translated in
+    // the first couple of requests instead of after the whole document.
+    const { visible, hidden } = partitionByViewport(segments);
+    const batches = [...batchSegments(visible), ...batchSegments(hidden)];
     await this.runBatches(batches);
   }
 
@@ -126,17 +157,17 @@ export class TranslationEngine {
    * "engine was disabled"; for the selection shortcut there's no active state,
    * so it never cancels (the few selected batches just run to completion).
    */
-  private async runBatches(
-    batches: SegmentBatch[],
-    cancelled: () => boolean = () => !this.active
-  ): Promise<void> {
+  private async runBatches(batches: SegmentBatch[], cancelled?: () => boolean): Promise<void> {
+    const generation = this.generation;
+    const isCancelled = cancelled ?? (() => !this.active || generation !== this.generation);
     let cursor = 0;
     const worker = async (): Promise<void> => {
       while (cursor < batches.length) {
-        if (cancelled()) return;
+        if (isCancelled()) return;
         const batch = batches[cursor++];
         this.inflight++;
         this.emitProgress();
+        this.markTranslating(batch.segments);
         try {
           const response = await sendTranslateRequest({
             type: "translate",
@@ -149,12 +180,13 @@ export class TranslationEngine {
             this.onError?.(response.error);
             continue;
           }
-          if (cancelled()) return;
+          if (isCancelled()) return;
           this.applyBatch(batch.segments, response.translations);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           this.onError?.(message);
         } finally {
+          this.unmarkTranslating(batch.segments);
           this.inflight--;
           this.emitProgress();
         }
@@ -165,22 +197,96 @@ export class TranslationEngine {
     await Promise.all(Array.from({ length: poolSize }, () => worker()));
   }
 
+  /**
+   * Add a lightweight "đang dịch" pulse to the parent of every text node in a
+   * batch that's about to be dispatched. Ref-counted so overlapping batches
+   * don't clear each other's marker early. The animation itself is pure
+   * `opacity` (see styles) so it stays GPU-composited and cheap even across
+   * hundreds of in-flight elements.
+   */
+  private markTranslating(segments: TextSegment[]): void {
+    for (const segment of segments) {
+      const el = segment.node.parentElement;
+      if (!el) continue;
+      const next = (this.translatingCount.get(el) ?? 0) + 1;
+      this.translatingCount.set(el, next);
+      if (next === 1) el.classList.add(TRANSLATING_CLASS);
+    }
+  }
+
+  private unmarkTranslating(segments: TextSegment[]): void {
+    for (const segment of segments) {
+      const el = segment.node.parentElement;
+      if (!el) continue;
+      const remaining = (this.translatingCount.get(el) ?? 1) - 1;
+      if (remaining > 0) {
+        this.translatingCount.set(el, remaining);
+      } else {
+        this.translatingCount.delete(el);
+        el.classList.remove(TRANSLATING_CLASS);
+      }
+    }
+  }
+
+  /** Defensive sweep: drop any lingering pulse markers on teardown. */
+  private clearTranslating(): void {
+    for (const el of this.translatingCount.keys()) {
+      el.classList.remove(TRANSLATING_CLASS);
+    }
+    this.translatingCount.clear();
+  }
+
+  /**
+   * Applies a batch in two phases — all computed-style reads first, then all
+   * DOM writes — so the browser recalculates style once per batch instead of
+   * once per segment (interleaved read/write forces a recalc every iteration).
+   */
   private applyBatch(segments: TextSegment[], translations: string[]): void {
+    interface Pending {
+      segment: TextSegment;
+      translated: string;
+      parent: HTMLElement;
+      inline: boolean;
+      computedFont: string;
+    }
+
+    // Phase 1: reads only.
+    const pending: Pending[] = [];
+    const inlineByParent = new Map<HTMLElement, boolean>();
+    const fontByParent = new Map<HTMLElement, string>();
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i];
       const translated = translations[i];
       if (!translated) continue;
-      if (!segment.node.parentNode) continue;
+      const parent = segment.node.parentElement;
+      if (!parent || !segment.node.parentNode) continue;
       if (translated.trim() === segment.text.trim()) continue;
 
-      const record = this.applyToSegment(segment, translated);
+      let inline = false;
+      let computedFont = "";
+      if (this.config.displayMode === "replace") {
+        computedFont = fontByParent.get(parent) ?? window.getComputedStyle(parent).fontFamily;
+        fontByParent.set(parent, computedFont);
+      } else {
+        inline = inlineByParent.get(parent) ?? isInlineParent(parent);
+        inlineByParent.set(parent, inline);
+      }
+      pending.push({ segment, translated, parent, inline, computedFont });
+    }
+
+    // Phase 2: writes only.
+    for (const item of pending) {
+      const record = this.applyToSegment(item.segment, item.translated, item);
       if (record) this.records.push(record);
     }
   }
 
-  private applyToSegment(segment: TextSegment, translated: string): AppliedRecord | null {
-    const parent = segment.node.parentElement;
-    if (!parent) return null;
+  private applyToSegment(
+    segment: TextSegment,
+    translated: string,
+    layout: { parent: HTMLElement; inline: boolean; computedFont: string }
+  ): AppliedRecord | null {
+    const parent = layout.parent;
 
     // Mark this specific text node as done so the walker skips it on future
     // passes, without blocking its sibling text nodes.
@@ -196,14 +302,14 @@ export class TranslationEngine {
       // The page's own font may lack Vietnamese diacritics (common with
       // script-specific webfonts, e.g. Japanese-only). Append a fallback stack
       // so missing glyphs resolve instead of rendering as tofu.
-      this.patchFont(parent);
+      this.patchFont(parent, layout.computedFont);
       return { segment, originalText: original };
     }
 
     // Bilingual: keep the original text node and inject the translation
     // alongside it. We use a block element when the parent looks block-like
     // and an inline element otherwise.
-    const inline = isInlineParent(parent);
+    const inline = layout.inline;
     const wrapper = document.createElement(inline ? "span" : "div");
     wrapper.className = inline ? "wt-bilingual-inline" : BILINGUAL_CLASS;
     wrapper.setAttribute("translate", "no");
@@ -226,14 +332,17 @@ export class TranslationEngine {
    * with `!important` so it also wins over page rules that use `!important`.
    * The original inline declaration is stashed for exact restore. Idempotent.
    */
-  private patchFont(el: HTMLElement): void {
+  private patchFont(el: HTMLElement, computedFont: string): void {
     if (el.hasAttribute(FONT_PATCH_ATTR)) return;
     // Stash both the value and its priority so restore is exact.
     const prevValue = el.style.getPropertyValue("font-family");
     const prevPriority = el.style.getPropertyPriority("font-family");
-    el.setAttribute(FONT_PATCH_ATTR, prevPriority ? `${prevValue}\u0000${prevPriority}` : prevValue);
+    el.setAttribute(
+      FONT_PATCH_ATTR,
+      prevPriority ? `${prevValue}\u0000${prevPriority}` : prevValue
+    );
 
-    const computed = window.getComputedStyle(el).fontFamily || prevValue;
+    const computed = computedFont || prevValue;
     el.style.setProperty("font-family", mergeFontStack(computed), "important");
   }
 
@@ -269,6 +378,7 @@ export class TranslationEngine {
     this.records = [];
     // Forget per-node translation state so a re-enable starts fresh.
     this.translatedNodes = new WeakSet<Text>();
+    this.clearTranslating();
   }
 
   private startObserver(): void {
@@ -306,6 +416,11 @@ export class TranslationEngine {
 
   private async flushNodes(nodes: Node[]): Promise<void> {
     if (!this.active || nodes.length === 0) return;
+    // SPA hygiene: drop records whose nodes the page has since detached (they
+    // can never be restored) so long-lived feeds don't grow memory unboundedly.
+    if (this.records.length > 500) {
+      this.records = this.records.filter((r) => r.segment.node.isConnected);
+    }
     const segments: TextSegment[] = [];
     for (const node of nodes) {
       if (!node.isConnected) continue;
@@ -353,6 +468,37 @@ function isInlineParent(parent: Element): boolean {
   if (INLINE_TAGS.has(parent.tagName)) return true;
   const display = window.getComputedStyle(parent).display;
   return display.startsWith("inline");
+}
+
+/**
+ * Splits segments into "visible in (or near) the current viewport" and the
+ * rest, reading each parent's bounding rect at most once. A one-viewport
+ * bottom margin is included so content the user is about to scroll into is
+ * also part of the priority pass.
+ */
+function partitionByViewport(segments: TextSegment[]): {
+  visible: TextSegment[];
+  hidden: TextSegment[];
+} {
+  const viewportBottom = window.innerHeight * 2;
+  const inView = new Map<Element, boolean>();
+  const visible: TextSegment[] = [];
+  const hidden: TextSegment[] = [];
+  for (const segment of segments) {
+    const parent = segment.node.parentElement;
+    if (!parent) {
+      hidden.push(segment);
+      continue;
+    }
+    let hit = inView.get(parent);
+    if (hit === undefined) {
+      const rect = parent.getBoundingClientRect();
+      hit = rect.bottom > 0 && rect.top < viewportBottom;
+      inView.set(parent, hit);
+    }
+    (hit ? visible : hidden).push(segment);
+  }
+  return { visible, hidden };
 }
 
 /**

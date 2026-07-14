@@ -1,16 +1,15 @@
 /* ─────────────────────────────────────────────────────────────────────────
-    Shared UI vocabulary — clean minimal (Linear/Vercel/Stripe flavour).
+    Shared UI vocabulary — clean minimal, light-only (teal brand).
     Thin low-opacity borders, no glows, no heavy shadows, typography-led.
     Imported by both the popup and the options page; page-specific shells
     only add their own geometry / backgrounds on top.
     ───────────────────────────────────────────────────────────────────────── */
 
 .surface-card {
-  @apply rounded-xl border border-zinc-200/70 bg-white
-           transition-colors duration-200;
+  @apply rounded-xl border border-zinc-200/80 bg-white transition-colors duration-200;
 }
 .surface-card-hover {
-  @apply hover:border-zinc-300/80;
+  @apply hover:border-zinc-300;
 }
 
 .section-label {
@@ -24,7 +23,7 @@
 
 .brand-input {
   @apply h-9 px-3 rounded-lg bg-white border border-zinc-200/80
-           text-[13px] text-zinc-900 placeholder:text-zinc-400
+           text-[13px] text-zinc-900 placeholder:text-zinc-500
            focus:border-brand-500
            focus:ring-2 focus:ring-brand-500/15 focus:outline-none
            transition-colors;
@@ -32,7 +31,7 @@
 
 .brand-input-sm {
   @apply h-8 px-2.5 rounded-md bg-white border border-zinc-200/80
-           text-[13px] text-zinc-900 placeholder:text-zinc-400
+           text-[13px] text-zinc-900 placeholder:text-zinc-500
            focus:border-brand-500
            focus:ring-2 focus:ring-brand-500/15 focus:outline-none
            transition-colors;
@@ -43,7 +42,7 @@
            h-9 px-3.5 rounded-lg text-[13px] font-semibold
            bg-brand-600 text-white
            hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
            transition-all duration-150;
 }
@@ -53,7 +52,7 @@
            h-8 px-3 rounded-md text-[13px] font-medium
            bg-brand-600 text-white
            hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
            transition-all duration-150;
 }
@@ -63,7 +62,7 @@
            h-9 px-3.5 rounded-lg text-[13px] font-medium
            bg-white border border-zinc-200/80 text-zinc-700
            hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
            transition-all duration-150;
 }
@@ -73,7 +72,7 @@
            h-8 px-3 rounded-md text-[13px] font-medium
            bg-white border border-zinc-200/80 text-zinc-700
            hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
            transition-all duration-150;
 }
@@ -82,7 +81,7 @@
   @apply inline-flex items-center justify-center shrink-0
            h-9 w-9 rounded-lg text-zinc-500
            hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
            disabled:opacity-50 disabled:cursor-not-allowed
            transition-colors;
 }
@@ -91,9 +90,21 @@
   @apply inline-flex items-center justify-center shrink-0
            h-7 w-7 rounded-md text-zinc-500
            hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus:ring-2 focus:ring-zinc-300/50
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
            disabled:opacity-50 disabled:cursor-not-allowed
            transition-colors;
+}
+
+/* Segmented choice chip (auto-rule, display mode, theme...). */
+.choice-chip {
+  @apply flex-1 px-2 py-1 rounded-lg text-[11px] font-semibold tracking-tight border
+           bg-white border-zinc-200/80 text-zinc-600
+           hover:border-zinc-300 hover:bg-zinc-50
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
+           transition-colors duration-150 active:scale-[0.97];
+}
+.choice-chip-active {
+  @apply bg-brand-50 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-300;
 }
 
 .brand-logo {
@@ -115,7 +126,7 @@
 .kbd-key {
   @apply inline-flex items-center justify-center
            min-w-[20px] h-[18px] px-1
-           rounded border border-zinc-200 bg-zinc-50
+           rounded border border-zinc-300 bg-zinc-50
            text-[10px] font-semibold text-zinc-600 leading-none;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
@@ -123,11 +134,11 @@
 /* Segmented control — pill-style tab group. */
 .segment-track {
   @apply flex items-center gap-1 p-1 rounded-xl
-           bg-zinc-100/70 border border-zinc-200/60;
+           bg-zinc-100 border border-zinc-200/60;
 }
 .segment {
   @apply flex-1 inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-lg text-[12.5px] font-semibold tracking-tight
+           h-8 px-2 rounded-lg text-[12.5px] font-semibold tracking-tight
            text-zinc-500 transition-colors duration-150
            hover:text-zinc-900
            focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
@@ -142,22 +153,12 @@
   @apply w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
            text-[13px] font-medium text-left text-zinc-600
            hover:bg-white hover:text-zinc-900 transition-colors duration-150
-           relative border border-transparent
+           border border-transparent
            focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
 }
 .nav-item-active {
-  @apply bg-white text-zinc-900 border-zinc-200/80;
-}
-.nav-item-active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 16px;
-  background: #14b8a6;
-  border-radius: 0 2px 2px 0;
+  @apply bg-white text-zinc-900 border-zinc-200/80
+           shadow-[0_1px_0_0_rgba(24,24,27,0.04),0_1px_2px_0_rgba(24,24,27,0.05)];
 }
 
 /* Glass surface for floating elements. */
@@ -196,16 +197,26 @@
   }
 }
 
+/* Brief glow used when deep-linking (e.g. `#models`) scrolls a card into view. */
+.scroll-highlight {
+  animation: scrollGlow 1.6s ease-out;
+}
+
+@keyframes scrollGlow {
+  0% {
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb) / 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb) / 0);
+  }
+}
+
 /* ── Brand RGB token (teal-500) used by gradients and glows. ── */
 :root {
   --brand-rgb: 20 184 166;
   --brand-500: #14b8a6;
   --brand-700: #0d9488;
   --slider-track: #e4e4e7;
-}
-
-html[data-theme="dark"] {
-  --slider-track: #3f3f46;
 }
 
 /* ── Scrollbars (thin, low-contrast) ── */
@@ -241,85 +252,6 @@ html[data-theme="dark"] {
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-/* ── Dark theme overrides for shared components ── */
-html[data-theme="dark"] {
-  color-scheme: dark;
-}
-
-html[data-theme="dark"] .surface-card {
-  @apply bg-zinc-900 border-zinc-800;
-}
-
-html[data-theme="dark"] .surface-card-hover {
-  @apply hover:border-zinc-700;
-}
-
-html[data-theme="dark"] .section-label {
-  @apply text-zinc-500;
-}
-
-html[data-theme="dark"] .brand-input,
-html[data-theme="dark"] .brand-input-sm {
-  @apply bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-brand-500;
-}
-
-html[data-theme="dark"] .btn-ghost,
-html[data-theme="dark"] .btn-ghost-sm {
-  @apply bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-700;
-}
-
-html[data-theme="dark"] .btn-icon,
-html[data-theme="dark"] .btn-icon-sm {
-  @apply text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800;
-}
-
-html[data-theme="dark"] .kbd-key {
-  @apply border-zinc-700 bg-zinc-800 text-zinc-300;
-}
-
-html[data-theme="dark"] .segment-track {
-  @apply bg-zinc-900 border-zinc-800;
-}
-
-html[data-theme="dark"] .segment {
-  @apply text-zinc-400 hover:text-zinc-100;
-}
-
-html[data-theme="dark"] .segment-active {
-  @apply bg-zinc-800 text-zinc-100 shadow-[0_1px_0_0_rgba(0,0,0,0.3)];
-}
-
-html[data-theme="dark"] .nav-item {
-  @apply text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100;
-}
-
-html[data-theme="dark"] .nav-item-active {
-  @apply bg-zinc-800 text-zinc-100 border-zinc-800;
-}
-
-html[data-theme="dark"] .nav-item-active::before {
-  background: #2dd4bf;
-}
-
-html[data-theme="dark"] .glass-surface {
-  @apply bg-zinc-900/90 border-zinc-800;
-}
-
-html[data-theme="dark"] * {
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
-}
-html[data-theme="dark"] .custom-scrollbar {
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
-}
-html[data-theme="dark"] ::-webkit-scrollbar-thumb,
-html[data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-}
-html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
-html[data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
 }
 
 /* ── Respect users who prefer reduced motion ── */

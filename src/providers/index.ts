@@ -12,10 +12,10 @@ import { translateGoogle } from "./google";
 import type { TranslateResult } from "./types";
 
 /**
- * Resolve the connection config for an AI provider id: the fixed `gemma`
- * backend, or a user-added custom model looked up by its id. Throws a friendly
- * error when a custom model referenced by settings no longer exists (e.g. it
- * was deleted while still selected).
+ * Resolve the connection config for an AI provider id: a fixed gateway backend
+ * (`mistral` / `gpt-oss`), or a user-added custom model looked up by its id.
+ * Throws a friendly error when a custom model referenced by settings no longer
+ * exists (e.g. it was deleted while still selected).
  */
 function resolveAIConfig(provider: ProviderId, settings: Settings): AIProviderConfig {
   if (isCustomProvider(provider)) {
@@ -26,7 +26,8 @@ function resolveAIConfig(provider: ProviderId, settings: Settings): AIProviderCo
     }
     return { endpoint: model.endpoint, apiKey: model.apiKey, model: model.model };
   }
-  return settings.providers.ai.gemma;
+  if (provider === "gpt-oss") return settings.providers.ai["gpt-oss"];
+  return settings.providers.ai.mistral;
 }
 
 export async function translateWith(

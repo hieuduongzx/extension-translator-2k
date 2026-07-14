@@ -5,7 +5,8 @@
 /* ─────────────────────────────────────────────────────────────────────────
     Options page shell — clean minimal full-window variant (teal brand).
     Near-flat background, no decorative gradients. The shared component
-    vocabulary lives in src/shared/ui.css.
+    vocabulary lives in src/shared/ui.css. System font stack: no remote
+    font request, no fallback flash, full Vietnamese glyph coverage.
     ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -16,10 +17,11 @@
     min-height: 100vh;
     color: #18181b;
     font-family:
-      "Space Grotesk",
       "Segoe UI",
       system-ui,
       -apple-system,
+      "Helvetica Neue",
+      Arial,
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -29,14 +31,4 @@
   body {
     background: #fafafa;
   }
-}
-
-html[data-theme="dark"],
-html[data-theme="dark"] body,
-html[data-theme="dark"] #root {
-  color: #e4e4e7;
-}
-
-html[data-theme="dark"] body {
-  background: #09090b;
 }

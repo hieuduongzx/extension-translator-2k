@@ -487,7 +487,13 @@ async function sendOffscreenMessage(
   message: OffscreenStopCaptureMessage
 ): Promise<{ ok: boolean; error?: string }>;
 async function sendOffscreenMessage(message: OffscreenRequestMessage) {
-  await ensureOffscreenDocument("offscreen.html");
+  // Only START may create the offscreen document. Creating one just to tell
+  // it to stop leaks an idle document (audio graph included) forever.
+  if (message.type === "OFFSCREEN_STOP_CAPTURE") {
+    if (!(await hasOffscreenDocument())) return { ok: true };
+  } else {
+    await ensureOffscreenDocument("offscreen.html");
+  }
   const response = (await chrome.runtime.sendMessage(message)) as
     OffscreenStartCaptureResponse | { ok?: boolean; error?: string } | undefined;
 
@@ -496,6 +502,19 @@ async function sendOffscreenMessage(message: OffscreenRequestMessage) {
   }
 
   return response;
+}
+
+async function hasOffscreenDocument(): Promise<boolean> {
+  if (!("getContexts" in chrome.runtime)) return false;
+  try {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"],
+      documentUrls: [chrome.runtime.getURL("offscreen.html")]
+    });
+    return contexts.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function formatErrorMessage(error: unknown, fallback: string) {
@@ -877,6 +896,12 @@ async function stopCapture(clearOverlay = true) {
   setStatusMessage("Translator stopped.");
 
   await sendOffscreenMessage({ type: "OFFSCREEN_STOP_CAPTURE" }).catch(() => undefined);
+
+  // Tear the offscreen document down entirely — keeping it alive after stop
+  // wastes memory and keeps an idle audio graph around.
+  if (await hasOffscreenDocument()) {
+    await chrome.offscreen.closeDocument().catch(() => undefined);
+  }
 
   if (sonioxSession) {
     const session = sonioxSession;

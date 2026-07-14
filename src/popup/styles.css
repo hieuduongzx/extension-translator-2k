@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-    Popup shell — clean minimal light/dark theme (teal brand).
+    Popup shell — clean minimal light theme (teal brand).
     Near-flat background, no decorative gradients. The shared component
-    vocabulary lives in src/shared/ui.css.
+    vocabulary lives in src/shared/ui.css. System font stack: no remote
+    font request, no fallback flash, full Vietnamese glyph coverage.
     ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -18,10 +19,11 @@
     overflow: hidden;
     color: #18181b;
     font-family:
-      "Space Grotesk",
       "Segoe UI",
       system-ui,
       -apple-system,
+      "Helvetica Neue",
+      Arial,
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -31,14 +33,4 @@
   body {
     background: #ffffff;
   }
-}
-
-html[data-theme="dark"],
-html[data-theme="dark"] body,
-html[data-theme="dark"] #root {
-  color: #e4e4e7;
-}
-
-html[data-theme="dark"] body {
-  background: #09090b;
 }

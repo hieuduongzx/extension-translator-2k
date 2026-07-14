@@ -6,10 +6,7 @@
  * Styling follows the same theme tokens as the selection popup (`data-theme`
  * dark|light) so the two surfaces feel consistent.
  */
-import type {
-  DictionaryEntry,
-  ProviderId
-} from "../types";
+import type { DictionaryEntry, ProviderId } from "../types";
 import { ensureStyles } from "./styles";
 import {
   sendDictionaryRequest,
@@ -46,19 +43,32 @@ interface PopupHandle {
 }
 
 let activeHandle: PopupHandle | null = null;
+let activeConfigKey = "";
+
+/**
+ * Fingerprint of the config the live popup was built with; a mismatch means
+ * settings changed while it was open, so rebuild instead of reusing stale
+ * provider/language/theme.
+ */
+function configKey(config: DictionaryPopupConfig): string {
+  return JSON.stringify([config.theme, config.provider, config.source, config.target]);
+}
 
 export function showDictionaryPopup(
   word: string,
   anchor: { x: number; y: number },
   config: DictionaryPopupConfig
 ): PopupHandle {
-  if (activeHandle) {
+  const key = configKey(config);
+  if (activeHandle && key === activeConfigKey) {
     activeHandle.show(word, anchor);
     return activeHandle;
   }
+  activeHandle?.destroy();
   ensureStyles();
   const handle = createPopup(word, anchor, config);
   activeHandle = handle;
+  activeConfigKey = key;
   return handle;
 }
 
@@ -144,10 +154,7 @@ function createPopup(
    * `target`. Wiktionary entries are skipped — they already contain
    * Vietnamese definitions written by editors.
    */
-  async function translateEntries(
-    entries: DictionaryEntry[],
-    targetLang: string
-  ): Promise<void> {
+  async function translateEntries(entries: DictionaryEntry[], targetLang: string): Promise<void> {
     if (targetLang === config.source || targetLang === "auto") return;
 
     type Slot = { kind: "def" | "ex"; m: number; d: number; e: number };
@@ -305,9 +312,7 @@ function createPopup(
   }
 
   closeBtn.addEventListener("click", () => destroy());
-  themeBtn.addEventListener("click", () =>
-    setTheme(currentTheme === "dark" ? "light" : "dark")
-  );
+  themeBtn.addEventListener("click", () => setTheme(currentTheme === "dark" ? "light" : "dark"));
   speakBtn.addEventListener("click", () => {
     const audio = currentEntries.find((e) => e.audio)?.audio;
     if (audio) {
@@ -460,9 +465,7 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
     : "";
 
   const isVietnameseSource =
-    entry.source === "wiktionary" ||
-    entry.source === "laban" ||
-    entry.source === "vdict";
+    entry.source === "wiktionary" || entry.source === "laban" || entry.source === "vdict";
 
   const meanings = entry.meanings
     .map((m) => {

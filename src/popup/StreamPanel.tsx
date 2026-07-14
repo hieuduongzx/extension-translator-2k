@@ -123,28 +123,28 @@ export function StreamPanel() {
   const opacityPercent = useMemo(() => ((opacityDraft - 10) / 90) * 100, [opacityDraft]);
 
   const startStopClass = busy
-    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-800"
+    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200"
     : state.isActive
-      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
       : "bg-brand-600 text-white border-brand-600 hover:bg-brand-700";
 
   const pauseClass = !state.isActive
-    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-600"
+    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
     : state.isPaused
-      ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30"
-      : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700";
+      ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
+      : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300";
 
   const resetClass = !state.isActive
-    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-600"
-    : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700";
+    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
+    : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300";
 
   return (
-    <div className="p-3 space-y-3 animate-fade-in">
+    <div className="p-3 space-y-3">
       {/* Status header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0 dark:bg-zinc-800 dark:border-zinc-700">
-            <Radio className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
+            <Radio className="w-3 h-3 text-zinc-500" />
           </div>
           <span
             className={`status-pill ${
@@ -171,7 +171,10 @@ export function StreamPanel() {
 
       {/* Error banner */}
       {state.error && (
-        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11.5px] leading-relaxed animate-scale-in">
+        <div
+          role="alert"
+          className="flex items-start gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11.5px] leading-relaxed animate-scale-in"
+        >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <p className="flex-1">{state.error}</p>
         </div>
@@ -246,7 +249,7 @@ export function StreamPanel() {
           }`}
         />
         <p
-          className="text-[11px] font-medium text-zinc-500 truncate max-w-[300px] dark:text-zinc-400"
+          className="text-[11px] font-medium text-zinc-500 truncate max-w-[300px]"
           title={state.statusMessage}
         >
           {state.statusMessage}
@@ -257,7 +260,7 @@ export function StreamPanel() {
       <div className="surface-card surface-card-hover p-2.5 flex flex-col gap-2.5 transition-all duration-200">
         <div className="flex flex-col gap-1">
           <span className="section-label flex items-center gap-1.5">
-            <Globe2 className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+            <Globe2 className="w-3 h-3 text-zinc-400" />
             Dịch sang
           </span>
           <div
@@ -265,11 +268,21 @@ export function StreamPanel() {
               busy ? "opacity-60 pointer-events-none transition-opacity" : "transition-opacity"
             }
           >
-            <Dropdown value={draftLang} options={TARGET_OPTIONS} onChange={setDraftLang} />
+            <Dropdown
+              value={draftLang}
+              options={TARGET_OPTIONS}
+              onChange={setDraftLang}
+              ariaLabel="Ngôn ngữ phụ đề"
+            />
           </div>
+          {state.isActive && draftLang !== state.targetLang && (
+            <p className="text-[10.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+              Ngôn ngữ mới áp dụng khi dừng và bắt đầu lại phiên dịch.
+            </p>
+          )}
         </div>
 
-        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
+        <div className="h-px bg-zinc-200/60" />
 
         <ToggleRow
           label="Hiện bản gốc"
@@ -287,12 +300,10 @@ export function StreamPanel() {
           onChange={(v) => void updateOverlaySettings({ autoScroll: v })}
         />
 
-        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
+        <div className="h-px bg-zinc-200/60" />
 
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200">
-            Chế độ hiển thị
-          </span>
+          <span className="text-[12px] font-medium text-zinc-800">Chế độ hiển thị</span>
           <div className="grid grid-cols-2 gap-1.5">
             {(
               [
@@ -304,11 +315,8 @@ export function StreamPanel() {
                 key={mode}
                 type="button"
                 onClick={() => void updateOverlaySettings({ displayMode: mode })}
-                className={`px-2 py-1 rounded-lg text-[11px] font-semibold tracking-tight border transition-colors duration-200 active:scale-[0.97] ${
-                  state.displayMode === mode
-                    ? "bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500/50 dark:text-brand-300"
-                    : "bg-white border-zinc-200/80 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-700"
-                }`}
+                aria-pressed={state.displayMode === mode}
+                className={`choice-chip ${state.displayMode === mode ? "choice-chip-active" : ""}`}
               >
                 {label}
               </button>
@@ -316,7 +324,7 @@ export function StreamPanel() {
           </div>
         </div>
 
-        <div className="h-px bg-zinc-200/60 dark:bg-zinc-700/60" />
+        <div className="h-px bg-zinc-200/60" />
 
         <SliderRow
           label="Cỡ phụ đề"
@@ -392,11 +400,11 @@ function SliderRow({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-[12px]">
-        <span className="font-medium text-zinc-800 flex items-center gap-1.5 dark:text-zinc-200">
+        <span className="font-medium text-zinc-800 flex items-center gap-1.5">
           {icon}
           {label}
         </span>
-        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md dark:bg-brand-900/30 dark:text-brand-300">
+        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
           {value}
           {suffix}
         </span>

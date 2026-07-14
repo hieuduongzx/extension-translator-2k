@@ -33,8 +33,8 @@ let loadPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let dirty = false;
 
-function cacheKey(provider: ProviderId, target: string, text: string): string {
-  return `${provider}::${target}::${text}`;
+function cacheKey(provider: ProviderId, source: string, target: string, text: string): string {
+  return `${provider}::${source}::${target}::${text}`;
 }
 
 /** Hydrate the in-memory map from storage once per worker activation. */
@@ -88,6 +88,7 @@ export interface CacheReadResult {
 
 export async function readCache(
   provider: ProviderId,
+  source: string,
   target: string,
   texts: string[]
 ): Promise<CacheReadResult> {
@@ -95,7 +96,7 @@ export async function readCache(
   const now = Date.now();
   let detected: string | undefined;
   const translations = texts.map((text) => {
-    const key = cacheKey(provider, target, text);
+    const key = cacheKey(provider, source, target, text);
     const entry = memory.get(key);
     if (!entry) return null;
     if (entry.expiresAt < now) {
@@ -116,6 +117,7 @@ export async function readCache(
 
 export async function writeCache(
   provider: ProviderId,
+  source: string,
   target: string,
   inputs: string[],
   outputs: string[],
@@ -124,8 +126,11 @@ export async function writeCache(
   await ensureLoaded();
   const expiresAt = Date.now() + CACHE_TTL_MS;
   for (let i = 0; i < inputs.length; i++) {
-    if (outputs[i] === undefined) continue;
-    memory.set(cacheKey(provider, target, inputs[i]), {
+    // Skip failure sentinels: providers pad mismatched batches with "" and the
+    // AI provider falls back to the original text when it cannot realign its
+    // reply. Caching those would block retries for the whole TTL.
+    if (!outputs[i] || outputs[i] === inputs[i]) continue;
+    memory.set(cacheKey(provider, source, target, inputs[i]), {
       text: outputs[i],
       detected,
       expiresAt

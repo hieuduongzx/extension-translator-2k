@@ -87,7 +87,10 @@ function sanitizeCustomModels(raw: unknown): CustomModel[] {
   return models;
 }
 
-const BUILTIN_PROVIDERS: ProviderId[] = ["google", "bing", "gemma"];
+const BUILTIN_PROVIDERS: ProviderId[] = ["google", "bing", "mistral", "gpt-oss"];
+
+/** Retired built-in AI backend ids that map to the current default AI model. */
+const RETIRED_AI_PROVIDERS = new Set(["gemma", "qwen", "hy3", "mimo"]);
 
 function isValidProvider(id: string): id is ProviderId {
   return BUILTIN_PROVIDERS.includes(id as ProviderId) || isCustomProvider(id);
@@ -96,8 +99,8 @@ function isValidProvider(id: string): id is ProviderId {
 function resolveProvider(raw: string | undefined, customModels: CustomModel[]): ProviderId {
   if (!raw) return DEFAULT_SETTINGS.provider;
   if (raw === "microsoft") return "bing";
-  // Retired bundled AI backends: migrate to the remaining one.
-  if (raw === "qwen" || raw === "hy3") return "gemma";
+  // Retired bundled AI backends: migrate to the current default AI model.
+  if (RETIRED_AI_PROVIDERS.has(raw)) return "mistral";
   if (raw === "lingva" || raw === "mymemory") return DEFAULT_SETTINGS.provider;
   if (!isValidProvider(raw)) return DEFAULT_SETTINGS.provider;
   if (isCustomProvider(raw)) {
@@ -109,8 +112,8 @@ function resolveProvider(raw: string | undefined, customModels: CustomModel[]): 
 
 function resolveAIProvider(raw: string | undefined, customModels: CustomModel[]): AIProviderId {
   if (!raw) return DEFAULT_SETTINGS.aiProvider;
-  // Retired bundled AI backends: migrate to the remaining one.
-  if (raw === "qwen" || raw === "hy3") return "gemma";
+  // Retired bundled AI backends: migrate to the current default AI model.
+  if (RETIRED_AI_PROVIDERS.has(raw)) return "mistral";
   if (!isAIProvider(raw as ProviderId)) return DEFAULT_SETTINGS.aiProvider;
   if (isCustomProvider(raw as ProviderId)) {
     const exists = customModels.some((m) => customProviderId(m.id) === raw);
@@ -125,10 +128,11 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
   const provider = resolveProvider(stored.provider, customModels);
   const quickProvider = resolveProvider(stored.quickProvider as string | undefined, customModels);
 
-  // `gemma` is a fixed developer-provided backend: always use the bundled
-  // defaults and ignore any stored overrides.
+  // Built-in AI backends are fixed: always use the bundled defaults and ignore
+  // any stored overrides (endpoint/key come from build-time env).
   const ai: Settings["providers"]["ai"] = {
-    gemma: { ...DEFAULT_SETTINGS.providers.ai.gemma }
+    mistral: { ...DEFAULT_SETTINGS.providers.ai.mistral },
+    "gpt-oss": { ...DEFAULT_SETTINGS.providers.ai["gpt-oss"] }
   };
 
   const aiProvider = resolveAIProvider(stored.aiProvider as string | undefined, customModels);

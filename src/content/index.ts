@@ -1,16 +1,7 @@
 import { TranslationEngine } from "./engine";
-import {
-  dismissSelectionPopup,
-  showSelectionPopup
-} from "./selectionPopup";
-import {
-  dismissDictionaryPopup,
-  showDictionaryPopup
-} from "./dictionaryPopup";
-import {
-  installSelectionTrigger,
-  uninstallSelectionTrigger
-} from "./selectionTrigger";
+import { dismissSelectionPopup, showSelectionPopup } from "./selectionPopup";
+import { dismissDictionaryPopup, showDictionaryPopup } from "./dictionaryPopup";
+import { installSelectionTrigger, uninstallSelectionTrigger } from "./selectionTrigger";
 import { ensureStyles } from "./styles";
 import { normalizeSelection } from "./selectionText";
 import { loadSettings, updateSettings, watchSettings } from "../storage";
@@ -52,12 +43,18 @@ async function markTabActive(): Promise<void> {
     const res = await chrome.runtime.sendMessage({ type: "get-tab-id" });
     if (res?.tabId != null) tabId = res.tabId as number;
     if (tabId != null) await chrome.storage.session.set({ [`wt-active-tab:${tabId}`]: true });
-  } catch { /* extension context invalidated */ }
+  } catch {
+    /* extension context invalidated */
+  }
 }
 
 async function markTabInactive(): Promise<void> {
   if (tabId == null || !chrome.storage?.session) return;
-  try { await chrome.storage.session.remove(`wt-active-tab:${tabId}`); } catch { /* */ }
+  try {
+    await chrome.storage.session.remove(`wt-active-tab:${tabId}`);
+  } catch {
+    /* */
+  }
 }
 
 async function checkTabActive(): Promise<boolean> {
@@ -68,14 +65,16 @@ async function checkTabActive(): Promise<boolean> {
     if (tabId == null) return false;
     const result = await chrome.storage.session.get(`wt-active-tab:${tabId}`);
     return result[`wt-active-tab:${tabId}`] === true;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 function getEngine(): TranslationEngine {
   if (!engine) {
     engine = new TranslationEngine({
       provider: "google",
-      displayMode: "bilingual",
+      displayMode: "replace",
       source: "auto",
       target: "vi"
     });
@@ -166,10 +165,7 @@ async function handleTranslateSelection(message: TranslateSelectionMessage): Pro
   await openSelectionPopup(text, anchor);
 }
 
-async function openSelectionPopup(
-  text: string,
-  anchor: { x: number; y: number }
-): Promise<void> {
+async function openSelectionPopup(text: string, anchor: { x: number; y: number }): Promise<void> {
   const settings = await getSettings();
   dismissDictionaryPopup();
   showSelectionPopup(normalizeSelection(text), anchor, {
@@ -195,9 +191,10 @@ async function openSelectionPopup(
  * services plus every user-added custom model (as `custom:<id>`).
  */
 function buildProviderOptions(settings: Settings): { id: ProviderId; label: string }[] {
-  const builtins = (Object.keys(BUILTIN_PROVIDER_LABELS) as BuiltinProviderId[]).map(
-    (id) => ({ id, label: BUILTIN_PROVIDER_LABELS[id] })
-  );
+  const builtins = (Object.keys(BUILTIN_PROVIDER_LABELS) as BuiltinProviderId[]).map((id) => ({
+    id,
+    label: BUILTIN_PROVIDER_LABELS[id]
+  }));
   return [
     ...builtins,
     ...settings.customModels.map((m) => ({
@@ -207,10 +204,7 @@ function buildProviderOptions(settings: Settings): { id: ProviderId; label: stri
   ];
 }
 
-async function openDictionaryPopup(
-  word: string,
-  anchor: { x: number; y: number }
-): Promise<void> {
+async function openDictionaryPopup(word: string, anchor: { x: number; y: number }): Promise<void> {
   const settings = await getSettings();
   dismissSelectionPopup();
   showDictionaryPopup(word, anchor, {
@@ -296,17 +290,30 @@ document.addEventListener(
   true
 );
 
+/**
+ * Always resolve the port, even when a handler throws. An unresolved port
+ * makes the sender's `tabs.sendMessage` reject, and `sendOrInject` in the
+ * background interprets that as "content script missing" and re-injects the
+ * whole script — duplicating the engine and every document-level listener.
+ */
+function respond(promise: Promise<void>, sendResponse: (response?: unknown) => void): void {
+  promise
+    .then(() => sendResponse({ ok: true }))
+    .catch((err) => {
+      console.warn("[Translator2k]", err);
+      sendResponse({ ok: false });
+    });
+}
+
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
   if (!message || typeof message !== "object") return false;
 
   if (message.type === "toggle") {
-    void handleToggle().then(() => sendResponse({ ok: true }));
+    respond(handleToggle(), sendResponse);
     return true;
   }
   if (message.type === "apply-settings") {
-    void applySettings((message as ApplySettingsMessage).settings).then(() =>
-      sendResponse({ ok: true })
-    );
+    respond(applySettings((message as ApplySettingsMessage).settings), sendResponse);
     return true;
   }
   if (message.type === "get-status") {
@@ -314,13 +321,11 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
     return false;
   }
   if (message.type === "translate-selection") {
-    void handleTranslateSelection(message as TranslateSelectionMessage).then(() =>
-      sendResponse({ ok: true })
-    );
+    respond(handleTranslateSelection(message as TranslateSelectionMessage), sendResponse);
     return true;
   }
   if (message.type === "translate-selection-inline") {
-    void handleTranslateSelectionInline().then(() => sendResponse({ ok: true }));
+    respond(handleTranslateSelectionInline(), sendResponse);
     return true;
   }
   return false;
@@ -394,18 +399,10 @@ async function handleDoubleClick(e: MouseEvent): Promise<void> {
   // Skip when the click is inside our own popups, inputs, or editable areas.
   const target = e.target as HTMLElement | null;
   if (!target) return;
-  if (
-    target.closest(
-      '[data-wt-selection-popup="true"], [data-wt-selection-trigger="true"]'
-    )
-  ) {
+  if (target.closest('[data-wt-selection-popup="true"], [data-wt-selection-trigger="true"]')) {
     return;
   }
-  if (
-    target.closest(
-      'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
-    )
-  ) {
+  if (target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) {
     return;
   }
 
@@ -458,6 +455,7 @@ function showError(message: string): void {
   const banner = document.createElement("div");
   banner.className = "wt-error-banner";
   banner.setAttribute("translate", "no");
+  banner.setAttribute("role", "alert");
   const span = document.createElement("span");
   span.textContent = message;
   const close = document.createElement("button");

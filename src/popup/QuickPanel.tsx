@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { ArrowRightLeft, Copy, Check, X, Languages, Loader2 } from "lucide-react";
+import { ArrowRightLeft, Copy, Check, X, Languages, Loader2, Volume2, Square } from "lucide-react";
 import { Dropdown } from "./components/Dropdown";
 import { getAllProviderOptions } from "./components/ProviderSelect";
+import { useSpeak } from "./useSpeak";
 import { translateWith } from "../providers";
 import { loadSettings, watchSettings } from "../storage";
 import {
@@ -27,23 +28,88 @@ const TARGET_OPTIONS = LANGUAGES.filter((l) => l.code !== "auto").map((lang) => 
 
 const MAX_CHARS = 2000;
 
+/** Session-scoped draft so reopening the popup (or switching tabs) resumes. */
+const DRAFT_KEY = "translator2k:quickDraft";
+
+interface QuickDraft {
+  input: string;
+  output: string;
+  detected?: string;
+  sourceLang: string;
+  targetLang: string;
+  provider: ProviderId;
+}
+
+async function loadDraft(): Promise<QuickDraft | null> {
+  try {
+    const stored = await chrome.storage.session.get(DRAFT_KEY);
+    const draft = stored[DRAFT_KEY] as QuickDraft | undefined;
+    return draft && typeof draft === "object" ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(draft: QuickDraft): void {
+  try {
+    void chrome.storage.session.set({ [DRAFT_KEY]: draft });
+  } catch {
+    /* session storage unavailable */
+  }
+}
+
 /**
  * Standalone quick-translate tab for the popup. Two big text areas
  * (source / output) plus language and provider controls, similar to
- * Google Translate's input/output layout.
+ * Google Translate's input/output layout. The whole working state (text,
+ * result, language/provider picks) lives in `chrome.storage.session`, so
+ * closing the popup or hopping between tabs never loses work.
  */
 export function QuickPanel() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [quickSettings, setQuickSettings] = useState<QuickSettingsType>(DEFAULT_QUICK_SETTINGS);
+  const [ready, setReady] = useState(false);
   const pastedRef = useRef(false);
 
+  const [sourceLang, setSourceLang] = useState(DEFAULT_SETTINGS.sourceLang);
+  const [targetLang, setTargetLang] = useState(DEFAULT_SETTINGS.targetLang);
+  const [provider, setProvider] = useState<ProviderId>(DEFAULT_SETTINGS.provider);
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [detected, setDetected] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const { speakingId, speak, stop } = useSpeak();
+  const speakTarget = sourceLang === "auto" ? (detected ?? "") : sourceLang;
+
+  // Initial load: settings provide the defaults, a session draft (if any)
+  // wins over them so in-progress work survives popup reopen / tab switches.
   useEffect(() => {
     let unwatchMain: (() => void) | undefined;
     let unwatchQuick: (() => void) | undefined;
     void (async () => {
-      const [main, quick] = await Promise.all([loadSettings(), loadQuickSettings()]);
+      const [main, quick, draft] = await Promise.all([
+        loadSettings(),
+        loadQuickSettings(),
+        loadDraft()
+      ]);
       setSettings(main);
       setQuickSettings(quick);
+      if (draft) {
+        setInput(draft.input ?? "");
+        setOutput(draft.output ?? "");
+        setDetected(draft.detected);
+        setSourceLang(draft.sourceLang || main.sourceLang);
+        setTargetLang(draft.targetLang || main.targetLang);
+        setProvider(draft.provider || main.provider);
+        if (draft.input) pastedRef.current = true;
+      } else {
+        setSourceLang(main.sourceLang);
+        setTargetLang(main.targetLang);
+        setProvider(main.provider);
+      }
+      setReady(true);
       unwatchMain = watchSettings((next) => setSettings(next));
       unwatchQuick = watchQuickSettings((next) => setQuickSettings(next));
     })();
@@ -53,9 +119,15 @@ export function QuickPanel() {
     };
   }, []);
 
+  // Persist the working state whenever it changes (post-load).
+  useEffect(() => {
+    if (!ready) return;
+    saveDraft({ input, output, detected, sourceLang, targetLang, provider });
+  }, [ready, input, output, detected, sourceLang, targetLang, provider]);
+
   // Auto-paste clipboard content when enabled and the input is still empty.
   useEffect(() => {
-    if (!quickSettings.pasteFromClipboard || pastedRef.current) return;
+    if (!ready || !quickSettings.pasteFromClipboard || pastedRef.current) return;
     void (async () => {
       try {
         const text = await navigator.clipboard.readText();
@@ -67,24 +139,7 @@ export function QuickPanel() {
         // Clipboard read may fail if permission is denied or not available.
       }
     })();
-  }, [quickSettings.pasteFromClipboard]);
-
-  const [sourceLang, setSourceLang] = useState(settings.sourceLang);
-  const [targetLang, setTargetLang] = useState(settings.targetLang);
-  const [provider, setProvider] = useState<ProviderId>(settings.provider);
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
-  const [detected, setDetected] = useState<string | undefined>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  // Sync local controls with settings once loaded.
-  useEffect(() => {
-    setSourceLang(settings.sourceLang);
-    setTargetLang(settings.targetLang);
-    setProvider(settings.provider);
-  }, [settings.sourceLang, settings.targetLang, settings.provider]);
+  }, [ready, quickSettings.pasteFromClipboard]);
 
   const providerOptions = useMemo(
     () => getAllProviderOptions(settings.customModels).filter((o) => o.value !== "__add_custom__"),
@@ -112,6 +167,13 @@ export function QuickPanel() {
     }
   }, [canTranslate, provider, sourceLang, targetLang, settings, trimmed]);
 
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value);
+    // Stale results/errors shouldn't linger while the user edits.
+    setError("");
+    setDetected(undefined);
+  }, []);
+
   const handleSwap = useCallback(() => {
     if (sourceLang === "auto") return;
     setSourceLang(targetLang);
@@ -134,20 +196,28 @@ export function QuickPanel() {
     return detected.toUpperCase();
   }, [detected, sourceLang]);
 
+  const speakingInput = speakingId === "input";
+  const speakingOutput = speakingId === "output";
+
   return (
-    <div className="p-3 space-y-3 animate-fade-in">
+    <div className="p-3 space-y-3">
       {/* Language + provider controls */}
       <div className="surface-card p-2.5 space-y-2">
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <span className="section-label">Từ</span>
-            <Dropdown value={sourceLang} options={SOURCE_OPTIONS} onChange={setSourceLang} />
+            <Dropdown
+              value={sourceLang}
+              options={SOURCE_OPTIONS}
+              onChange={setSourceLang}
+              ariaLabel="Ngôn ngữ nguồn"
+            />
           </div>
           <button
             type="button"
             onClick={handleSwap}
             disabled={sourceLang === "auto"}
-            className="mt-4 h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            className="mt-4 h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="Hoán đổi ngôn ngữ"
             aria-label="Hoán đổi ngôn ngữ"
           >
@@ -155,7 +225,12 @@ export function QuickPanel() {
           </button>
           <div className="flex-1 min-w-0">
             <span className="section-label">Sang</span>
-            <Dropdown value={targetLang} options={TARGET_OPTIONS} onChange={setTargetLang} />
+            <Dropdown
+              value={targetLang}
+              options={TARGET_OPTIONS}
+              onChange={setTargetLang}
+              ariaLabel="Ngôn ngữ đích"
+            />
           </div>
         </div>
 
@@ -165,22 +240,37 @@ export function QuickPanel() {
             value={provider}
             options={providerOptions}
             onChange={(v) => setProvider(v as ProviderId)}
+            ariaLabel="Dịch vụ dịch"
           />
         </div>
       </div>
 
       {/* Source box */}
       <div className="surface-card surface-card-hover flex flex-col transition-all duration-200">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80 dark:border-zinc-700/50">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             Văn bản gốc
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setInput("")}
+              onClick={() => (speakingInput ? stop() : void speak(input, speakTarget, "input"))}
+              disabled={!input || busy}
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              title={speakingInput ? "Dừng đọc" : "Đọc văn bản"}
+              aria-label={speakingInput ? "Dừng đọc" : "Đọc văn bản"}
+            >
+              {speakingInput ? (
+                <Square className="w-3.5 h-3.5 fill-current" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleInputChange("")}
               disabled={!input}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40 dark:hover:bg-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
               title="Xoá"
               aria-label="Xoá"
             >
@@ -191,13 +281,19 @@ export function QuickPanel() {
         <div className="relative">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void handleTranslate();
+              }
+            }}
             placeholder="Nhập văn bản…"
             rows={5}
             maxLength={MAX_CHARS}
-            className="w-full p-3 bg-transparent text-[14px] text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none dark:text-zinc-100"
+            className="w-full p-3 bg-transparent text-[14px] text-zinc-900 placeholder:text-zinc-500 resize-none focus:outline-none"
           />
-          <span className="absolute right-2.5 bottom-2 text-[10px] text-zinc-400 dark:text-zinc-500">
+          <span className="absolute right-2.5 bottom-2 text-[10px] text-zinc-500 tabular-nums">
             {input.length}/{MAX_CHARS}
           </span>
         </div>
@@ -219,33 +315,47 @@ export function QuickPanel() {
       </button>
 
       {error && (
-        <p className="text-[11px] text-red-600 font-medium animate-scale-in dark:text-red-400">
+        <p role="alert" className="text-[11px] text-red-600 font-medium animate-scale-in">
           {error}
         </p>
       )}
 
       {/* Output box */}
       <div className="surface-card surface-card-hover flex flex-col transition-all duration-200">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80 dark:border-zinc-700/50">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             Bản dịch
           </span>
           <div className="flex items-center gap-2">
             {detectedLabel && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded dark:bg-brand-900/30 dark:text-brand-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded">
                 {detectedLabel}
               </span>
             )}
             <button
               type="button"
+              onClick={() => (speakingOutput ? stop() : void speak(output, targetLang, "output"))}
+              disabled={!output || busy}
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              title={speakingOutput ? "Dừng đọc" : "Đọc bản dịch"}
+              aria-label={speakingOutput ? "Dừng đọc" : "Đọc bản dịch"}
+            >
+              {speakingOutput ? (
+                <Square className="w-3.5 h-3.5 fill-current" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleCopy()}
               disabled={!output}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40 dark:hover:bg-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-100"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
               title={copied ? "Đã sao chép" : "Sao chép"}
               aria-label={copied ? "Đã sao chép" : "Sao chép"}
             >
               {copied ? (
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
               ) : (
                 <Copy className="w-3.5 h-3.5" />
               )}
@@ -257,7 +367,7 @@ export function QuickPanel() {
           readOnly
           placeholder="Bản dịch sẽ hiện ở đây…"
           rows={5}
-          className="w-full p-3 bg-zinc-50/50 dark:bg-zinc-800/50 text-[14px] text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none dark:text-zinc-100"
+          className="w-full p-3 bg-zinc-50/50 text-[14px] text-zinc-900 placeholder:text-zinc-500 resize-none focus:outline-none"
         />
       </div>
     </div>

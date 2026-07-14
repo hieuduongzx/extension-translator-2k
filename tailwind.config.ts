@@ -2,12 +2,13 @@ import type { Config } from "tailwindcss";
 import colors from "tailwindcss/colors";
 
 export default {
-  darkMode: ["selector", '[data-theme="dark"]'],
   content: ["./popup.html", "./options.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Space Grotesk", "Segoe UI", "system-ui", "-apple-system", "sans-serif"]
+        // System stack: zero network requests, no fallback flash, and full
+        // Vietnamese glyph coverage on every platform.
+        sans: ["Segoe UI", "system-ui", "-apple-system", "Helvetica Neue", "Arial", "sans-serif"]
       },
       colors: {
         // Per-extension brand palette. Swap this single line to retheme.

@@ -58,9 +58,7 @@ export function collectSelectionSegments(
 
     const ancestor = range.commonAncestorContainer;
     const root =
-      ancestor.nodeType === Node.ELEMENT_NODE
-        ? (ancestor as Element)
-        : ancestor.parentElement;
+      ancestor.nodeType === Node.ELEMENT_NODE ? (ancestor as Element) : ancestor.parentElement;
     if (!root) continue;
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -109,12 +107,15 @@ export function isTranslatableElement(element: Element): boolean {
   // Note: we intentionally do NOT reject by the parent `data-wt-translated`
   // attribute. Per-node dedup is handled by the engine's WeakSet so sibling
   // text nodes inside a partially-translated element stay translatable.
-  if (element.closest("[contenteditable=\"true\"]")) return false;
-  if (element.closest("[translate=\"no\"]")) return false;
+  // `isContentEditable` covers every editable form (`contenteditable`,
+  // `contenteditable=""`, `="true"`, `="plaintext-only"`, and inherited
+  // editability) — rewriting user drafts in replace mode would lose data.
+  if ((element as HTMLElement).isContentEditable) return false;
+  if (element.closest('[translate="no"]')) return false;
   if (element.classList.contains("notranslate")) return false;
   if (element.closest(".notranslate")) return false;
   if (element.closest(".wt-bilingual-line")) return false;
-  if (element.closest("[data-wt-selection-popup=\"true\"]")) return false;
+  if (element.closest('[data-wt-selection-popup="true"]')) return false;
   if (element.closest(".wt-selection-popup")) return false;
   if (element.closest(".wt-error-banner")) return false;
 

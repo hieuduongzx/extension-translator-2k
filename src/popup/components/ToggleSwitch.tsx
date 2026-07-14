@@ -22,10 +22,11 @@ export function ToggleSwitch({
       type="button"
       onClick={() => onChange(!checked)}
       disabled={disabled}
-      className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 dark:ring-offset-zinc-900 ${
-        checked ? "bg-brand-600" : "bg-zinc-300 dark:bg-zinc-600"
+      className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 ${
+        checked ? "bg-brand-600" : "bg-zinc-300"
       } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-      aria-pressed={checked}
+      role="switch"
+      aria-checked={checked}
       aria-label={ariaLabel}
     >
       <span

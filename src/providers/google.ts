@@ -28,11 +28,19 @@ export async function translateGoogle(
     ie: "UTF-8",
     oe: "UTF-8"
   });
-  for (const t of texts) params.append("q", t);
+
+  // Send the texts in the POST body: a 4000-char batch URL-encodes to well
+  // over 12 KB, which risks 413/414 rejections when passed as a query string.
+  const body = new URLSearchParams();
+  for (const t of texts) body.append("q", t);
 
   const res = await fetchWithTimeout(`${ENDPOINT}?${params.toString()}`, {
-    method: "GET",
-    headers: { Accept: "application/json" }
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+    },
+    body: body.toString()
   });
 
   if (!res.ok) {

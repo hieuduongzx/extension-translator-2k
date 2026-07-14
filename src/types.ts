@@ -1,5 +1,5 @@
 /** Built-in providers shipped with the extension. */
-export type BuiltinProviderId = "google" | "bing" | "gemma";
+export type BuiltinProviderId = "google" | "bing" | "mistral" | "gpt-oss";
 /**
  * A user-added custom model. Encoded as `custom:<modelId>` so the provider id
  * stays a plain string everywhere it already flows (messages, cache keys, …).
@@ -9,9 +9,10 @@ export type ProviderId = BuiltinProviderId | CustomProviderId;
 
 /**
  * Providers that talk to an OpenAI-compatible chat-completions endpoint:
- * the bundled `gemma` plus every user-added custom model.
+ * the bundled gateway models (`mistral`, `gpt-oss`) plus every user-added custom model.
  */
-export type AIProviderId = "gemma" | CustomProviderId;
+export type BuiltinAIProviderId = "mistral" | "gpt-oss";
+export type AIProviderId = BuiltinAIProviderId | CustomProviderId;
 
 const CUSTOM_PREFIX = "custom:";
 
@@ -29,8 +30,12 @@ export function customModelId(id: CustomProviderId): string {
   return id.slice(CUSTOM_PREFIX.length);
 }
 
+export function isBuiltinAIProvider(id: string): id is BuiltinAIProviderId {
+  return id === "mistral" || id === "gpt-oss";
+}
+
 export function isAIProvider(id: ProviderId): id is AIProviderId {
-  return id === "gemma" || isCustomProvider(id);
+  return isBuiltinAIProvider(id) || isCustomProvider(id);
 }
 
 /** Shared display labels for every built-in provider. Keeping this in `types` lets
@@ -39,7 +44,8 @@ export function isAIProvider(id: ProviderId): id is AIProviderId {
 export const BUILTIN_PROVIDER_LABELS: Record<BuiltinProviderId, string> = {
   google: "Google",
   bing: "Bing",
-  gemma: "Gemma 4"
+  mistral: "Mistral Small",
+  "gpt-oss": "GPT-OSS 120B"
 };
 
 export type DisplayMode = "bilingual" | "replace";
@@ -51,8 +57,7 @@ export type DictionaryMode = "doubleclick" | "alt-doubleclick" | "off";
 
 /**
  * Connection settings for an OpenAI-compatible chat-completions endpoint.
- * Used directly for the fixed `gemma` backend and embedded in each
- * {@link CustomModel}.
+ * Used for the fixed gateway backends and embedded in each {@link CustomModel}.
  */
 export interface AIProviderConfig {
   /** Base URL ending at `/v1` (the provider appends `/chat/completions`). */
@@ -78,8 +83,8 @@ export interface ProviderSettings {
     /** No key required for the public endpoint, kept for future official Cloud API support. */
     apiKey?: string;
   };
-  /** Fixed developer-provided AI backend(s). Currently only Gemma. */
-  ai: { gemma: AIProviderConfig };
+  /** Fixed developer-provided AI backend(s) on the shared self-hosted gateway. */
+  ai: Record<BuiltinAIProviderId, AIProviderConfig>;
 }
 
 export interface Settings {
@@ -144,13 +149,17 @@ export interface Settings {
   dictionaryMode: DictionaryMode;
 }
 
+/** Shared self-hosted OpenAI-compatible gateway (routes by model id). */
+const AI_GATEWAY_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT ?? "http://103.38.236.38:20128/v1";
+const AI_GATEWAY_API_KEY = import.meta.env.VITE_AI_API_KEY ?? "";
+
 export const DEFAULT_SETTINGS: Settings = {
   provider: "google",
   quickProvider: "google",
-  aiProvider: "gemma",
+  aiProvider: "mistral",
   aiTranslationMode: "below",
   customModels: [],
-  displayMode: "bilingual",
+  displayMode: "replace",
   sourceLang: "auto",
   targetLang: "vi",
   autoRule: "ask",
@@ -158,10 +167,15 @@ export const DEFAULT_SETTINGS: Settings = {
   providers: {
     google: {},
     ai: {
-      gemma: {
-        endpoint: import.meta.env.VITE_GEMMA_ENDPOINT ?? "",
-        apiKey: import.meta.env.VITE_GEMMA_API_KEY ?? "",
-        model: import.meta.env.VITE_GEMMA_MODEL ?? "gemma-4-31b-it"
+      mistral: {
+        endpoint: AI_GATEWAY_ENDPOINT,
+        apiKey: AI_GATEWAY_API_KEY,
+        model: import.meta.env.VITE_MISTRAL_MODEL ?? "mistral/mistral-small-2603"
+      },
+      "gpt-oss": {
+        endpoint: AI_GATEWAY_ENDPOINT,
+        apiKey: AI_GATEWAY_API_KEY,
+        model: import.meta.env.VITE_GPT_OSS_MODEL ?? "groq/openai/gpt-oss-120b"
       }
     }
   },

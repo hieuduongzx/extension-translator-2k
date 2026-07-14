@@ -42,31 +42,45 @@ describe("cache", () => {
   });
 
   it("returns cached translations for known texts", async () => {
-    await writeCache("google", "vi", ["hello"], ["xin chào"]);
-    const { translations } = await readCache("google", "vi", ["hello"]);
+    await writeCache("google", "en", "vi", ["hello"], ["xin chào"]);
+    const { translations } = await readCache("google", "en", "vi", ["hello"]);
     expect(translations).toEqual(["xin chào"]);
   });
 
   it("returns null slots for cache misses", async () => {
-    const { translations } = await readCache("google", "vi", ["miss"]);
+    const { translations } = await readCache("google", "en", "vi", ["miss"]);
     expect(translations).toEqual([null]);
   });
 
   it("drops entries whose TTL has expired", async () => {
-    await writeCache("google", "vi", ["hello"], ["xin chào"]);
+    await writeCache("google", "en", "vi", ["hello"], ["xin chào"]);
     // 8 days later — past the 7-day TTL.
     vi.setSystemTime(new Date("2026-01-09T00:00:00Z"));
-    const { translations } = await readCache("google", "vi", ["hello"]);
+    const { translations } = await readCache("google", "en", "vi", ["hello"]);
     expect(translations).toEqual([null]);
   });
 
   it("scopes cache entries by provider and target", async () => {
-    await writeCache("google", "vi", ["hello"], ["xin chào"]);
-    await writeCache("google", "es", ["hello"], ["hola"]);
-    const viResult = await readCache("google", "vi", ["hello"]);
-    const esResult = await readCache("google", "es", ["hello"]);
+    await writeCache("google", "en", "vi", ["hello"], ["xin chào"]);
+    await writeCache("google", "en", "es", ["hello"], ["hola"]);
+    const viResult = await readCache("google", "en", "vi", ["hello"]);
+    const esResult = await readCache("google", "en", "es", ["hello"]);
     expect(viResult.translations).toEqual(["xin chào"]);
     expect(esResult.translations).toEqual(["hola"]);
+  });
+
+  it("scopes cache entries by source language", async () => {
+    await writeCache("google", "ja", "vi", ["度"], ["độ"]);
+    const enResult = await readCache("google", "en", "vi", ["度"]);
+    const jaResult = await readCache("google", "ja", "vi", ["度"]);
+    expect(enResult.translations).toEqual([null]);
+    expect(jaResult.translations).toEqual(["độ"]);
+  });
+
+  it("does not cache empty or unchanged outputs (failure sentinels)", async () => {
+    await writeCache("google", "en", "vi", ["hello", "world"], ["", "world"]);
+    const { translations } = await readCache("google", "en", "vi", ["hello", "world"]);
+    expect(translations).toEqual([null, null]);
   });
 
   it("evicts least-recently-used entries first when over capacity", async () => {
@@ -77,19 +91,19 @@ describe("cache", () => {
     const CAP = 5000;
     // Fill the cache.
     for (let i = 0; i < CAP; i++) {
-      await writeCache("google", "vi", [`k${i}`], [`v${i}`]);
+      await writeCache("google", "en", "vi", [`k${i}`], [`v${i}`]);
     }
     // Touch the oldest entry so it becomes most-recently-used.
-    const oldest = await readCache("google", "vi", ["k0"]);
+    const oldest = await readCache("google", "en", "vi", ["k0"]);
     expect(oldest.translations).toEqual(["v0"]);
 
     // Overflow by one. The new least-recently-used is `k1` (k0 was just
     // promoted to MRU), so k1 should be the one dropped.
-    await writeCache("google", "vi", ["overflow"], ["ov"]);
+    await writeCache("google", "en", "vi", ["overflow"], ["ov"]);
 
-    const k0 = await readCache("google", "vi", ["k0"]);
-    const k1 = await readCache("google", "vi", ["k1"]);
-    const overflow = await readCache("google", "vi", ["overflow"]);
+    const k0 = await readCache("google", "en", "vi", ["k0"]);
+    const k1 = await readCache("google", "en", "vi", ["k1"]);
+    const overflow = await readCache("google", "en", "vi", ["overflow"]);
     expect(k0.translations).toEqual(["v0"]); // protected by recent read
     expect(overflow.translations).toEqual(["ov"]); // just written
     expect(k1.translations).toEqual([null]); // evicted as LRU

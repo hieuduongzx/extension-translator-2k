@@ -72,60 +72,23 @@ function BingIcon() {
   );
 }
 
-export function GemmaIcon() {
+export function MistralIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className="block">
+      <rect width="24" height="24" rx="6" fill="#FF7000" />
       <path
-        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-        fill="#3186FF"
+        fill="#fff"
+        d="M6 17V7h2.1l2 5.2L12.1 7H14.2v10h-1.9v-5.8L10.3 17H9.1l-2-5.8V17H6zm10.2 0V7H18v10h-1.8z"
       />
-      <path
-        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-        fill="url(#wt-gem-0)"
-      />
-      <path
-        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-        fill="url(#wt-gem-1)"
-      />
-      <path
-        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-        fill="url(#wt-gem-2)"
-      />
-      <defs>
-        <linearGradient
-          gradientUnits="userSpaceOnUse"
-          id="wt-gem-0"
-          x1="7"
-          x2="11"
-          y1="15.5"
-          y2="12"
-        >
-          <stop stopColor="#08B962" />
-          <stop offset="1" stopColor="#08B962" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient
-          gradientUnits="userSpaceOnUse"
-          id="wt-gem-1"
-          x1="8"
-          x2="11.5"
-          y1="5.5"
-          y2="11"
-        >
-          <stop stopColor="#F94543" />
-          <stop offset="1" stopColor="#F94543" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient
-          gradientUnits="userSpaceOnUse"
-          id="wt-gem-2"
-          x1="3.5"
-          x2="17.5"
-          y1="13.5"
-          y2="12"
-        >
-          <stop stopColor="#FABC12" />
-          <stop offset=".46" stopColor="#FABC12" stopOpacity="0" />
-        </linearGradient>
-      </defs>
+    </svg>
+  );
+}
+
+export function GptOssIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className="block">
+      <rect width="24" height="24" rx="6" fill="#F55036" />
+      <path fill="#fff" d="M7 12.5 12 5l1.2 4.2L17 12.5 13.2 13.8 12 19l-1.2-5.2L7 12.5z" />
     </svg>
   );
 }
@@ -190,11 +153,17 @@ const BING_OPTION: Option = {
   description: "bing.com/translator · không cần API key",
   icon: <BingIcon />
 };
-const GEMMA_OPTION: Option = {
-  value: "gemma",
-  label: BUILTIN_PROVIDER_LABELS.gemma,
-  description: "AI dịch theo ngữ cảnh",
-  icon: <GemmaIcon />
+const MISTRAL_OPTION: Option = {
+  value: "mistral",
+  label: BUILTIN_PROVIDER_LABELS.mistral,
+  description: "mistral/mistral-small-2603",
+  icon: <MistralIcon />
+};
+const GPT_OSS_OPTION: Option = {
+  value: "gpt-oss",
+  label: BUILTIN_PROVIDER_LABELS["gpt-oss"],
+  description: "groq/openai/gpt-oss-120b",
+  icon: <GptOssIcon />
 };
 const ADD_OPTION: Option = {
   value: ADD_NEW,
@@ -215,12 +184,19 @@ function customOption(m: CustomModel): Option {
 
 /** Generate all provider options (including custom models). Used for main translation. */
 export function getAllProviderOptions(customModels: CustomModel[]): Option[] {
-  return [GOOGLE_OPTION, BING_OPTION, GEMMA_OPTION, ...customModels.map(customOption), ADD_OPTION];
+  return [
+    GOOGLE_OPTION,
+    BING_OPTION,
+    MISTRAL_OPTION,
+    GPT_OSS_OPTION,
+    ...customModels.map(customOption),
+    ADD_OPTION
+  ];
 }
 
-/** Generate AI-only provider options (Gemma, custom). Used for AI button. */
+/** Generate AI-only provider options (built-in + custom). Used for AI button. */
 export function getAIProviderOptions(customModels: CustomModel[]): Option[] {
-  return [GEMMA_OPTION, ...customModels.map(customOption), ADD_OPTION];
+  return [MISTRAL_OPTION, GPT_OSS_OPTION, ...customModels.map(customOption), ADD_OPTION];
 }
 
 export function ProviderSelect({

@@ -1,6 +1,13 @@
 import { STYLE_ELEMENT_ID } from "./constants";
 
 const STYLES = `
+/*
+ * Bilingual text inherits the page's own text color slightly muted
+ * (color-mix with currentColor) instead of a fixed grey keyed to the OS
+ * scheme — a dark-themed site viewed with a light OS previously rendered
+ * grey-on-dark translations. currentColor always contrasts with the page
+ * background because the page's own text does.
+ */
 .wt-bilingual-line {
   display: block;
   margin-top: 0.35em;
@@ -8,8 +15,8 @@ const STYLES = `
   padding: 0.25em 0.6em;
   font-size: 0.92em;
   line-height: 1.6;
-  color: #78716c;
-  background: rgba(120, 113, 108, 0.04);
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
   border-left: 2.5px solid rgba(13, 148, 136, 0.35);
   border-radius: 0 6px 6px 0;
   font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
@@ -30,8 +37,8 @@ const STYLES = `
   margin: 0 0.15em 0 0.3em;
   padding: 0.05em 0.35em;
   font-size: 0.9em;
-  color: #78716c;
-  background: rgba(120, 113, 108, 0.04);
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
   border-radius: 4px;
   border-bottom: 1.5px solid rgba(13, 148, 136, 0.25);
   font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", system-ui, sans-serif;
@@ -44,27 +51,6 @@ const STYLES = `
 .wt-bilingual-inline:hover {
   background: rgba(13, 148, 136, 0.06);
   border-bottom-color: rgba(13, 148, 136, 0.45);
-}
-
-@media (prefers-color-scheme: dark) {
-  .wt-bilingual-line {
-    color: #a8a29e;
-    background: rgba(168, 162, 158, 0.04);
-    border-left-color: rgba(13, 148, 136, 0.3);
-  }
-  .wt-bilingual-line:hover {
-    background: rgba(13, 148, 136, 0.08);
-    border-left-color: rgba(13, 148, 136, 0.5);
-  }
-  .wt-bilingual-inline {
-    color: #a8a29e;
-    background: rgba(168, 162, 158, 0.04);
-    border-bottom-color: rgba(13, 148, 136, 0.25);
-  }
-  .wt-bilingual-inline:hover {
-    background: rgba(13, 148, 136, 0.08);
-    border-bottom-color: rgba(13, 148, 136, 0.45);
-  }
 }
 
 .wt-error-banner {
@@ -556,8 +542,8 @@ const STYLES = `
 .wt-selection-trigger {
   position: fixed;
   z-index: 2147483646;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   display: none;
   align-items: center;
   justify-content: center;
@@ -581,8 +567,8 @@ const STYLES = `
 }
 .wt-selection-trigger:active { transform: scale(0.95); }
 .wt-selection-trigger svg {
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
   display: block;
 }
 .wt-selection-trigger.wt-hovering {
@@ -822,16 +808,38 @@ const STYLES = `
   color: #0d9488;
   transform: translateY(-1px);
 }
+
+/* ===== "Đang dịch" per-segment hint =====
+   A tiny, low-cost signal on the exact text being translated: a gentle opacity
+   pulse plus a faint teal underline. Only opacity is animated (compositor-
+   only — no layout/paint per frame) so it stays cheap even when many segments
+   are in flight at once. Auto-clears when the batch resolves. */
+.wt-translating {
+  animation: wt-translating-pulse 1.1s ease-in-out infinite;
+  text-decoration: underline dotted rgba(13, 148, 136, 0.5);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+@keyframes wt-translating-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Respect users who ask for less motion: keep only the static underline. */
+@media (prefers-reduced-motion: reduce) {
+  .wt-translating { animation: none; }
+}
 `;
 
+/**
+ * Injects the shared stylesheet once per document. It is never removed: the
+ * selection/dictionary popups and the error banner rely on it too, and an
+ * unused <style> element is inert.
+ */
 export function ensureStyles(): void {
   if (document.getElementById(STYLE_ELEMENT_ID)) return;
   const style = document.createElement("style");
   style.id = STYLE_ELEMENT_ID;
   style.textContent = STYLES;
   (document.head || document.documentElement).appendChild(style);
-}
-
-export function removeStyles(): void {
-  document.getElementById(STYLE_ELEMENT_ID)?.remove();
 }

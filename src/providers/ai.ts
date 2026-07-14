@@ -5,7 +5,7 @@ import type { TranslateResult } from "./types";
 
 /**
  * Generic translator for any OpenAI-compatible chat-completions endpoint
- * (e.g. self-hosted Gemma, vLLM, Ollama's OpenAI shim, etc.).
+ * (e.g. Groq GPT-OSS, vLLM, Ollama's OpenAI shim, custom gateways, etc.).
  *
  * Segment alignment is the tricky part: we must return exactly as many
  * translations as inputs, in order. We ask the model to translate a numbered
@@ -15,6 +15,14 @@ import type { TranslateResult } from "./types";
 
 const AI_TIMEOUT_MS = 60_000;
 const AI_MAX_TOKENS = 4096; // models are slower than the public MT endpoints
+/**
+ * The content engine batches up to ~4000 chars per request — sized for the
+ * public MT endpoints. Translated output for a batch that big easily exceeds
+ * `max_tokens`, truncating the JSON array so nothing parses. Chunk AI requests
+ * down to a size whose output comfortably fits.
+ */
+const AI_CHUNK_CHAR_LIMIT = 1500;
+const AI_CHUNK_SEGMENT_LIMIT = 25;
 
 interface ChatCompletionResponse {
   choices?: { message?: { content?: string } }[];
@@ -31,9 +39,46 @@ export async function translateAI(
   if (!config.endpoint) throw new Error("AI provider endpoint is not configured");
   if (!config.model) throw new Error("AI provider model is not configured");
 
+  const chunks = chunkTexts(texts);
+  if (chunks.length === 1) return translateAIChunk(chunks[0], source, target, config);
+
+  const translations: string[] = [];
+  for (const chunk of chunks) {
+    const result = await translateAIChunk(chunk, source, target, config);
+    translations.push(...result.translations);
+  }
+  return { translations };
+}
+
+/** Greedily packs texts into chunks bounded by char and segment limits. */
+function chunkTexts(texts: string[]): string[][] {
+  const chunks: string[][] = [];
+  let current: string[] = [];
+  let chars = 0;
+  for (const text of texts) {
+    if (
+      current.length > 0 &&
+      (chars + text.length > AI_CHUNK_CHAR_LIMIT || current.length >= AI_CHUNK_SEGMENT_LIMIT)
+    ) {
+      chunks.push(current);
+      current = [];
+      chars = 0;
+    }
+    current.push(text);
+    chars += text.length;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
+async function translateAIChunk(
+  texts: string[],
+  source: string,
+  target: string,
+  config: AIProviderConfig
+): Promise<TranslateResult> {
   const url = `${config.endpoint.replace(/\/+$/, "")}/chat/completions`;
-  const sourceName =
-    source === "auto" ? "" : ` from ${getLanguageEnglishName(source)}`;
+  const sourceName = source === "auto" ? "" : ` from ${getLanguageEnglishName(source)}`;
   const targetName = getLanguageEnglishName(target);
 
   const systemPrompt =
@@ -60,7 +105,6 @@ export async function translateAI(
       temperature: 0,
       stream: false,
       max_tokens: AI_MAX_TOKENS,
-      reasoning: { enabled: false },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -73,13 +117,11 @@ export async function translateAI(
     try {
       const body = (await res.json()) as ChatCompletionResponse;
       const e = body.error;
-      detail = typeof e === "string" ? e : e?.message ?? "";
+      detail = typeof e === "string" ? e : (e?.message ?? "");
     } catch {
       /* ignore non-JSON error bodies */
     }
-    throw new Error(
-      `AI translate failed (HTTP ${res.status})${detail ? `: ${detail}` : ""}`
-    );
+    throw new Error(`AI translate failed (HTTP ${res.status})${detail ? `: ${detail}` : ""}`);
   }
 
   const data = (await res.json()) as ChatCompletionResponse;

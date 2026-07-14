@@ -4,8 +4,7 @@ import { DEFAULT_SETTINGS } from "./types";
 
 /** Loosely-typed stored blob, mirroring data persisted by older versions. */
 type StoredBlob = Parameters<typeof mergeSettings>[0];
-const stored = (provider: string): StoredBlob =>
-  ({ provider } as unknown as StoredBlob);
+const stored = (provider: string): StoredBlob => ({ provider }) as unknown as StoredBlob;
 
 describe("mergeSettings", () => {
   it("migrates the legacy `microsoft` provider to `bing`", () => {
@@ -13,12 +12,8 @@ describe("mergeSettings", () => {
   });
 
   it("falls back to the default for discontinued providers", () => {
-    expect(mergeSettings(stored("lingva")).provider).toBe(
-      DEFAULT_SETTINGS.provider
-    );
-    expect(mergeSettings(stored("mymemory")).provider).toBe(
-      DEFAULT_SETTINGS.provider
-    );
+    expect(mergeSettings(stored("lingva")).provider).toBe(DEFAULT_SETTINGS.provider);
+    expect(mergeSettings(stored("mymemory")).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
   it("keeps valid providers", () => {
@@ -27,9 +22,7 @@ describe("mergeSettings", () => {
   });
 
   it("falls back to the default for an unknown provider", () => {
-    expect(mergeSettings(stored("nonsense")).provider).toBe(
-      DEFAULT_SETTINGS.provider
-    );
+    expect(mergeSettings(stored("nonsense")).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
   it("merges host rules over the defaults", () => {
@@ -54,17 +47,32 @@ describe("mergeSettings", () => {
   });
 
   it("keeps a valid aiProvider", () => {
-    const merged = mergeSettings({ aiProvider: "gemma" });
-    expect(merged.aiProvider).toBe("gemma");
+    expect(mergeSettings({ aiProvider: "mistral" }).aiProvider).toBe("mistral");
+    expect(mergeSettings({ aiProvider: "gpt-oss" }).aiProvider).toBe("gpt-oss");
+  });
+
+  it("migrates retired AI providers (gemma/qwen/hy3/mimo) to mistral", () => {
+    expect(mergeSettings(stored("gemma")).provider).toBe("mistral");
+    expect(mergeSettings(stored("mimo")).provider).toBe("mistral");
+    expect(mergeSettings({ aiProvider: "gemma" } as unknown as StoredBlob).aiProvider).toBe(
+      "mistral"
+    );
+    expect(mergeSettings({ aiProvider: "mimo" } as unknown as StoredBlob).aiProvider).toBe(
+      "mistral"
+    );
+    expect(mergeSettings({ aiProvider: "qwen" } as unknown as StoredBlob).aiProvider).toBe(
+      "mistral"
+    );
+    expect(mergeSettings({ aiProvider: "hy3" } as unknown as StoredBlob).aiProvider).toBe(
+      "mistral"
+    );
   });
 
   it("accepts an existing custom model as provider and aiProvider", () => {
     const blob = {
       provider: "custom:abc",
       aiProvider: "custom:abc",
-      customModels: [
-        { id: "abc", name: "Mine", endpoint: "http://x/v1", apiKey: "k", model: "m" }
-      ]
+      customModels: [{ id: "abc", name: "Mine", endpoint: "http://x/v1", apiKey: "k", model: "m" }]
     } as unknown as Parameters<typeof mergeSettings>[0];
     const merged = mergeSettings(blob);
     expect(merged.provider).toBe("custom:abc");
@@ -82,18 +90,18 @@ describe("mergeSettings", () => {
     expect(merged.aiProvider).toBe(DEFAULT_SETTINGS.aiProvider);
   });
 
-  it("forces the gemma config back to the bundled default, ignoring stored overrides", () => {
+  it("forces built-in AI configs back to the bundled defaults, ignoring stored overrides", () => {
     const merged = mergeSettings({
       providers: {
         google: {},
         ai: {
-          gemma: { endpoint: "http://evil/v1", apiKey: "hacked", model: "x" }
+          mistral: { endpoint: "http://evil/v1", apiKey: "hacked", model: "x" },
+          "gpt-oss": { endpoint: "http://evil/v1", apiKey: "hacked", model: "x" }
         }
       }
     } as unknown as Parameters<typeof mergeSettings>[0]);
-    expect(merged.providers.ai.gemma).toEqual(
-      DEFAULT_SETTINGS.providers.ai.gemma
-    );
+    expect(merged.providers.ai.mistral).toEqual(DEFAULT_SETTINGS.providers.ai.mistral);
+    expect(merged.providers.ai["gpt-oss"]).toEqual(DEFAULT_SETTINGS.providers.ai["gpt-oss"]);
   });
 
   it("sanitizes custom models and drops malformed / duplicate entries", () => {
@@ -134,34 +142,22 @@ describe("mergeSettings", () => {
   });
 
   it("falls back to the default for a non-AI / unknown aiProvider", () => {
-    const blob = { aiProvider: "google" } as unknown as Parameters<
-      typeof mergeSettings
-    >[0];
+    const blob = { aiProvider: "google" } as unknown as Parameters<typeof mergeSettings>[0];
     expect(mergeSettings(blob).aiProvider).toBe(DEFAULT_SETTINGS.aiProvider);
-    const bogus = { aiProvider: "nonsense" } as unknown as Parameters<
-      typeof mergeSettings
-    >[0];
+    const bogus = { aiProvider: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0];
     expect(mergeSettings(bogus).aiProvider).toBe(DEFAULT_SETTINGS.aiProvider);
   });
 
   it("defaults aiTranslationMode when missing", () => {
-    expect(mergeSettings({}).aiTranslationMode).toBe(
-      DEFAULT_SETTINGS.aiTranslationMode
-    );
+    expect(mergeSettings({}).aiTranslationMode).toBe(DEFAULT_SETTINGS.aiTranslationMode);
   });
 
   it("keeps a valid aiTranslationMode and rejects unknown values", () => {
-    expect(mergeSettings({ aiTranslationMode: "replace" }).aiTranslationMode).toBe(
-      "replace"
-    );
-    expect(mergeSettings({ aiTranslationMode: "below" }).aiTranslationMode).toBe(
-      "below"
-    );
+    expect(mergeSettings({ aiTranslationMode: "replace" }).aiTranslationMode).toBe("replace");
+    expect(mergeSettings({ aiTranslationMode: "below" }).aiTranslationMode).toBe("below");
     const bogus = { aiTranslationMode: "sidebyside" } as unknown as Parameters<
       typeof mergeSettings
     >[0];
-    expect(mergeSettings(bogus).aiTranslationMode).toBe(
-      DEFAULT_SETTINGS.aiTranslationMode
-    );
+    expect(mergeSettings(bogus).aiTranslationMode).toBe(DEFAULT_SETTINGS.aiTranslationMode);
   });
 });

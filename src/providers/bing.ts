@@ -122,7 +122,7 @@ async function translateOne(
   source: string,
   target: string,
   session: BingSession
-): Promise<{ text: string; detected?: string; needsRefresh?: boolean }> {
+): Promise<{ text: string; detected?: string; needsRefresh?: boolean; rateLimited?: boolean }> {
   const url = `${TRANSLATE_URL}?isVertical=1&&IG=${session.ig}&IID=${session.iid}.${session.count}`;
   const body = new URLSearchParams({
     fromLang: toBingCode(source),
@@ -144,7 +144,12 @@ async function translateOne(
   });
 
   if (!res.ok) {
-    if (res.status === 400 || res.status === 401 || res.status === 429) {
+    // 429 is rate limiting — re-scraping the session would only add traffic.
+    // Signal the caller to back off and retry with the same token instead.
+    if (res.status === 429) {
+      return { text: "", rateLimited: true };
+    }
+    if (res.status === 400 || res.status === 401) {
       return { text: "", needsRefresh: true };
     }
     throw new Error(`Bing translate failed (HTTP ${res.status})`);
@@ -176,6 +181,7 @@ export async function translateBing(
   let session = await getSession();
   const results: string[] = new Array(texts.length).fill("");
   let detected: string | undefined;
+  let rateLimitHit = false;
 
   // Limited concurrency worker pool.
   let cursor = 0;
@@ -185,12 +191,24 @@ export async function translateBing(
       const text = texts[idx];
       session.count++;
       let attempt = 0;
-      while (attempt < 2) {
+      while (attempt < 3) {
         const {
           text: translated,
           detected: detectedLang,
-          needsRefresh
+          needsRefresh,
+          rateLimited
         } = await translateOne(text, source, target, session);
+        if (rateLimited) {
+          rateLimitHit = true;
+          if (attempt < 2) {
+            // Exponential backoff before retrying with the SAME session —
+            // re-scraping the token under rate limiting only doubles traffic.
+            await delay(600 * 2 ** attempt);
+            attempt++;
+            continue;
+          }
+          break;
+        }
         if (needsRefresh && attempt === 0) {
           // Refresh token once and retry this segment.
           session = await getSession(true);
@@ -212,5 +230,18 @@ export async function translateBing(
   const workers = Array.from({ length: Math.min(CONCURRENCY, texts.length) }, () => worker());
   await Promise.all(workers);
 
+  // Surface total failure instead of silently returning untranslated text.
+  if (results.every((r) => r === "")) {
+    throw new Error(
+      rateLimitHit
+        ? "Bing translate failed (HTTP 429): rate limited"
+        : "Bing translate failed: no translations returned"
+    );
+  }
+
   return { translations: results, detected };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

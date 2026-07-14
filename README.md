@@ -21,7 +21,7 @@ sidebar listing all three functions.
 - Providers, none requiring an API key for the basics:
   - **Google Translate** — public `translate.googleapis.com` endpoint
   - **Bing Translator** — public `bing.com/translator` endpoint
-  - **Gemma 4 / custom AI** — OpenAI-compatible chat-completions endpoints
+  - **Mistral Small / GPT-OSS 120B / custom AI** — shared OpenAI-compatible gateway
 - 31 curated target languages
 - Auto-translate per domain rules (always / ask / never)
 - Translation cache persisted in `chrome.storage.local`
@@ -60,12 +60,12 @@ Settings are stored separately per feature: web settings under
 
 ```bash
 npm install
-cp .env.example .env   # fill in VITE_GEMMA_* / VITE_QWEN_* / VITE_HY3_* then build
+cp .env.example .env   # fill in VITE_AI_* (gateway endpoint + key) then build
 npm run dev
 ```
 
 Without `.env` the extension still builds, but the built-in AI backends will
-fail with a friendly "endpoint not configured" error until the vars are set.
+fail until the shared gateway endpoint and API key are set.
 
 ## Build
 
@@ -88,9 +88,9 @@ files automatically.
 
 ## Security
 
-The built-in AI backends (Gemma / Qwen / Hy3) read their endpoint and API key
-from `import.meta.env.VITE_*` at build time (see `.env.example`). **Never
-commit `.env`.** If a key was ever committed to git history:
+Built-in AI backends use a self-hosted gateway. Endpoint + API key come from
+`import.meta.env.VITE_AI_*` at build time (see `.env.example`). **Never commit
+`.env`.** If a key was ever committed to git history:
 
 ```bash
 # install once: npm i -g git-filter-repo

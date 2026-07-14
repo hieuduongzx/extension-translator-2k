@@ -1,7 +1,7 @@
 ﻿{
   "manifest_version": 3,
   "name": "Translator2k",
-  "version": "2.0.6",
+  "version": "2.0.9",
   "description": "Dịch trang web, dịch nhanh trong popup và phụ đề thời gian thực cho video/stream nhanh chóng. Ba chức năng trong một tiện ích.",
   "permissions": [
     "storage",
