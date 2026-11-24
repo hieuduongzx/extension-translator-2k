@@ -277,7 +277,7 @@ function showTriggerAt(x: number, y: number, text: string): void {
       fireTranslate();
     });
     triggerEl.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>';
+      '<svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>';
     triggerEl.addEventListener("mouseenter", () => {
       triggerEl!.classList.add("wt-hovering");
       hoverTimer = setTimeout(() => {
@@ -298,7 +298,7 @@ function showTriggerAt(x: number, y: number, text: string): void {
   // With `position: fixed` the trigger is positioned relative to the viewport,
   // so we use the viewport coordinates directly.
   const margin = 6;
-  const size = 16;
+  const size = 20;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   let left = x + margin;

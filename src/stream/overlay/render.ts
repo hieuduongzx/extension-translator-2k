@@ -90,7 +90,7 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
 
   // Bump when the CSS below changes. Rewriting a stylesheet makes the browser
   // re-match styles for the whole page, so only do it when it actually differs.
-  const styleVersion = "6";
+  const styleVersion = "7";
   let style = document.getElementById(styleId) as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");
@@ -136,12 +136,12 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       width:min(680px, calc(100vw - 32px)); min-width:280px;
       min-height:calc(var(--st-t-size) * 1.32 + 22px);
       max-height:min(calc(var(--st-t-size) * 5.4 + 22px), calc(100vh - 96px));
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,calc(.08 * var(--st-frame-a)));
-      background:rgba(12,12,18,var(--st-frame-a));
-      box-shadow:0 12px 40px rgba(0,0,0,calc(.35 * var(--st-frame-a)));
-      backdrop-filter:blur(calc(16px * var(--st-frame-a))) saturate(calc(1 + .5 * var(--st-frame-a)));
-      -webkit-backdrop-filter:blur(calc(16px * var(--st-frame-a))) saturate(calc(1 + .5 * var(--st-frame-a)));
+      border-radius:10px;
+      border:1px solid rgba(46,51,64,var(--st-frame-a));
+      background:rgba(17,19,24,var(--st-frame-a));
+      box-shadow:0 12px 36px rgba(0,0,0,calc(.38 * var(--st-frame-a)));
+      backdrop-filter:blur(calc(14px * var(--st-frame-a))) saturate(calc(1 + .4 * var(--st-frame-a)));
+      -webkit-backdrop-filter:blur(calc(14px * var(--st-frame-a))) saturate(calc(1 + .4 * var(--st-frame-a)));
       transition:background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
     }
 
@@ -151,7 +151,7 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       position:absolute; left:0; bottom:calc(100% + 6px); z-index:5;
       display:flex; align-items:center; gap:6px; max-width:100%;
       padding:3px 3px 3px 9px; border-radius:999px;
-      background:rgba(18,18,26,.9); border:1px solid rgba(255,255,255,.08);
+      background:rgba(26,29,36,.94); border:1px solid #2e3340;
       box-shadow:0 4px 14px rgba(0,0,0,.35);
       backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
       cursor:grab; touch-action:none;
@@ -228,13 +228,12 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
     /* ─── Settings Panel ─── */
     #${containerId} .st-settings-panel {
       display:none; position:absolute; right:0; bottom:calc(100% + 42px); z-index:7;
-      width:272px; padding:16px; border-radius:16px;
-      border:1px solid rgba(255,255,255,.1);
-      background:linear-gradient(180deg,rgba(20,20,28,.97),rgba(14,14,20,.98));
-      box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04) inset;
-      backdrop-filter:blur(20px);
-      animation:st-settings-in .2s cubic-bezier(.16,1,.3,1) both;
-      pointer-events:auto; color:#e2e8f0;
+      width:272px; padding:14px; border-radius:10px;
+      border:1px solid #2e3340;
+      background:#1a1d24;
+      box-shadow:0 16px 40px rgba(0,0,0,.48);
+      animation:st-settings-in .16s ease-out both;
+      pointer-events:auto; color:#e6e8ee;
     }
     #${containerId}[data-settings-open="true"] .st-settings-panel { display:block; }
     #${containerId}[data-settings-open="true"] .st-btn.settings { background:rgba(255,255,255,.12); color:#fff; }

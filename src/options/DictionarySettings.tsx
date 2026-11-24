@@ -1,5 +1,6 @@
 import { BookOpen, MousePointerClick } from "lucide-react";
 import { Dropdown } from "../popup/components/Dropdown";
+import { ToggleSwitch } from "../popup/components/ToggleSwitch";
 import { DICTIONARY_MODE_OPTIONS, Section, THEME_LABELS } from "./settingsShared";
 import type { WebSettingsPanelProps } from "./WebGeneralSettings";
 import type { DictionaryMode } from "../types";
@@ -45,42 +46,37 @@ export const KEYWORDS = [
   ...SECTION_KEYWORDS.theme
 ];
 
-/**
- * Dictionary popup settings: how to trigger a lookup (double-click vs
- * Alt + double-click) and the popup theme shared with the selection popup.
- */
 export function DictionarySettings({ settings, onChange, query }: WebSettingsPanelProps) {
   return (
-    <div className="space-y-4 pb-4">
-      <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Dictionary</h1>
-        <p className="text-[13px] text-zinc-500 mt-1">
+    <div className="space-y-4">
+      <header className="opt-page-header">
+        <h1 className="opt-page-title">Dictionary</h1>
+        <p className="opt-page-subtitle">
           Look up words in Vietnamese dictionaries right on the page.
         </p>
-        <div className="accent-line mt-3" />
       </header>
 
       <Section query={query} keywords={SECTION_KEYWORDS.trigger}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-              <BookOpen className="w-3.5 h-3.5 text-brand-600" />
+        <section className="surface-card p-4 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="icon-badge">
+              <BookOpen size={14} />
+            </span>
+            <div>
+              <h2 className="text-[13.5px] font-semibold text-primary m-0">Dictionary trigger</h2>
+              <p className="text-[11.5px] text-muted m-0">
+                Look up definitions, phonetics and examples. Falls back to translation if not found.
+              </p>
             </div>
-            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-              Dictionary trigger
-            </h2>
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
-            Double-click a word to open the dictionary popup with definitions, pronunciation and
-            examples. Falls back to the translator when the word is not found.
-          </p>
-          <div className="flex items-center justify-between gap-3 pt-0.5">
-            <span className="flex flex-col flex-1 min-w-0">
-              <span className="text-[12.5px] font-medium text-zinc-800">Trigger mode</span>
-              <span className="text-[11px] leading-snug text-zinc-500">
+
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-[13px] font-medium text-primary">Trigger mode</span>
+              <span className="text-[11.5px] leading-snug text-muted">
                 Which gesture opens the lookup.
               </span>
-            </span>
+            </div>
             <div className="w-[200px] shrink-0">
               <Dropdown
                 value={settings.dictionaryMode}
@@ -92,8 +88,9 @@ export function DictionarySettings({ settings, onChange, query }: WebSettingsPan
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 pt-0.5 text-[11px] text-zinc-500">
-            <MousePointerClick className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+
+          <div className="flex items-center gap-2 pt-0.5 text-[11.5px] text-muted">
+            <MousePointerClick size={14} className="shrink-0" />
             <span>
               On pages, lookups are skipped inside inputs, text areas and the extension&apos;s own
               popups.
@@ -103,45 +100,42 @@ export function DictionarySettings({ settings, onChange, query }: WebSettingsPan
       </Section>
 
       <Section query={query} keywords={SECTION_KEYWORDS.popupLookup}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-              <MousePointerClick className="w-3.5 h-3.5 text-brand-600" />
-            </div>
-            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-              In translate popup
-            </h2>
+        <section className="surface-card p-4 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="icon-badge">
+              <MousePointerClick size={14} />
+            </span>
+            <h2 className="text-[13.5px] font-semibold text-primary m-0">In translate popup</h2>
           </div>
-          <label className="flex items-start justify-between gap-3 cursor-pointer group">
-            <span className="flex flex-col">
-              <span className="text-[12.5px] font-medium text-zinc-800 group-hover:text-zinc-900 transition-colors">
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-[13px] font-medium text-primary">
                 Look up words in the translate popup
               </span>
-              <span className="text-[11px] leading-snug text-zinc-500">
+              <span className="text-[11.5px] leading-snug text-muted">
                 Double-click a word in the original text inside the translation popup to open the
-                dictionary. Requires the &ldquo;Show original text&rdquo; option in Web Translate →
-                General → Selection popup.
+                dictionary. Requires &ldquo;Show original text&rdquo; in Web Translate → General.
               </span>
-            </span>
-            <input
-              type="checkbox"
+            </div>
+            <ToggleSwitch
               checked={settings.dictionaryInPopup}
-              onChange={(e) => onChange({ ...settings, dictionaryInPopup: e.target.checked })}
-              className="mt-0.5 h-4 w-4 accent-brand-600 cursor-pointer shrink-0"
+              onChange={(dictionaryInPopup) => onChange({ ...settings, dictionaryInPopup })}
+              ariaLabel="Look up words in the translate popup"
             />
-          </label>
+          </div>
         </section>
       </Section>
 
       <Section query={query} keywords={SECTION_KEYWORDS.theme}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+        <section className="surface-card p-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="flex flex-col flex-1 min-w-0">
-              <span className="text-[12.5px] font-medium text-zinc-800">Popup theme on pages</span>
-              <span className="text-[11px] leading-snug text-zinc-500">
-                Background color of the dictionary and translate popups shown on websites.
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-[13px] font-medium text-primary">Popup theme on pages</span>
+              <span className="text-[11.5px] leading-snug text-muted">
+                Color scheme for the dictionary and translate popups shown on websites.
               </span>
-            </span>
+            </div>
             <div className="grid grid-cols-2 gap-1.5 shrink-0">
               {(["light", "dark"] as const).map((t) => (
                 <button
@@ -149,7 +143,7 @@ export function DictionarySettings({ settings, onChange, query }: WebSettingsPan
                   type="button"
                   onClick={() => onChange({ ...settings, selectionPopupTheme: t })}
                   aria-pressed={settings.selectionPopupTheme === t}
-                  className={`choice-chip px-3 py-1.5 uppercase tracking-wider ${
+                  className={`choice-chip px-3.5 ${
                     settings.selectionPopupTheme === t ? "choice-chip-active" : ""
                   }`}
                 >

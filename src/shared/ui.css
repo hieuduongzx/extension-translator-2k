@@ -1,260 +1,574 @@
 /* ─────────────────────────────────────────────────────────────────────────
-    Shared UI vocabulary — clean minimal, light-only (teal brand).
-    Thin low-opacity borders, no glows, no heavy shadows, typography-led.
-    Imported by both the popup and the options page; page-specific shells
-    only add their own geometry / backgrounds on top.
-    ───────────────────────────────────────────────────────────────────────── */
+ * Shared UI vocabulary — *2k design system (Light & Dark, aligned with TubeDeck2k).
+ * Uniform 1px borders on all 4 sides, crisp surface hierarchy (--bg / --surface /
+ * --surface-2), subtle tinted states, zero hover jitter, zero thick border-left.
+ * ───────────────────────────────────────────────────────────────────────── */
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Cards */
 .surface-card {
-  @apply rounded-xl border border-zinc-200/80 bg-white transition-colors duration-200;
-}
-.surface-card-hover {
-  @apply hover:border-zinc-300;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
+.surface-card-sub {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.surface-card-hover:hover {
+  border-color: var(--border-strong);
+}
+
+.ui-divider {
+  height: 1px;
+  width: 100%;
+  background-color: var(--border);
+}
+
+/* Typography & labels */
 .section-label {
-  @apply text-[10.5px] font-semibold uppercase tracking-[0.08em] text-zinc-500;
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
 
+.text-primary {
+  color: var(--text);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-accent {
+  color: var(--accent-text);
+}
+
+/* Icon badge for settings card titles */
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+}
+
+/* Status pills */
 .status-pill {
-  @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
-           text-[10px] font-semibold tracking-tight border;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.status-pill--success {
+  background-color: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.status-pill--warning {
+  background-color: var(--warning-soft);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.status-pill--danger {
+  background-color: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.status-pill--accent {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+/* Alert banners (uniform 1px border on all 4 sides + soft tint) */
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.alert-banner--danger {
+  background-color: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.alert-banner--warning {
+  background-color: var(--warning-soft);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+/* Inputs */
+.brand-input,
+.brand-input-sm {
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .brand-input {
-  @apply h-9 px-3 rounded-lg bg-white border border-zinc-200/80
-           text-[13px] text-zinc-900 placeholder:text-zinc-500
-           focus:border-brand-500
-           focus:ring-2 focus:ring-brand-500/15 focus:outline-none
-           transition-colors;
+  height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
 }
 
 .brand-input-sm {
-  @apply h-8 px-2.5 rounded-md bg-white border border-zinc-200/80
-           text-[13px] text-zinc-900 placeholder:text-zinc-500
-           focus:border-brand-500
-           focus:ring-2 focus:ring-brand-500/15 focus:outline-none
-           transition-colors;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
 }
 
-.btn-brand {
-  @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-semibold
-           bg-brand-600 text-white
-           hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
+.brand-input::placeholder,
+.brand-input-sm::placeholder {
+  color: var(--text-muted);
 }
 
-.btn-brand-sm {
-  @apply inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-md text-[13px] font-medium
-           bg-brand-600 text-white
-           hover:bg-brand-700 active:scale-[0.98]
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
+.brand-input:focus,
+.brand-input-sm:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-1.5
-           h-9 px-3.5 rounded-lg text-[13px] font-medium
-           bg-white border border-zinc-200/80 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
+.brand-input--error {
+  border-color: var(--danger);
+  background-color: var(--danger-soft);
 }
 
+/* Buttons (*2k standard: crisp height, radius --radius, no hover jitter) */
+.btn-brand,
+.btn-brand-sm,
+.btn-ghost,
+.btn-ghost-sm,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    opacity 0.14s ease;
+}
+
+.btn-brand,
+.btn-ghost,
+.btn-danger {
+  height: 34px;
+  padding: 0 13px;
+  font-size: 13px;
+}
+
+.btn-brand-sm,
 .btn-ghost-sm {
-  @apply inline-flex items-center justify-center gap-1.5
-           h-8 px-3 rounded-md text-[13px] font-medium
-           bg-white border border-zinc-200/80 text-zinc-700
-           hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98]
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-           transition-all duration-150;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.btn-brand,
+.btn-brand-sm {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-brand:hover:not(:disabled),
+.btn-brand-sm:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-ghost,
+.btn-ghost-sm {
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-ghost:hover:not(:disabled),
+.btn-ghost-sm:hover:not(:disabled) {
+  background-color: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.btn-danger {
+  background-color: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  font-weight: 600;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.btn-brand:disabled,
+.btn-brand-sm:disabled,
+.btn-ghost:disabled,
+.btn-ghost-sm:disabled,
+.btn-danger:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.btn-brand:focus-visible,
+.btn-brand-sm:focus-visible,
+.btn-ghost:focus-visible,
+.btn-ghost-sm:focus-visible,
+.btn-danger:focus-visible,
+.btn-icon:focus-visible,
+.btn-icon-sm:focus-visible,
+.choice-chip:focus-visible,
+.segment:focus-visible,
+.ui-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn-icon,
+.btn-icon-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .btn-icon {
-  @apply inline-flex items-center justify-center shrink-0
-           h-9 w-9 rounded-lg text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
 }
 
 .btn-icon-sm {
-  @apply inline-flex items-center justify-center shrink-0
-           h-7 w-7 rounded-md text-zinc-500
-           hover:text-zinc-900 hover:bg-zinc-100
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/60
-           disabled:opacity-50 disabled:cursor-not-allowed
-           transition-colors;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 
-/* Segmented choice chip (auto-rule, display mode, theme...). */
+.btn-icon:hover:not(:disabled),
+.btn-icon-sm:hover:not(:disabled) {
+  background-color: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-icon:disabled,
+.btn-icon-sm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-icon-danger:hover:not(:disabled) {
+  background-color: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+/* Segmented choice chips (matching TubeDeck2k .popup-preset-btn) */
 .choice-chip {
-  @apply flex-1 px-2 py-1 rounded-lg text-[11px] font-semibold tracking-tight border
-           bg-white border-zinc-200/80 text-zinc-600
-           hover:border-zinc-300 hover:bg-zinc-50
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
-           transition-colors duration-150 active:scale-[0.97];
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.13s ease,
+    border-color 0.13s ease,
+    color 0.13s ease;
 }
+
+.choice-chip:hover:not(:disabled):not(.choice-chip-active) {
+  background-color: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
 .choice-chip-active {
-  @apply bg-brand-50 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-300;
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
-.brand-logo {
-  @apply relative flex items-center justify-center shrink-0
-           h-10 w-10 rounded-xl text-white
-           bg-gradient-to-br from-brand-500 to-brand-600;
+.choice-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-.accent-line {
-  @apply h-px w-full;
-  background-image: linear-gradient(
-    to right,
-    transparent 0%,
-    rgb(24 24 27 / 0.1) 50%,
-    transparent 100%
-  );
+/* Accessible toggle switch (exact TubeDeck2k 36x20 .ui-switch) */
+.ui-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background-color: var(--surface-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease;
 }
 
-.kbd-key {
-  @apply inline-flex items-center justify-center
-           min-w-[20px] h-[18px] px-1
-           rounded border border-zinc-300 bg-zinc-50
-           text-[10px] font-semibold text-zinc-600 leading-none;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+.ui-switch.is-on {
+  background-color: var(--accent);
+  border-color: var(--accent);
 }
 
-/* Segmented control — pill-style tab group. */
+.ui-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-switch-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ui-switch.is-on .ui-switch-thumb {
+  transform: translateX(16px);
+}
+
+/* Range slider */
+.ui-range {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.ui-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.ui-range:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+/* Segmented tabs (exact TubeDeck2k .popup-tabs / .popup-tab) */
 .segment-track {
-  @apply flex items-center gap-1 p-1 rounded-xl
-           bg-zinc-100 border border-zinc-200/60;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
 }
+
 .segment {
-  @apply flex-1 inline-flex items-center justify-center gap-1.5
-           h-8 px-2 rounded-lg text-[12.5px] font-semibold tracking-tight
-           text-zinc-500 transition-colors duration-150
-           hover:text-zinc-900
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.13s ease,
+    color 0.13s ease,
+    border-color 0.13s ease;
 }
+
+.segment:hover:not(.segment-active) {
+  color: var(--text);
+}
+
 .segment-active {
-  @apply bg-white text-zinc-900
-           shadow-[0_1px_0_0_rgba(24,24,27,0.04),0_1px_2px_0_rgba(24,24,27,0.06)];
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
-/* Sidebar navigation entry. */
-.nav-item {
-  @apply w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
-           text-[13px] font-medium text-left text-zinc-600
-           hover:bg-white hover:text-zinc-900 transition-colors duration-150
-           border border-transparent
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
-}
-.nav-item-active {
-  @apply bg-white text-zinc-900 border-zinc-200/80
-           shadow-[0_1px_0_0_rgba(24,24,27,0.04),0_1px_2px_0_rgba(24,24,27,0.05)];
-}
-
-/* Glass surface for floating elements. */
-.glass-surface {
-  @apply bg-white/90 backdrop-blur-md border border-zinc-200/60;
-  box-shadow:
-    0 1px 0 0 rgba(24, 24, 27, 0.04),
-    0 4px 16px -6px rgba(24, 24, 27, 0.08);
+/* Keyboard key cap */
+.kbd-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  font-family: var(--font-mono);
 }
 
-/* Micro-interaction utilities. */
-.hover-lift {
-  @apply transition-all duration-200;
-}
-.hover-lift:hover {
-  transform: translateY(-1px);
-}
-
-.focus-brand {
-  @apply focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500;
-}
-
-/* Section entrance animation used on the options page. */
-.section-enter {
-  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Value badge (for sliders / detected language) */
+.value-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Brief glow used when deep-linking (e.g. `#models`) scrolls a card into view. */
+/* Brief highlight used when deep-linking (e.g. `#models`) scrolls a card into view. */
 .scroll-highlight {
   animation: scrollGlow 1.6s ease-out;
 }
 
 @keyframes scrollGlow {
   0% {
-    box-shadow: 0 0 0 3px rgba(var(--brand-rgb) / 0.55);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb) / 0.45);
   }
   100% {
     box-shadow: 0 0 0 3px rgba(var(--brand-rgb) / 0);
   }
 }
 
-/* ── Brand RGB token (teal-500) used by gradients and glows. ── */
-:root {
-  --brand-rgb: 20 184 166;
-  --brand-500: #14b8a6;
-  --brand-700: #0d9488;
-  --slider-track: #e4e4e7;
+.section-enter {
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
-/* ── Scrollbars (thin, low-contrast) ── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Subtle native scrollbars (matching TubeDeck2k) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(24, 24, 27, 0.12) transparent;
-}
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(24, 24, 27, 0.12) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
-::-webkit-scrollbar,
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
 }
-::-webkit-scrollbar-track,
-.custom-scrollbar::-webkit-scrollbar-track {
+
+::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb,
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(24, 24, 27, 0.14);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
 }
-::-webkit-scrollbar-thumb:hover,
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(24, 24, 27, 0.22);
-  background-clip: padding-box;
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* ── Respect users who prefer reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -263,12 +577,5 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
-  }
-  .section-enter {
-    animation: none !important;
-    opacity: 1 !important;
-  }
-  .hover-lift:hover {
-    transform: none !important;
   }
 }

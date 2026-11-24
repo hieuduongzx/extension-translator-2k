@@ -32,10 +32,7 @@ const STREAM_DRAFT_LANG_KEY = "streamTranslatorDraftLanguage";
 
 /**
  * The "Stream Translate" tab of the popup: real-time speech-to-text + translation
- * powered by Soniox. Controls the offscreen tab-audio capture lifecycle plus
- * the overlay appearance (source text, speakers, display mode, opacity, size)
- * — the same controls available in the options page, surfaced here for quick
- * access while watching.
+ * powered by Soniox.
  */
 export function StreamPanel() {
   const [state, setState] = useState<StreamRuntimeState>(DEFAULT_STREAM_STATE);
@@ -164,61 +161,46 @@ export function StreamPanel() {
   const opacityPercent = opacityDraft;
 
   const startDisabled = busy || (!state.isActive && !hasApiKey);
-  const startStopClass = startDisabled
-    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed border-zinc-200"
-    : state.isActive
-      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-      : "bg-brand-600 text-white border-brand-600 hover:bg-brand-700";
-
-  const pauseClass = !state.isActive
-    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-    : state.isPaused
-      ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-      : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300";
-
-  const resetClass = !state.isActive
-    ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-    : "bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300";
+  const statusPillClass = state.isActive
+    ? state.isPaused || state.isStandby
+      ? "status-pill status-pill--warning"
+      : "status-pill status-pill--success"
+    : "status-pill";
+  const statusDotColor = state.isActive
+    ? state.isPaused || state.isStandby
+      ? "var(--warning)"
+      : "var(--success)"
+    : "var(--text-muted)";
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="flex flex-col gap-2.5">
       {/* Status header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
-            <Radio className="w-3 h-3 text-zinc-500" />
-          </div>
-          <span
-            className={`status-pill ${
-              state.isActive
-                ? state.isPaused
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-zinc-100 text-zinc-500 border-zinc-200"
-            }`}
+      <div className="flex items-center justify-between px-0.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+            className="w-6 h-6 rounded-[6px] border flex items-center justify-center shrink-0 text-muted"
           >
+            <Radio size={13} />
+          </div>
+          <span className={statusPillClass}>
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                state.isActive
-                  ? state.isPaused
-                    ? "bg-amber-500"
-                    : "bg-emerald-500 animate-pulse"
-                  : "bg-zinc-400"
-              }`}
+              style={{ backgroundColor: statusDotColor }}
+              className={`w-1.5 h-1.5 rounded-full ${state.isActive && !state.isPaused && !state.isStandby ? "animate-pulse" : ""}`}
             />
             {stateLabel}
+          </span>
+          <span className="text-[11.5px] text-muted truncate" title={state.statusMessage}>
+            {state.statusMessage}
           </span>
         </div>
       </div>
 
       {/* Error banner */}
       {state.error && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11.5px] leading-relaxed animate-scale-in"
-        >
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <p className="flex-1">{state.error}</p>
+        <div role="alert" className="alert-banner alert-banner--danger">
+          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+          <p className="flex-1 m-0">{state.error}</p>
         </div>
       )}
 
@@ -227,9 +209,9 @@ export function StreamPanel() {
         <button
           type="button"
           onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("options.html#stream") })}
-          className="w-full flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11.5px] leading-relaxed text-left hover:bg-amber-100 transition-colors animate-scale-in"
+          className="alert-banner alert-banner--warning w-full text-left cursor-pointer"
         >
-          <KeyRound className="w-4 h-4 shrink-0 mt-0.5" />
+          <KeyRound size={15} className="shrink-0 mt-0.5" />
           <span className="flex-1">
             No Soniox API key yet. Click to open Settings and add a key before translating.
           </span>
@@ -242,13 +224,9 @@ export function StreamPanel() {
           type="button"
           onClick={() => void toggleTranslation()}
           disabled={startDisabled}
-          className={`group flex-1 h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-200 border active:scale-[0.98] hover-lift ${startStopClass}`}
+          className={`flex-1 h-10 ${state.isActive ? "btn-danger" : "btn-brand"}`}
         >
-          {state.isActive ? (
-            <MicOff className="w-4 h-4" />
-          ) : (
-            <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          )}
+          {state.isActive ? <MicOff size={15} /> : <Mic size={15} />}
           <span>{state.isActive ? "Stop translating" : "Start translating"}</span>
         </button>
 
@@ -256,14 +234,23 @@ export function StreamPanel() {
           type="button"
           onClick={() => void togglePause()}
           disabled={busy || !state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${pauseClass}`}
+          style={
+            state.isActive && state.isPaused
+              ? {
+                  backgroundColor: "var(--warning-soft)",
+                  borderColor: "var(--warning-border)",
+                  color: "var(--warning-text)"
+                }
+              : undefined
+          }
+          className="btn-ghost w-10 h-10 p-0 shrink-0"
           title={state.isPaused ? "Resume" : "Pause"}
           aria-label={state.isPaused ? "Resume translation" : "Pause translation"}
         >
           {state.isPaused ? (
-            <Play className="w-4 h-4 fill-current" />
+            <Play size={15} className="fill-current" />
           ) : (
-            <Pause className="w-4 h-4 fill-current" />
+            <Pause size={15} className="fill-current" />
           )}
         </button>
 
@@ -271,40 +258,19 @@ export function StreamPanel() {
           type="button"
           onClick={() => void resetOverlayLayout()}
           disabled={!state.isActive}
-          className={`h-11 w-11 flex items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 hover-lift ${resetClass}`}
+          className="btn-ghost w-10 h-10 p-0 shrink-0"
           title="Reset overlay position"
           aria-label="Reset overlay position"
         >
-          <RefreshCcw
-            className={`w-3.5 h-3.5 ${state.isActive ? "hover:rotate-180 transition-transform duration-500" : ""}`}
-          />
+          <RefreshCcw size={14} />
         </button>
       </div>
 
-      {/* Status message */}
-      <div className="flex items-center justify-center gap-2 py-0.5">
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${
-            state.isActive
-              ? state.isPaused
-                ? "bg-amber-500"
-                : "bg-emerald-500 animate-pulse"
-              : "bg-zinc-300"
-          }`}
-        />
-        <p
-          className="text-[11px] font-medium text-zinc-500 truncate max-w-[300px]"
-          title={state.statusMessage}
-        >
-          {state.statusMessage}
-        </p>
-      </div>
-
       {/* Settings card */}
-      <div className="surface-card surface-card-hover p-2.5 flex flex-col gap-2.5 transition-all duration-200">
+      <div className="surface-card p-2.5 flex flex-col gap-2.5">
         <div className="flex flex-col gap-1">
           <span className="section-label flex items-center gap-1.5">
-            <Globe2 className="w-3 h-3 text-zinc-400" />
+            <Globe2 size={12} />
             Translate to
           </span>
           <Dropdown
@@ -319,13 +285,13 @@ export function StreamPanel() {
             ariaLabel="Subtitle language"
           />
           {state.isActive && draftLang !== state.targetLang && (
-            <p className="text-[10.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            <p className="alert-banner alert-banner--warning m-0 py-1.5 px-2 text-[11px]">
               The new language applies when you stop and restart the translation session.
             </p>
           )}
         </div>
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="ui-divider" />
 
         <ToggleRow
           label="Show original"
@@ -343,10 +309,10 @@ export function StreamPanel() {
           onChange={(v) => void updateOverlaySettings({ autoScroll: v })}
         />
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="ui-divider" />
 
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[12px] font-medium text-zinc-800">Display mode</span>
+          <span className="text-[12.5px] font-medium text-primary">Display mode</span>
           <div className="grid grid-cols-2 gap-1.5">
             {(
               [
@@ -359,7 +325,7 @@ export function StreamPanel() {
                 type="button"
                 onClick={() => void updateOverlaySettings({ displayMode: mode })}
                 aria-pressed={state.displayMode === mode}
-                className={`choice-chip ${state.displayMode === mode ? "choice-chip-active" : ""}`}
+                className={`choice-chip h-7 px-2.5 ${state.displayMode === mode ? "choice-chip-active" : ""}`}
               >
                 {label}
               </button>
@@ -367,11 +333,11 @@ export function StreamPanel() {
           </div>
         </div>
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="ui-divider" />
 
         <SliderRow
           label="Subtitle size"
-          icon={<Type className="w-3 h-3 text-zinc-400" />}
+          icon={<Type size={12} className="text-muted" />}
           value={fontScaleDraft}
           suffix="%"
           min={30}
@@ -413,7 +379,7 @@ function ToggleRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 py-0.5">
-      <span className="text-[12px] font-medium text-zinc-800">{label}</span>
+      <span className="text-[12.5px] font-medium text-primary">{label}</span>
       <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={label} />
     </div>
   );
@@ -442,12 +408,12 @@ function SliderRow({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-[12px]">
-        <span className="font-medium text-zinc-800 flex items-center gap-1.5">
+      <div className="flex items-center justify-between text-[12.5px]">
+        <span className="font-medium text-primary flex items-center gap-1.5">
           {icon}
           {label}
         </span>
-        <span className="text-[11px] text-brand-700 font-semibold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
+        <span className="value-pill">
           {value}
           {suffix}
         </span>
@@ -460,13 +426,9 @@ function SliderRow({
         value={value}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 rounded-full appearance-none outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
-                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md
-                   [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
-                   [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
+        className="ui-range"
         style={{
-          background: `linear-gradient(to right, var(--brand-500) ${percent}%, var(--slider-track) ${percent}%)`
+          background: `linear-gradient(to right, var(--accent) ${percent}%, var(--slider-track) ${percent}%)`
         }}
       />
     </div>

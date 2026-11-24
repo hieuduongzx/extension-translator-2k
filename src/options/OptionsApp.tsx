@@ -2,19 +2,24 @@
 import {
   BookOpen,
   Captions,
-  Globe,
+  ChevronRight,
   Keyboard,
   KeyRound,
   Languages,
-  Radio,
+  Monitor,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Server,
   Settings2,
+  Sun,
   X
 } from "lucide-react";
 import { loadSettings, updateSettings, watchSettings, diffSettings } from "../storage";
-import { DEFAULT_SETTINGS, type Settings } from "../types";
+import { DEFAULT_SETTINGS, type Settings, type UIThemeMode } from "../types";
 import { matchesSearch } from "../shared/search";
+import { cycleThemeMode, useApplyTheme } from "../shared/theme";
 import { WebGeneralSettings, KEYWORDS as WEB_GENERAL_KW } from "./WebGeneralSettings";
 import { WebServicesSettings, KEYWORDS as WEB_SERVICES_KW } from "./WebServicesSettings";
 import { WebShortcutsSettings, KEYWORDS as WEB_SHORTCUTS_KW } from "./WebShortcutsSettings";
@@ -26,56 +31,50 @@ import { StreamOverlaySettings, KEYWORDS as STREAM_OVERLAY_KW } from "./StreamOv
 type FeatureId = "web" | "quick" | "stream" | "dictionary";
 type CategoryId = "general" | "shortcuts" | "services" | "overlay";
 
-interface Feature {
+interface NavEntry {
+  feature: FeatureId;
+  category: CategoryId;
+  label: string;
+  icon: typeof Settings2;
+}
+
+interface NavGroup {
   id: FeatureId;
   label: string;
-  icon: typeof Globe;
+  items: NavEntry[];
 }
 
-interface Category {
-  id: CategoryId;
-  label: string;
-  caption: string;
-  icon: typeof Globe;
-}
-
-const FEATURES: Feature[] = [
-  { id: "web", label: "Web Translate", icon: Globe },
-  { id: "dictionary", label: "Dictionary", icon: BookOpen },
-  { id: "quick", label: "Quick Translate", icon: Languages },
-  { id: "stream", label: "Stream Translate", icon: Radio }
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "web",
+    label: "Web Translate",
+    items: [
+      { feature: "web", category: "general", label: "General", icon: Settings2 },
+      { feature: "web", category: "shortcuts", label: "Shortcuts", icon: Keyboard },
+      { feature: "web", category: "services", label: "Services & AI", icon: Server }
+    ]
+  },
+  {
+    id: "dictionary",
+    label: "Dictionary",
+    items: [{ feature: "dictionary", category: "general", label: "Dictionary", icon: BookOpen }]
+  },
+  {
+    id: "quick",
+    label: "Quick Translate",
+    items: [{ feature: "quick", category: "general", label: "Quick Translate", icon: Languages }]
+  },
+  {
+    id: "stream",
+    label: "Stream Translate",
+    items: [
+      { feature: "stream", category: "general", label: "API & Auto-pause", icon: KeyRound },
+      { feature: "stream", category: "overlay", label: "Subtitle Overlay", icon: Captions }
+    ]
+  }
 ];
 
-const CATEGORIES: Record<FeatureId, Category[]> = {
-  web: [
-    {
-      id: "general",
-      label: "General",
-      caption: "Services · display · popup · rules",
-      icon: Settings2
-    },
-    { id: "shortcuts", label: "Shortcuts", caption: "Alt+A · Alt+S", icon: Keyboard },
-    {
-      id: "services",
-      label: "Translation Service",
-      caption: "Providers · AI models",
-      icon: Server
-    }
-  ],
-  dictionary: [
-    {
-      id: "general",
-      label: "General",
-      caption: "Trigger · theme",
-      icon: BookOpen
-    }
-  ],
-  quick: [{ id: "general", label: "General", caption: "Clipboard · behavior", icon: Settings2 }],
-  stream: [
-    { id: "general", label: "General", caption: "Soniox API key", icon: KeyRound },
-    { id: "overlay", label: "Overlay", caption: "Subtitle defaults", icon: Captions }
-  ]
-};
+const ALL_ENTRIES: NavEntry[] = NAV_GROUPS.flatMap((g) => g.items);
 
 const CATEGORY_KEYWORDS: Record<FeatureId, Record<string, string[]>> = {
   web: {
@@ -120,17 +119,20 @@ const STREAM_PANELS: Record<"general" | "overlay", ComponentType<SimplePanelProp
   overlay: StreamOverlaySettings
 };
 
-function categoryList(feature: FeatureId): Category[] {
-  return CATEGORIES[feature];
+const THEME_OPTIONS: { value: UIThemeMode; label: string; icon: typeof Sun }[] = [
+  { value: "system", label: "Auto", icon: Monitor },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon }
+];
+
+function validCategoriesFor(feature: FeatureId): CategoryId[] {
+  return NAV_GROUPS.find((g) => g.id === feature)?.items.map((i) => i.category) ?? ["general"];
 }
 
 /**
- * Full-page settings shell: a horizontal feature tab bar (Web / Dictionary /
- * Quick / Stream) on top, and a vertical category sidebar on the left whose
- * entries depend on the active feature (e.g. Web Translate → General,
- * Shortcuts, Translation Service). Deep-links: `#web` / `#dictionary` /
- * `#quick` / `#stream`, `#<feature>/<category>`, and legacy `#models` → Web ·
- * Translation Service.
+ * Full-page settings shell aligned with TubeDeck2k's collapsible sidebar layout.
+ * Deep-links: `#web`, `#web/services`, `#dictionary`, `#quick`, `#stream`,
+ * `#stream/overlay`, and legacy `#models` → Web · Translation Service.
  */
 export function OptionsApp() {
   const [feature, setFeature] = useState<FeatureId>("web");
@@ -140,24 +142,21 @@ export function OptionsApp() {
     quick: "general",
     stream: "general"
   });
+  const [collapsed, setCollapsed] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [storageError, setStorageError] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const featureTabRefs = useRef(new Map<FeatureId, HTMLButtonElement>());
-  // Saves still in flight. While > 0, a save response or storage event carries
-  // an older snapshot than what the user has typed since, so it is ignored.
   const pendingSaves = useRef(0);
 
-  const cats = categoryList(feature);
-  const activeCat = cats.some((c) => c.id === activeCategory[feature])
-    ? activeCategory[feature]
-    : cats[0].id;
+  useApplyTheme(settings.uiTheme);
 
-  // Include dynamic hostRules and custom model names/models in the search index
-  // so searching a saved domain or custom model works from any tab.
+  const validCats = validCategoriesFor(feature);
+  const activeCat = validCats.includes(activeCategory[feature])
+    ? activeCategory[feature]
+    : validCats[0];
+
   const dynamicKeywords = useMemo<Record<FeatureId, Record<string, string[]>>>(
     () => ({
       web: {
@@ -197,8 +196,6 @@ export function OptionsApp() {
       }
     })();
 
-    // Deep-link to a feature/category via `#web`, `#web/services`, … or jump
-    // straight to the model manager with the legacy `#models`.
     const hash = window.location.hash.replace("#", "");
     const [hFeature, hCat] = hash.split("/");
     if (
@@ -208,7 +205,7 @@ export function OptionsApp() {
       hFeature === "stream"
     ) {
       setFeature(hFeature);
-      if (hCat && categoryList(hFeature).some((c) => c.id === hCat)) {
+      if (hCat && validCategoriesFor(hFeature).includes(hCat as CategoryId)) {
         setActiveCategory((prev) => ({ ...prev, [hFeature]: hCat as CategoryId }));
       }
     }
@@ -224,35 +221,21 @@ export function OptionsApp() {
     };
   }, []);
 
-  // When a search query is active, jump to the first matching category (or
-  // feature tab if the active feature has no matches) and keep the URL hash in sync.
+  // Auto-jump to the first matching section when searching.
   useEffect(() => {
     const q = query.trim();
     if (!q) return;
     if (matchesSearch(q, ...(dynamicKeywords[feature][activeCat] ?? []))) return;
-    const sameFeatureMatch = cats.find((c) =>
-      matchesSearch(q, ...(dynamicKeywords[feature][c.id] ?? []))
+    const match = ALL_ENTRIES.find((entry) =>
+      matchesSearch(q, ...(dynamicKeywords[entry.feature][entry.category] ?? []))
     );
-    if (sameFeatureMatch) {
-      setActiveCategory((prev) => ({ ...prev, [feature]: sameFeatureMatch.id }));
-      window.history.replaceState(null, "", `#${feature}/${sameFeatureMatch.id}`);
-      return;
+    if (match) {
+      setFeature(match.feature);
+      setActiveCategory((prev) => ({ ...prev, [match.feature]: match.category }));
+      window.history.replaceState(null, "", `#${match.feature}/${match.category}`);
     }
-    for (const f of FEATURES) {
-      if (f.id === feature) continue;
-      const match = categoryList(f.id).find((c) =>
-        matchesSearch(q, ...(dynamicKeywords[f.id][c.id] ?? []))
-      );
-      if (match) {
-        setFeature(f.id);
-        setActiveCategory((prev) => ({ ...prev, [f.id]: match.id }));
-        window.history.replaceState(null, "", `#${f.id}/${match.id}`);
-        return;
-      }
-    }
-  }, [query, feature, activeCat, cats, dynamicKeywords]);
+  }, [query, feature, activeCat, dynamicKeywords]);
 
-  // After the target panel mounts, scroll the relevant card into view.
   useEffect(() => {
     if (!scrollTarget) return;
     const el = document.getElementById(scrollTarget);
@@ -263,9 +246,8 @@ export function OptionsApp() {
     setScrollTarget(null);
   }, [feature, activeCat, scrollTarget]);
 
-  // Reset scroll when switching feature or category.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
   }, [feature, activeCat]);
 
   const updateWebSettings = useCallback(
@@ -279,7 +261,6 @@ export function OptionsApp() {
         if (pendingSaves.current === 1) setSettings(saved);
       } catch {
         setStorageError("Couldn't save settings. Your latest changes were not saved.");
-        // Only roll back when no newer local edit is still in flight.
         if (pendingSaves.current === 1) {
           setSettings(await loadSettings().catch(() => settings));
         }
@@ -290,44 +271,21 @@ export function OptionsApp() {
     [settings]
   );
 
-  // Keep the URL hash in sync so refresh / back / copied links land on the
-  // exact feature + category the user was looking at.
-  const selectFeature = useCallback(
-    (id: FeatureId) => {
-      setFeature(id);
-      window.history.replaceState(null, "", `#${id}/${activeCategory[id]}`);
-    },
-    [activeCategory]
-  );
-
-  const onFeatureTablistKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const index = FEATURES.findIndex((f) => f.id === feature);
-      let nextIndex = -1;
-      if (e.key === "ArrowRight") nextIndex = (index + 1) % FEATURES.length;
-      else if (e.key === "ArrowLeft") nextIndex = (index - 1 + FEATURES.length) % FEATURES.length;
-      else if (e.key === "Home") nextIndex = 0;
-      else if (e.key === "End") nextIndex = FEATURES.length - 1;
-      if (nextIndex === -1) return;
-      e.preventDefault();
-      const next = FEATURES[nextIndex].id;
-      selectFeature(next);
-      featureTabRefs.current.get(next)?.focus();
-    },
-    [feature, selectFeature]
-  );
-
-  const selectCategory = useCallback(
-    (id: CategoryId) => {
-      setActiveCategory((prev) => ({ ...prev, [feature]: id }));
-      window.history.replaceState(null, "", `#${feature}/${id}`);
-    },
-    [feature]
-  );
+  const selectEntry = useCallback((nextFeature: FeatureId, nextCategory: CategoryId) => {
+    setFeature(nextFeature);
+    setActiveCategory((prev) => ({ ...prev, [nextFeature]: nextCategory }));
+    window.history.replaceState(null, "", `#${nextFeature}/${nextCategory}`);
+  }, []);
 
   const hasAnyMatch =
     query.trim().length === 0 ||
-    cats.some((c) => matchesSearch(query, ...(dynamicKeywords[feature][c.id] ?? [])));
+    ALL_ENTRIES.some((entry) =>
+      matchesSearch(query, ...(dynamicKeywords[entry.feature][entry.category] ?? []))
+    );
+
+  const currentGroup = NAV_GROUPS.find((g) => g.id === feature) ?? NAV_GROUPS[0];
+  const currentItem =
+    currentGroup.items.find((i) => i.category === activeCat) ?? currentGroup.items[0];
 
   const renderPanel = () => {
     if (feature === "web") {
@@ -346,26 +304,121 @@ export function OptionsApp() {
     return <Panel query={query} />;
   };
 
+  const CollapsedThemeIcon =
+    settings.uiTheme === "dark" ? Moon : settings.uiTheme === "light" ? Sun : Monitor;
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Top bar: identity + search + version */}
-      <header className="shrink-0 border-b border-zinc-200/70 bg-white/85 backdrop-blur z-10">
-        <div className="max-w-5xl mx-auto px-6 pt-3 pb-2 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img
-              src={chrome.runtime.getURL("public/icons/icon-128.png")}
-              alt="Translator2k"
-              className="w-8 h-8 rounded-xl ring-1 ring-zinc-200/70"
-            />
-            <div className="min-w-0">
-              <h1 className="text-[14px] font-bold tracking-tight text-zinc-900 leading-tight">
-                Translator2k
-              </h1>
-              <p className="text-[10.5px] text-zinc-500 leading-tight">Settings</p>
+    <div className="opt-layout">
+      {/* Left sidebar (*2k standard) */}
+      <aside className={`opt-sidebar ${collapsed ? "is-collapsed" : ""}`}>
+        <div className="opt-sidebar-brand">
+          <img
+            src={chrome.runtime.getURL("public/icons/icon-48.png")}
+            alt="Translator2k"
+            className="opt-brand-icon"
+          />
+          {!collapsed && (
+            <div className="opt-brand-text">
+              <div className="opt-brand-name">Translator2k</div>
+              <div className="opt-brand-sub">v{chrome.runtime.getManifest().version}</div>
             </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            className="btn-icon-sm"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+        </div>
+
+        <nav className="opt-nav" aria-label="Settings navigation">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.id} className="opt-nav-group">
+              {!collapsed && <div className="opt-nav-group-label">{group.label}</div>}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = feature === item.feature && activeCat === item.category;
+                return (
+                  <button
+                    key={`${item.feature}/${item.category}`}
+                    type="button"
+                    onClick={() => selectEntry(item.feature, item.category)}
+                    aria-current={active ? "page" : undefined}
+                    title={collapsed ? `${group.label} · ${item.label}` : undefined}
+                    className={`opt-nav-item ${active ? "is-active" : ""}`}
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="opt-nav-bottom">
+          {collapsed ? (
+            <button
+              type="button"
+              className="opt-nav-item"
+              onClick={() =>
+                void updateWebSettings({
+                  ...settings,
+                  uiTheme: cycleThemeMode(settings.uiTheme)
+                })
+              }
+              title={`Theme: ${settings.uiTheme}`}
+              aria-label={`Theme: ${settings.uiTheme}`}
+            >
+              <CollapsedThemeIcon size={16} />
+            </button>
+          ) : (
+            <>
+              <span className="opt-nav-group-label px-1 pb-0">Appearance</span>
+              <div className="opt-theme-seg" role="radiogroup" aria-label="Appearance theme">
+                {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+                  const active = settings.uiTheme === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => void updateWebSettings({ ...settings, uiTheme: value })}
+                      className={`opt-theme-btn ${active ? "is-active" : ""}`}
+                    >
+                      <Icon size={12} />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+
+      {/* Main workspace */}
+      <div className="opt-main">
+        <header className="opt-topbar">
+          <div className="opt-breadcrumb">
+            <span>{currentGroup.label}</span>
+            {currentItem.label !== currentGroup.label && (
+              <>
+                <ChevronRight size={14} className="shrink-0 opacity-60" />
+                <span className="opt-breadcrumb-current">{currentItem.label}</span>
+              </>
+            )}
           </div>
+
           <div className="relative w-72 max-w-[45vw]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+            />
             <input
               type="text"
               value={query}
@@ -382,119 +435,28 @@ export function OptionsApp() {
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 inline-flex items-center justify-center rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 inline-flex items-center justify-center rounded text-muted hover:text-primary bg-transparent border-0 cursor-pointer"
               >
-                <X className="w-3 h-3" />
+                <X size={12} />
               </button>
             )}
           </div>
-          <p className="text-[10.5px] text-zinc-400 shrink-0">
-            v{chrome.runtime.getManifest().version}
-          </p>
-        </div>
+        </header>
 
-        {/* Horizontal feature tabs */}
-        <nav className="max-w-5xl mx-auto px-6 pb-2" aria-label="Settings feature">
-          <div
-            className="segment-track"
-            role="tablist"
-            aria-label="Settings feature"
-            onKeyDown={onFeatureTablistKeyDown}
-          >
-            {FEATURES.map(({ id, label, icon: Icon }) => {
-              const active = feature === id;
-              return (
-                <button
-                  key={id}
-                  ref={(node) => {
-                    if (node) featureTabRefs.current.set(id, node);
-                    else featureTabRefs.current.delete(id);
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`options-tab-${id}`}
-                  aria-selected={active}
-                  aria-controls={`options-panel-${id}`}
-                  tabIndex={active ? 0 : -1}
-                  onClick={() => selectFeature(id)}
-                  className={`segment ${active ? "segment-active" : ""}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-      </header>
-
-      <div className="flex-1 flex justify-center min-h-0">
-        <div className="w-full max-w-5xl flex gap-6 px-6 py-6">
-          {/* Vertical category sidebar for the active feature */}
-          <aside className="w-56 shrink-0">
-            <div className="sticky top-6">
-              <nav className="flex flex-col gap-1 rounded-xl bg-zinc-100/70 p-2 border border-zinc-200/50">
-                {cats.map(({ id, label, caption, icon: Icon }) => {
-                  const active = activeCat === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => selectCategory(id)}
-                      aria-current={active ? "page" : undefined}
-                      className={`nav-item ${active ? "nav-item-active" : ""}`}
-                    >
-                      <span
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors duration-200 ${
-                          active
-                            ? "bg-brand-600 text-white"
-                            : "bg-white text-zinc-500 border border-zinc-200/80"
-                        }`}
-                      >
-                        <Icon
-                          className={`w-4 h-4 ${active ? "scale-110" : ""} transition-transform`}
-                        />
-                      </span>
-                      <span className="flex flex-col min-w-0 text-left">
-                        <span className="font-semibold tracking-tight">{label}</span>
-                        <span className="text-[10.5px] text-zinc-500 truncate">{caption}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
+        <main className={`opt-content ${isLoaded ? "section-enter" : "opacity-0"}`}>
+          {storageError && (
+            <div role="alert" className="alert-banner alert-banner--danger mb-4">
+              <span>{storageError}</span>
             </div>
-          </aside>
-
-          {/* Content */}
-          <main
-            id={`options-panel-${feature}`}
-            role="tabpanel"
-            aria-labelledby={`options-tab-${feature}`}
-            className="flex-1 min-w-0 relative"
-          >
-            <div
-              ref={scrollRef}
-              className={`absolute inset-0 overflow-y-auto pr-2 ${isLoaded ? "section-enter" : "opacity-0"}`}
-            >
-              {storageError && (
-                <p
-                  role="alert"
-                  className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700"
-                >
-                  {storageError}
-                </p>
-              )}
-              {query.trim().length > 0 && !hasAnyMatch ? (
-                <div className="text-center py-8 animate-fade-in">
-                  <p className="text-[13px] text-zinc-500">No results for &ldquo;{query}&rdquo;</p>
-                </div>
-              ) : (
-                renderPanel()
-              )}
+          )}
+          {query.trim().length > 0 && !hasAnyMatch ? (
+            <div className="surface-card p-8 text-center">
+              <p className="text-[13px] text-muted m-0">No results for &ldquo;{query}&rdquo;</p>
             </div>
-          </main>
-        </div>
+          ) : (
+            renderPanel()
+          )}
+        </main>
       </div>
     </div>
   );

@@ -31,11 +31,6 @@ const SECTION_KEYWORDS = [
 
 export const KEYWORDS = [...SECTION_KEYWORDS];
 
-/**
- * Defaults for the subtitle overlay shown on pages while the real-time stream
- * translator is active. Every control round-trips through the background worker
- * so a live session picks up changes immediately.
- */
 export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
   const [overlay, setOverlay] = useState<Pick<
     StreamOverlaySettings,
@@ -59,7 +54,6 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
     });
   }, []);
 
-  // Runtime state is authoritative so forced setting combinations stay in sync.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -128,29 +122,27 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
   if (!matchesSearch(query, ...SECTION_KEYWORDS)) return null;
 
   return (
-    <div className="space-y-4 pb-4">
-      <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Overlay</h1>
-        <p className="text-[13px] text-zinc-500 mt-1">
-          Defaults for the subtitle overlay shown on the page.
-        </p>
-        <div className="accent-line mt-3" />
+    <div className="space-y-4">
+      <header className="opt-page-header">
+        <h1 className="opt-page-title">Subtitle Overlay</h1>
+        <p className="opt-page-subtitle">Defaults for the live subtitle overlay shown on pages.</p>
       </header>
 
       <Section query={query} keywords={SECTION_KEYWORDS}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-              <Captions className="w-3.5 h-3.5 text-brand-600" />
+        <section className="surface-card p-4 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="icon-badge">
+              <Captions size={14} />
+            </span>
+            <div>
+              <h2 className="text-[13.5px] font-semibold text-primary m-0">
+                Default subtitle overlay
+              </h2>
+              <p className="text-[11.5px] text-muted m-0">
+                You can also adjust these directly from the overlay toolbar while translating.
+              </p>
             </div>
-            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-              Default subtitle overlay
-            </h2>
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
-            These settings apply to the subtitle overlay shown on the page. You can also adjust them
-            quickly on the overlay while translating.
-          </p>
 
           {overlay && (
             <div className="space-y-3 pt-1">
@@ -173,10 +165,10 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
                 onChange={(v) => void patchOverlay({ autoScroll: v })}
               />
 
-              <div className="h-px bg-zinc-200/60" />
+              <div className="ui-divider" />
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-[12.5px] font-medium text-zinc-800">Display mode</span>
+                <span className="text-[13px] font-medium text-primary">Display mode</span>
                 <div className="grid grid-cols-2 gap-1.5 max-w-xs">
                   {(
                     [
@@ -189,7 +181,7 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
                       type="button"
                       onClick={() => void patchOverlay({ displayMode: mode })}
                       aria-pressed={overlay.displayMode === mode}
-                      className={`choice-chip py-1.5 ${
+                      className={`choice-chip ${
                         overlay.displayMode === mode ? "choice-chip-active" : ""
                       }`}
                     >
@@ -200,11 +192,9 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
               </div>
 
               <div className="flex flex-col gap-2 max-w-md">
-                <div className="flex items-center justify-between text-[12.5px]">
-                  <span className="font-medium text-zinc-800">Subtitle size</span>
-                  <span className="text-[11px] text-brand-700 font-bold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
-                    {overlay.fontScale}%
-                  </span>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="font-medium text-primary">Subtitle size</span>
+                  <span className="value-pill">{overlay.fontScale}%</span>
                 </div>
                 <input
                   type="range"
@@ -214,23 +204,17 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
                   value={overlay.fontScale}
                   aria-label="Subtitle size"
                   onChange={(e) => void patchOverlay({ fontScale: Number(e.target.value) })}
-                  className="w-full h-2 rounded-full appearance-none outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer
-                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
-                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md
-                           [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
-                           [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
+                  className="ui-range"
                   style={{
-                    background: `linear-gradient(to right, var(--brand-500) ${fontPercent}%, var(--slider-track) ${fontPercent}%)`
+                    background: `linear-gradient(to right, var(--accent) ${fontPercent}%, var(--slider-track) ${fontPercent}%)`
                   }}
                 />
               </div>
 
               <div className="flex flex-col gap-2 max-w-md">
-                <div className="flex items-center justify-between text-[12.5px]">
-                  <span className="font-medium text-zinc-800">Background opacity</span>
-                  <span className="text-[11px] text-brand-700 font-bold tabular-nums bg-brand-50 px-2 py-0.5 rounded-md">
-                    {overlay.opacity}%
-                  </span>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="font-medium text-primary">Background opacity</span>
+                  <span className="value-pill">{overlay.opacity}%</span>
                 </div>
                 <input
                   type="range"
@@ -240,29 +224,21 @@ export function StreamOverlaySettings({ query }: StreamOverlaySettingsProps) {
                   value={overlay.opacity}
                   aria-label="Background opacity"
                   onChange={(e) => void patchOverlay({ opacity: Number(e.target.value) })}
-                  className="w-full h-2 rounded-full appearance-none outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer
-                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
-                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md
-                           [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-brand-500
-                           [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
+                  className="ui-range"
                   style={{
-                    background: `linear-gradient(to right, var(--brand-500) ${opacityPercent}%, var(--slider-track) ${opacityPercent}%)`
+                    background: `linear-gradient(to right, var(--accent) ${opacityPercent}%, var(--slider-track) ${opacityPercent}%)`
                   }}
                 />
               </div>
 
-              <button
-                type="button"
-                onClick={() => void resetOverlay()}
-                className="btn-ghost hover-lift"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Reset overlay position
+              <button type="button" onClick={() => void resetOverlay()} className="btn-ghost-sm">
+                <RotateCcw size={14} />
+                <span>Reset overlay position</span>
               </button>
               {error && (
-                <p role="alert" className="text-[11px] text-red-600 font-medium">
-                  {error}
-                </p>
+                <div role="alert" className="alert-banner alert-banner--danger">
+                  <span>{error}</span>
+                </div>
               )}
             </div>
           )}
@@ -285,10 +261,10 @@ function ToggleRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-3 py-0.5">
-      <span className="flex flex-col">
-        <span className="text-[12.5px] font-medium text-zinc-800">{label}</span>
-        <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>
-      </span>
+      <div className="flex flex-col">
+        <span className="text-[13px] font-medium text-primary">{label}</span>
+        <span className="text-[11.5px] leading-snug text-muted">{hint}</span>
+      </div>
       <div className="mt-0.5">
         <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={label} />
       </div>

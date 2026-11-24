@@ -248,4 +248,12 @@ describe("mergeSettings", () => {
     expect(merged.quickProvider).toBe("bing");
     expect(merged.aiProvider).toBe("custom:m1");
   });
+
+  it("defaults and sanitizes uiTheme cleanly while preserving valid values", () => {
+    expect(mergeSettings({}).uiTheme).toBe("system");
+    expect(mergeSettings({ uiTheme: "dark" }).uiTheme).toBe("dark");
+    expect(mergeSettings({ uiTheme: "light" }).uiTheme).toBe("light");
+    const bad = { uiTheme: "neon" } as unknown as StoredBlob;
+    expect(mergeSettings(bad).uiTheme).toBe("system");
+  });
 });

@@ -31,9 +31,7 @@ interface PageStatus {
 }
 
 /**
- * The "Web Translate" tab of the popup: page translation controls. Settings that
- * used to live behind the inline gear now open the dedicated options page so
- * both features can share one settings surface with a sidebar.
+ * The "Web Translate" tab of the popup: page translation controls.
  */
 export function WebPanel() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -56,8 +54,6 @@ export function WebPanel() {
         if (pendingSaves.current === 0) setSettings(next);
       });
 
-      // Read the live Alt+A binding so the hint stays accurate after the user
-      // re-assigns the shortcut in chrome://extensions/shortcuts.
       chrome.commands
         .getAll()
         .then((commands) => {
@@ -222,11 +218,6 @@ export function WebPanel() {
     [settings, update]
   );
 
-  /**
-   * Jump to the full settings "Manage Models" panel so the user can add a
-   * model there — we deliberately do NOT pre-create a blank model or
-   * auto-select it as the active provider from the popup.
-   */
   const openModelSettings = useCallback(() => {
     const url = chrome.runtime.getURL("options.html#models");
     void chrome.tabs.create({ url });
@@ -260,20 +251,21 @@ export function WebPanel() {
     [status.active, isLoading]
   );
 
-  const ctaClass = status.active
-    ? "bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50"
-    : "bg-brand-600 border-brand-600 text-white hover:bg-brand-700";
+  const hostLabel = restricted ? "Unsupported page" : tab?.hostname || "No active tab";
 
   return (
-    <div className="p-3 space-y-3">
-      {/* Site info + mode switch */}
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-2.5">
+      {/* Site info + display mode switch */}
+      <div className="flex items-center justify-between gap-2 px-0.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          <div className="w-6 h-6 rounded-md bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0">
-            <Globe2 className="w-3 h-3 text-zinc-500" />
+          <div
+            style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+            className="w-6 h-6 rounded-[6px] border flex items-center justify-center shrink-0 text-muted"
+          >
+            <Globe2 size={13} />
           </div>
-          <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight">
-            {tab?.hostname || "No tab"}
+          <p className="text-[12px] font-medium text-primary truncate" title={tab?.hostname || ""}>
+            {hostLabel}
           </p>
         </div>
         <ModeSwitch
@@ -287,20 +279,14 @@ export function WebPanel() {
         type="button"
         onClick={triggerTranslate}
         disabled={!tab || restricted || busy}
-        className={`group w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 text-[14px] font-semibold tracking-tight active:scale-[0.98] hover-lift ${ctaClass} disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:hover:translate-y-0`}
+        className={`w-full h-10 ${status.active ? "btn-ghost font-semibold" : "btn-brand"}`}
       >
-        {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin-slow" />
-        ) : (
-          <Languages
-            className={`w-4 h-4 transition-transform duration-200 ${status.active ? "" : "group-hover:scale-110"}`}
-          />
-        )}
-        {restricted ? "Can't translate this page" : buttonLabel}
+        {isLoading ? <Loader2 size={15} className="animate-spin" /> : <Languages size={15} />}
+        <span>{restricted ? "Can't translate this page" : buttonLabel}</span>
       </button>
 
       {!restricted && toggleShortcut && (
-        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500">
+        <div className="flex items-center justify-center gap-1.5 -mt-1 text-[11px] text-muted">
           <span>Shortcut:</span>
           {formatShortcutKeys(toggleShortcut).map((key, i) => (
             <Fragment key={i}>
@@ -312,15 +298,15 @@ export function WebPanel() {
       )}
 
       {error && (
-        <p role="alert" className="text-[11px] text-red-600 font-medium animate-scale-in">
-          {error}
-        </p>
+        <div role="alert" className="alert-banner alert-banner--danger">
+          <span>{error}</span>
+        </div>
       )}
 
       <StatusBadge active={status.active} count={status.count} pending={status.pending} />
 
-      {/* Settings card */}
-      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2.5 transition-all duration-200">
+      {/* Language + services card */}
+      <section className="surface-card p-2.5 flex flex-col gap-2.5">
         <LanguagePair
           source={settings.sourceLang}
           target={settings.targetLang}
@@ -331,7 +317,7 @@ export function WebPanel() {
           bare
         />
 
-        <div className="h-px bg-zinc-200/60" />
+        <div className="ui-divider" />
 
         <ProviderPair
           provider={settings.provider}
@@ -350,12 +336,12 @@ export function WebPanel() {
       </section>
 
       {/* Auto-translate */}
-      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-zinc-400" />
+      <section className="surface-card p-2.5 flex flex-col gap-2">
+        <div className="flex items-center gap-1.5 text-muted">
+          <Sparkles size={12} />
           <h2 className="section-label">Auto-translate</h2>
         </div>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {(["always", "ask", "never"] as AutoRule[]).map((r) => (
             <button
               key={r}
@@ -363,9 +349,7 @@ export function WebPanel() {
               disabled={!tab?.hostname || restricted}
               onClick={() => setHostRule(r)}
               aria-pressed={hostRule === r}
-              className={`choice-chip uppercase text-[10.5px] tracking-wider disabled:opacity-45 disabled:cursor-not-allowed ${
-                hostRule === r ? "choice-chip-active" : ""
-              }`}
+              className={`choice-chip ${hostRule === r ? "choice-chip-active" : ""}`}
             >
               {AUTO_RULE_LABELS[r]}
             </button>
@@ -374,14 +358,14 @@ export function WebPanel() {
       </section>
 
       {/* YouTube Subtitle */}
-      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-1.5 transition-all duration-200">
+      <section className="surface-card p-2.5 flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-start gap-1.5 min-w-0">
-            <Captions className="w-3 h-3 mt-0.5 text-zinc-400 shrink-0" />
+            <Captions size={13} className="mt-0.5 text-muted shrink-0" />
             <div className="flex flex-col min-w-0">
               <h2 className="section-label">YouTube Subtitle</h2>
-              <p className="text-[10.5px] leading-snug text-zinc-500">
-                Always show YouTube captions in{" "}
+              <p className="text-[11px] leading-snug text-muted mt-0.5">
+                Always show captions in{" "}
                 {LANGUAGES.find((l) => l.code === settings.youtubeSubtitleLang)?.native ??
                   settings.youtubeSubtitleLang}
               </p>
@@ -393,9 +377,9 @@ export function WebPanel() {
             ariaLabel="YouTube Subtitle"
           />
         </div>
-        <p className="text-[10.5px] leading-snug text-zinc-500">
-          For AI-translated subtitles, click the <span className="font-semibold">AI</span> button in
-          the YouTube player&apos;s control bar.
+        <p className="text-[11px] leading-snug text-muted">
+          For AI subtitles, click <strong className="text-primary font-semibold">AI</strong> in the
+          YouTube player bar.
         </p>
       </section>
     </div>

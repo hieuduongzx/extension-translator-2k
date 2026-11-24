@@ -23,9 +23,6 @@ export const KEYWORDS = [
   "translate directly"
 ];
 
-/**
- * General settings for the standalone Quick Translate popup tab.
- */
 export function QuickGeneralSettings({ query }: QuickGeneralSettingsProps) {
   const [settings, setSettings] = useState<QuickSettingsType>(DEFAULT_QUICK_SETTINGS);
   const [busy, setBusy] = useState(false);
@@ -77,44 +74,40 @@ export function QuickGeneralSettings({ query }: QuickGeneralSettingsProps) {
   };
 
   return (
-    <div className="space-y-4 pb-4">
-      <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">General</h1>
-        <p className="text-[13px] text-zinc-500 mt-1">
-          Behavior of the quick-translate tab in the popup.
-        </p>
-        <div className="accent-line mt-3" />
+    <div className="space-y-4">
+      <header className="opt-page-header">
+        <h1 className="opt-page-title">Quick Translate</h1>
+        <p className="opt-page-subtitle">Behavior of the quick-translate tab in the popup.</p>
       </header>
 
-      <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-            <Languages className="w-3.5 h-3.5 text-brand-600" />
-          </div>
-          <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">Behavior</h2>
+      <section className="surface-card p-4 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <span className="icon-badge">
+            <Languages size={14} />
+          </span>
+          <h2 className="text-[13.5px] font-semibold text-primary m-0">Behavior</h2>
         </div>
 
-        <label className="flex items-start justify-between gap-3 cursor-pointer group">
-          <span className="flex flex-col">
-            <span className="text-[12.5px] font-medium text-zinc-800 group-hover:text-zinc-900 transition-colors">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-medium text-primary">
               Auto-paste clipboard content
             </span>
-            <span className="text-[11px] leading-snug text-zinc-500">
-              Opening the Quick Translate tab automatically pastes clipboard content into the source
-              box.
+            <span className="text-[11.5px] leading-snug text-muted">
+              Opening the Quick tab automatically pastes clipboard content into the source box.
             </span>
-          </span>
+          </div>
           <ToggleSwitch
             checked={settings.pasteFromClipboard}
             disabled={busy}
             onChange={(v) => void togglePaste(v)}
             ariaLabel="Auto-paste clipboard content"
           />
-        </label>
+        </div>
         {error && (
-          <p role="alert" className="text-[11px] text-red-600 font-medium">
-            {error}
-          </p>
+          <div role="alert" className="alert-banner alert-banner--danger">
+            <span>{error}</span>
+          </div>
         )}
       </section>
     </div>

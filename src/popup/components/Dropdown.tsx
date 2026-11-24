@@ -209,21 +209,23 @@ export function Dropdown<T extends string>({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 disabled:opacity-60 disabled:cursor-not-allowed ${
-          open
-            ? "border-brand-500 ring-1 ring-brand-500/15"
-            : "border-zinc-200/80 hover:border-zinc-300"
-        }`}
+        style={{
+          backgroundColor: "var(--surface)",
+          borderColor: open ? "var(--accent)" : "var(--border)",
+          color: "var(--text)",
+          boxShadow: open ? "0 0 0 2px var(--accent-ring)" : undefined
+        }}
+        className="group w-full h-8 flex items-center justify-between gap-2 px-2.5 rounded-[var(--radius)] border text-left transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="flex items-center gap-2 min-w-0">
           {current?.icon && <span className="shrink-0">{current.icon}</span>}
-          <span className="text-[13px] font-semibold tracking-tight text-zinc-900 truncate">
+          <span className="text-[12.5px] font-medium text-primary truncate">
             {buttonLabel ?? current?.label ?? value}
           </span>
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-zinc-400 transition-transform shrink-0 ${
-            open ? "rotate-180 text-zinc-700" : ""
+          className={`w-3.5 h-3.5 text-muted transition-transform shrink-0 ${
+            open ? "rotate-180 text-primary" : ""
           }`}
         />
       </button>
@@ -244,9 +246,12 @@ export function Dropdown<T extends string>({
               width: position.width,
               top: position.top,
               bottom: position.bottom,
-              maxHeight: position.maxHeight
+              maxHeight: position.maxHeight,
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+              boxShadow: "var(--shadow-float)"
             }}
-            className="z-[1000] bg-white border border-zinc-200/80 rounded-lg shadow-float-light overflow-hidden animate-slide-up p-1 flex flex-col overflow-y-auto custom-scrollbar outline-none"
+            className="z-[1000] border rounded-[var(--radius)] overflow-hidden p-1 flex flex-col overflow-y-auto outline-none"
           >
             {options.map((option, index) => {
               const selected = option.value === value;
@@ -261,30 +266,25 @@ export function Dropdown<T extends string>({
                   tabIndex={-1}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => commit(index)}
-                  className={`flex items-start gap-2 px-2 py-1.5 rounded text-left transition-colors ${
-                    selected
-                      ? "bg-brand-50 text-brand-900"
+                  style={{
+                    backgroundColor: selected
+                      ? "var(--accent-soft)"
                       : highlighted
-                        ? "bg-zinc-100 text-zinc-900"
-                        : "text-zinc-700"
-                  }`}
+                        ? "var(--surface-2)"
+                        : "transparent",
+                    color: selected ? "var(--accent-text)" : "var(--text)"
+                  }}
+                  className="flex items-start gap-2 px-2 py-1.5 rounded-[6px] text-left transition-colors cursor-pointer"
                 >
                   <Check
-                    className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                      selected ? "text-brand-600" : "text-transparent"
-                    }`}
+                    style={{ color: selected ? "var(--accent)" : "transparent" }}
+                    className="w-3.5 h-3.5 mt-0.5 shrink-0"
                   />
                   {option.icon && <span className="mt-0.5 shrink-0">{option.icon}</span>}
                   <span className="flex flex-col min-w-0">
-                    <span className="text-[12.5px] font-semibold tracking-tight truncate">
-                      {option.label}
-                    </span>
+                    <span className="text-[12.5px] font-medium truncate">{option.label}</span>
                     {option.description && (
-                      <span
-                        className={`text-[10.5px] leading-snug ${
-                          selected ? "text-brand-700/80" : "text-zinc-500"
-                        }`}
-                      >
+                      <span className="text-[10.5px] leading-snug text-muted">
                         {option.description}
                       </span>
                     )}

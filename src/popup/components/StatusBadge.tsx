@@ -8,18 +8,15 @@ interface StatusBadgeProps {
 
 /**
  * Two-column live status row used under the primary CTA in the popup.
- *  - When inactive, renders nothing (the CTA already conveys state).
- *  - When active, shows "{N} segments translated" on the left and an
- *    optional "{M} batches pending" indicator on the right.
  */
 export function StatusBadge({ active, count, pending }: StatusBadgeProps) {
   if (!active) return null;
 
   return (
-    <div role="status" className="flex items-center justify-between text-[11px] px-1">
-      <span className="text-zinc-500">Translated {count} segments</span>
+    <div role="status" className="flex items-center justify-between text-[11.5px] px-1">
+      <span className="text-muted">Translated {count} segments</span>
       {pending > 0 && (
-        <span className="flex items-center gap-1 text-brand-700">
+        <span className="flex items-center gap-1 text-accent font-medium">
           <Loader2 className="w-3 h-3 animate-spin" />
           {pending} batches pending
         </span>

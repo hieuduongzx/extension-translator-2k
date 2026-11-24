@@ -33,36 +33,29 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
             type="button"
             onClick={() => onChange(mode.id)}
             aria-pressed={active}
-            className={`group flex items-start gap-2 p-3 rounded-xl border transition-colors text-left active:scale-[0.98] ${
-              active
-                ? "bg-brand-50 border-brand-300 ring-1 ring-brand-200"
-                : "bg-white border-zinc-200/80 hover:border-zinc-300"
-            }`}
+            style={{
+              backgroundColor: active ? "var(--accent-soft)" : "var(--surface)",
+              borderColor: active ? "var(--accent)" : "var(--border)"
+            }}
+            className="flex items-start gap-2.5 p-3 rounded-[var(--radius)] border text-left transition-colors cursor-pointer"
           >
             <div
-              className={`mt-0.5 w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                active
-                  ? "bg-brand-600 text-white"
-                  : "bg-zinc-100 text-zinc-500 group-hover:bg-zinc-200"
-              }`}
+              style={{
+                backgroundColor: active ? "var(--accent)" : "var(--surface-2)",
+                color: active ? "#ffffff" : "var(--text-muted)"
+              }}
+              className="mt-0.5 w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0 transition-colors"
             >
               <Icon className="w-3.5 h-3.5" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <span
-                className={`text-[12.5px] font-semibold tracking-tight ${
-                  active ? "text-brand-900" : "text-zinc-900"
-                }`}
+                style={{ color: active ? "var(--accent-text)" : "var(--text)" }}
+                className="text-[12.5px] font-semibold tracking-tight"
               >
                 {mode.title}
               </span>
-              <span
-                className={`text-[10.5px] leading-snug ${
-                  active ? "text-brand-700/80" : "text-zinc-500"
-                }`}
-              >
-                {mode.subtitle}
-              </span>
+              <span className="text-[11px] leading-snug text-muted">{mode.subtitle}</span>
             </div>
           </button>
         );

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c2c31"/>
+      <stop offset="1" stop-color="#121214"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="wh" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e7"/>
+    </linearGradient>
+    <mask id="cutout">
+      <rect width="1024" height="1024" fill="#ffffff"/>
+      <rect x="160" y="376" width="472" height="472" rx="108" fill="#000000"/>
+    </mask>
+  </defs>
+
+  <!-- *2k family dark squircle container (100% aligned with TubeDeck2k) -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bg)"/>
+  <rect x="36" y="36" width="952" height="952" rx="220" fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="8"/>
+
+  <!-- Back / upper-right accent card: emerald-teal gradient with crisp unobstructed "文" -->
+  <g mask="url(#cutout)">
+    <rect x="420" y="184" width="420" height="420" rx="84" fill="url(#acc)"/>
+    <g fill="none" stroke="#ffffff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M652 254 V298"/>
+      <path d="M542 308 H762"/>
+      <path d="M722 308 C712 398 662 462 586 502"/>
+      <path d="M598 344 C628 408 676 462 752 504"/>
+    </g>
+  </g>
+
+  <!-- Front / lower-left white card with bold dark geometric "A" -->
+  <rect x="184" y="400" width="424" height="424" rx="84" fill="url(#wh)"/>
+  <path d="M362 502 H430 L516 728 H452 L434 678 H358 L340 728 H276 Z M396 560 L372 630 H420 Z" fill="#18181b" fill-rule="evenodd"/>
+</svg>

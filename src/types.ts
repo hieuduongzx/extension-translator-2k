@@ -54,6 +54,9 @@ export type AutoRule = "always" | "never" | "ask";
 /** How the in-page dictionary lookup popup is triggered. */
 export type DictionaryMode = "doubleclick" | "alt-doubleclick" | "off";
 
+/** Theme preference for the extension's popup and options pages. */
+export type UIThemeMode = "system" | "light" | "dark";
+
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
 
 /**
@@ -148,6 +151,8 @@ export interface Settings {
    * only) for a cleaner reading experience.
    */
   showSelectionOriginal: boolean;
+  /** Visual theme for the extension's popup and options UI. */
+  uiTheme: UIThemeMode;
   /** Visual theme for the in-page selection popup. */
   selectionPopupTheme: "dark" | "light";
   /**
@@ -221,6 +226,7 @@ export const DEFAULT_SETTINGS: Settings = {
     }
   },
   showSelectionOriginal: false,
+  uiTheme: "system",
   selectionPopupTheme: "light",
   selectionTrigger: true,
   selectionHoverDelayMs: 500,

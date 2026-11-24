@@ -1,34 +1,60 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Globe, Radio, Settings as SettingsIcon, Languages } from "lucide-react";
+import {
+  BookOpen,
+  Globe,
+  Languages,
+  Monitor,
+  Moon,
+  Radio,
+  Settings as SettingsIcon,
+  Sun
+} from "lucide-react";
 import { WebPanel } from "./WebPanel";
 import { StreamPanel } from "./StreamPanel";
 import { QuickPanel } from "./QuickPanel";
+import { loadSettings, updateSettings, watchSettings } from "../storage";
+import { cycleThemeMode, useApplyTheme } from "../shared/theme";
+import { DEFAULT_SETTINGS, type UIThemeMode } from "../types";
 
-type TabId = "web" | "stream" | "quick";
+type TabId = "web" | "quick" | "stream";
 
 const ACTIVE_TAB_KEY = "translator2k:activeTab";
 
-const TABS: { id: TabId; label: string; icon: typeof Globe }[] = [
-  { id: "web", label: "Web Translate", icon: Globe },
-  { id: "quick", label: "Quick Translate", icon: Languages },
-  { id: "stream", label: "Stream Translate", icon: Radio }
+const TABS: { id: TabId; label: string; title: string; icon: typeof Globe }[] = [
+  { id: "web", label: "Web", title: "Web Translate", icon: Globe },
+  { id: "quick", label: "Quick", title: "Quick Translate", icon: Languages },
+  { id: "stream", label: "Stream", title: "Stream Translate", icon: Radio }
 ];
 
+const THEME_LABELS: Record<UIThemeMode, string> = {
+  system: "Theme: System (click to switch)",
+  light: "Theme: Light (click to switch)",
+  dark: "Theme: Dark (click to switch)"
+};
+
 /**
- * Root popup shell. Hosts three tabs: page translation, real-time audio
- * subtitles, and a standalone quick translator. All three panels stay mounted
- * (inactive ones are hidden) so switching tabs never destroys in-progress
- * state — e.g. text typed into the quick translator. The last-used tab is
- * remembered in `chrome.storage.local` so the popup reopens where you left.
+ * Root popup shell aligned with the *2k standard (TubeDeck2k):
+ * 1-row header, 3-tab segmented switcher, scrollable body, and 1-row footer.
+ * All three panels stay mounted (inactive ones hidden) so switching tabs never
+ * discards in-progress Quick Translate drafts.
  */
 export function Popup() {
   const [tab, setTab] = useState<TabId>("web");
+  const [uiTheme, setUiTheme] = useState<UIThemeMode>(DEFAULT_SETTINGS.uiTheme);
   const tabRefs = useRef(new Map<TabId, HTMLButtonElement>());
   const userSelectedTab = useRef(false);
 
+  useApplyTheme(uiTheme);
+
   useEffect(() => {
+    let unwatch: (() => void) | undefined;
+    let cancelled = false;
     void (async () => {
-      const stored = await chrome.storage.local.get(ACTIVE_TAB_KEY);
+      const [stored, settings] = await Promise.all([
+        chrome.storage.local.get(ACTIVE_TAB_KEY),
+        loadSettings()
+      ]);
+      if (cancelled) return;
       const saved = stored[ACTIVE_TAB_KEY] as TabId | undefined;
       if (
         !userSelectedTab.current &&
@@ -36,7 +62,13 @@ export function Popup() {
       ) {
         setTab(saved);
       }
+      setUiTheme(settings.uiTheme);
+      unwatch = watchSettings((next) => setUiTheme(next.uiTheme));
     })();
+    return () => {
+      cancelled = true;
+      unwatch?.();
+    };
   }, []);
 
   const selectTab = useCallback(
@@ -48,6 +80,14 @@ export function Popup() {
     },
     [tab]
   );
+
+  const handleCycleTheme = useCallback(() => {
+    const next = cycleThemeMode(uiTheme);
+    setUiTheme(next);
+    void updateSettings({ uiTheme: next }).catch(() => {
+      /* ignore transient background wake errors */
+    });
+  }, [uiTheme]);
 
   // ARIA tabs keyboard pattern: Left/Right (and Home/End) move focus and
   // selection between tabs.
@@ -68,39 +108,63 @@ export function Popup() {
     [tab, selectTab]
   );
 
-  const openSettings = useCallback(() => {
-    const url = chrome.runtime.getURL(`options.html#${tab}`);
+  const openOptions = useCallback((hash: string) => {
+    const url = chrome.runtime.getURL(`options.html#${hash}`);
     void chrome.tabs.create({ url });
-  }, [tab]);
+  }, []);
+
+  const ThemeIcon = uiTheme === "dark" ? Moon : uiTheme === "light" ? Sun : Monitor;
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="shrink-0 px-3 pt-2.5 pb-2 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <img
-              src={chrome.runtime.getURL("public/icons/icon-32.png")}
-              alt=""
-              className="w-5 h-5 rounded-md"
-            />
-            <span className="text-[13px] font-bold tracking-tight text-zinc-900">Translator2k</span>
-            <span className="text-[10px] font-medium text-zinc-500 mt-px">
-              v{chrome.runtime.getManifest().version}
-            </span>
+    <div className="popup-shell">
+      {/* 1. Fixed 1-row header */}
+      <header className="popup-header">
+        <div className="popup-brand">
+          <img
+            src={chrome.runtime.getURL("public/icons/icon-48.png")}
+            alt="Translator2k"
+            className="popup-logo"
+          />
+          <div className="popup-brand-info">
+            <div className="popup-title-row">
+              <span className="popup-title">Translator2k</span>
+            </div>
+            <div className="popup-subtitle">
+              v{chrome.runtime.getManifest().version} · Web · Quick · Stream
+            </div>
           </div>
+        </div>
+        <div className="popup-header-actions">
           <button
             type="button"
-            onClick={openSettings}
+            onClick={handleCycleTheme}
+            className="btn-icon-sm"
+            title={THEME_LABELS[uiTheme]}
+            aria-label={THEME_LABELS[uiTheme]}
+          >
+            <ThemeIcon size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => openOptions(tab)}
             className="btn-icon-sm"
             title="Settings"
             aria-label="Settings"
           >
-            <SettingsIcon className="w-4 h-4" />
+            <SettingsIcon size={15} />
           </button>
         </div>
+      </header>
 
-        <nav className="segment-track" role="tablist" onKeyDown={onTablistKeyDown}>
-          {TABS.map(({ id, label, icon: Icon }) => {
+      {/* 2. Segmented tab switcher */}
+      <div className="popup-tabs-wrap">
+        <nav
+          className="segment-track"
+          role="tablist"
+          aria-label="Translator modes"
+          onKeyDown={onTablistKeyDown}
+        >
+          {TABS.map(({ id, label, title, icon: Icon }) => {
             const active = tab === id;
             return (
               <button
@@ -112,21 +176,23 @@ export function Popup() {
                 type="button"
                 role="tab"
                 id={`tab-${id}`}
+                title={title}
                 aria-selected={active}
                 aria-controls={`panel-${id}`}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(id)}
                 className={`segment ${active ? "segment-active" : ""}`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
+                <Icon size={13} />
+                <span>{label}</span>
               </button>
             );
           })}
         </nav>
-      </header>
+      </div>
 
-      <div className="flex-1 overflow-y-auto relative">
+      {/* 3. Scrollable content */}
+      <main className="popup-body">
         {TABS.map(({ id }) => (
           <div
             key={id}
@@ -134,14 +200,35 @@ export function Popup() {
             id={`panel-${id}`}
             aria-labelledby={`tab-${id}`}
             hidden={tab !== id}
-            className={tab === id ? "animate-fade-in" : undefined}
           >
             {id === "web" && <WebPanel />}
-            {id === "stream" && <StreamPanel />}
             {id === "quick" && <QuickPanel active={tab === "quick"} />}
+            {id === "stream" && <StreamPanel />}
           </div>
         ))}
-      </div>
+      </main>
+
+      {/* 4. Single-row clean footer */}
+      <footer className="popup-footer">
+        <button
+          type="button"
+          className="popup-footer-btn"
+          onClick={() => openOptions("dictionary")}
+          title="Dictionary & popup settings"
+        >
+          <BookOpen size={14} />
+          <span>Dictionary</span>
+        </button>
+        <button
+          type="button"
+          className="popup-footer-btn"
+          onClick={() => openOptions(tab)}
+          title="Open full Translator2k settings"
+        >
+          <SettingsIcon size={14} />
+          <span>Settings</span>
+        </button>
+      </footer>
     </div>
   );
 }

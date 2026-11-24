@@ -28,9 +28,7 @@ const TARGET_OPTIONS = LANGUAGES.filter((l) => l.code !== "auto").map((lang) => 
 }));
 
 /**
- * Compact "from → to" language picker. Both dropdowns share one row with an
- * arrow (or, when `onSwap` is set, a swap button) between them. Pass `bare`
- * to drop the card wrapper when composing it into a larger unified card.
+ * Compact "from → to" language picker.
  */
 export function LanguagePair({
   source,
@@ -42,7 +40,7 @@ export function LanguagePair({
   swapDisabled = false
 }: LanguagePairProps) {
   const inner = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-end gap-2">
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         <span className="section-label">From</span>
         <Dropdown
@@ -59,12 +57,12 @@ export function LanguagePair({
           disabled={swapDisabled}
           title="Swap languages"
           aria-label="Swap languages"
-          className="mt-5 h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="btn-ghost-sm w-8 h-8 p-0 shrink-0"
         >
           <ArrowRightLeft className="w-3.5 h-3.5" />
         </button>
       ) : (
-        <ArrowRight className="w-4 h-4 text-zinc-400 shrink-0 mt-5" />
+        <ArrowRight className="w-4 h-4 text-muted shrink-0 mb-2" />
       )}
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         <span className="section-label">To</span>

@@ -59,11 +59,7 @@ function saveDraft(draft: QuickDraft): void {
 }
 
 /**
- * Standalone quick-translate tab for the popup. Two big text areas
- * (source / output) plus language and provider controls, similar to
- * Google Translate's input/output layout. The whole working state (text,
- * result, language/provider picks) lives in `chrome.storage.session`, so
- * closing the popup or hopping between tabs never loses work.
+ * Standalone quick-translate tab for the popup.
  */
 export function QuickPanel({ active }: { active: boolean }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -86,8 +82,6 @@ export function QuickPanel({ active }: { active: boolean }) {
   const latestDraftRef = useRef<QuickDraft | null>(null);
   const speakTarget = sourceLang === "auto" ? (detected ?? "") : sourceLang;
 
-  // Initial load: settings provide the defaults, a session draft (if any)
-  // wins over them so in-progress work survives popup reopen / tab switches.
   useEffect(() => {
     let unwatchMain: (() => void) | undefined;
     let unwatchQuick: (() => void) | undefined;
@@ -125,7 +119,6 @@ export function QuickPanel({ active }: { active: boolean }) {
     };
   }, []);
 
-  // Coalesce keystrokes into one write; flush the latest draft on popup close.
   useEffect(() => {
     if (!ready) return;
     const draft = { input, output, detected, sourceLang, targetLang, provider };
@@ -158,13 +151,6 @@ export function QuickPanel({ active }: { active: boolean }) {
     return () => window.clearInterval(timer);
   }, [busy]);
 
-  // Auto-paste clipboard content when the Quick tab is shown, the setting is
-  // enabled and the input is still empty. We wait until the panel is `active`
-  // (not just mounted): all three popup panels mount at once, so firing on
-  // mount would read the clipboard while the user is on another tab and never
-  // retry when they switch here. `navigator.clipboard.readText()` also requires
-  // the document to be focused — on popup open focus may not have landed yet,
-  // so we defer to the next `focus` event in that case.
   useEffect(() => {
     if (!active || !ready || !quickSettings.pasteFromClipboard || pastedRef.current) return;
     let cancelled = false;
@@ -231,8 +217,9 @@ export function QuickPanel({ active }: { active: boolean }) {
       if (requestId !== requestIdRef.current) return;
       if (res.error) throw new Error(res.error);
       const translation = res.translations[0];
-      if (!translation)
+      if (!translation) {
         throw new Error("No translation returned. Try again or choose another service.");
+      }
       setOutput(translation);
       setDetected(res.detected);
     } catch (err) {
@@ -299,11 +286,11 @@ export function QuickPanel({ active }: { active: boolean }) {
   const speakingOutput = speakingId === "output";
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="flex flex-col gap-2.5">
       {/* Language + provider controls */}
-      <div className="surface-card p-2.5 space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
+      <div className="surface-card p-2.5 flex flex-col gap-2">
+        <div className="flex items-end gap-2">
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
             <span className="section-label">From</span>
             <Dropdown
               value={sourceLang}
@@ -319,13 +306,13 @@ export function QuickPanel({ active }: { active: boolean }) {
             type="button"
             onClick={handleSwap}
             disabled={sourceLang === "auto"}
-            className="mt-4 h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-ghost-sm w-8 h-8 p-0 shrink-0"
             title="Swap languages"
             aria-label="Swap languages"
           >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <ArrowRightLeft size={14} />
           </button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
             <span className="section-label">To</span>
             <Dropdown
               value={targetLang}
@@ -339,7 +326,7 @@ export function QuickPanel({ active }: { active: boolean }) {
           </div>
         </div>
 
-        <div>
+        <div className="flex flex-col gap-1">
           <span className="section-label">Service</span>
           <Dropdown
             value={provider}
@@ -354,35 +341,36 @@ export function QuickPanel({ active }: { active: boolean }) {
       </div>
 
       {/* Source box */}
-      <div className="surface-card surface-card-hover focus-within:ring-2 focus-within:ring-brand-400 flex flex-col transition-all duration-200">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            Source text
-          </span>
+      <div className="surface-card flex flex-col overflow-hidden">
+        <div
+          style={{ borderBottom: "1px solid var(--border)" }}
+          className="flex items-center justify-between px-2.5 py-1.5"
+        >
+          <span className="section-label">Source text</span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => (speakingInput ? stop() : void speak(input, speakTarget, "input"))}
               disabled={!input || busy}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              className="btn-icon-sm"
               title={speakingInput ? "Stop speaking" : "Read text"}
               aria-label={speakingInput ? "Stop speaking" : "Read text"}
             >
               {speakingInput ? (
-                <Square className="w-3.5 h-3.5 fill-current" />
+                <Square size={13} className="fill-current" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5" />
+                <Volume2 size={14} />
               )}
             </button>
             <button
               type="button"
               onClick={() => handleInputChange("")}
               disabled={!input}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              className="btn-icon-sm"
               title="Clear"
               aria-label="Clear"
             >
-              <X className="w-3.5 h-3.5" />
+              <X size={14} />
             </button>
           </div>
         </div>
@@ -397,11 +385,12 @@ export function QuickPanel({ active }: { active: boolean }) {
               }
             }}
             placeholder="Enter text…"
-            rows={5}
+            rows={4}
             maxLength={MAX_CHARS}
-            className="w-full p-3 bg-transparent text-[14px] text-zinc-900 placeholder:text-zinc-500 resize-none focus:outline-none"
+            style={{ color: "var(--text)" }}
+            className="w-full p-2.5 pb-6 bg-transparent text-[13.5px] placeholder:text-[var(--text-muted)] resize-none focus:outline-none"
           />
-          <span className="absolute right-2.5 bottom-2 text-[10px] text-zinc-500 tabular-nums">
+          <span className="absolute right-2.5 bottom-1.5 text-[10.5px] text-muted tabular-nums">
             {input.length}/{MAX_CHARS}
           </span>
         </div>
@@ -412,83 +401,73 @@ export function QuickPanel({ active }: { active: boolean }) {
         type="button"
         onClick={() => void handleTranslate()}
         disabled={!canTranslate}
-        className="group w-full h-10 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-brand w-full h-9"
       >
-        {busy ? (
-          <Loader2 className="w-4 h-4 animate-spin-slow" />
-        ) : (
-          <Languages className="w-4 h-4 group-hover:scale-110 transition-transform" />
-        )}
-        {busy ? "Translating…" : "Translate"}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Languages size={15} />}
+        <span>{busy ? "Translating…" : "Translate"}</span>
       </button>
 
       {busy && (
         <div
           role="status"
-          className="flex items-center justify-between gap-2 text-[11px] text-zinc-500"
+          className="flex items-center justify-between gap-2 text-[11px] text-muted"
         >
           <span>
             {elapsed < 8
               ? `Waiting for translation · ${elapsed}s`
-              : `Service is taking longer · ${elapsed}s. You can try another service.`}
+              : `Taking longer than usual · ${elapsed}s.`}
           </span>
           <button
             type="button"
             onClick={clearResult}
-            className="shrink-0 text-brand-700 font-medium hover:underline"
+            className="shrink-0 text-accent font-medium hover:underline cursor-pointer bg-transparent border-0"
           >
-            Stop waiting
+            Stop
           </button>
         </div>
       )}
 
       {error && (
-        <p role="alert" className="text-[11px] text-red-600 font-medium animate-scale-in">
-          {error}
-        </p>
+        <div role="alert" className="alert-banner alert-banner--danger">
+          <span>{error}</span>
+        </div>
       )}
 
       {/* Output box */}
-      <div
-        aria-busy={busy}
-        className="surface-card surface-card-hover flex flex-col transition-all duration-200"
-      >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            Translation
-          </span>
-          <div className="flex items-center gap-2">
-            {detectedLabel && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded">
-                {detectedLabel}
-              </span>
-            )}
+      <div aria-busy={busy} className="surface-card flex flex-col overflow-hidden">
+        <div
+          style={{ borderBottom: "1px solid var(--border)" }}
+          className="flex items-center justify-between px-2.5 py-1.5"
+        >
+          <span className="section-label">Translation</span>
+          <div className="flex items-center gap-1.5">
+            {detectedLabel && <span className="value-pill">{detectedLabel}</span>}
             <button
               type="button"
               onClick={() => (speakingOutput ? stop() : void speak(output, targetLang, "output"))}
               disabled={!output || busy}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              className="btn-icon-sm"
               title={speakingOutput ? "Stop speaking" : "Read translation"}
               aria-label={speakingOutput ? "Stop speaking" : "Read translation"}
             >
               {speakingOutput ? (
-                <Square className="w-3.5 h-3.5 fill-current" />
+                <Square size={13} className="fill-current" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5" />
+                <Volume2 size={14} />
               )}
             </button>
             <button
               type="button"
               onClick={() => void handleCopy()}
               disabled={!output}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors disabled:opacity-40"
+              className="btn-icon-sm"
               title={copied ? "Copied" : "Copy"}
               aria-label={copied ? "Copied" : "Copy"}
             >
               {copied ? (
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <Check size={14} style={{ color: "var(--success)" }} />
               ) : (
-                <Copy className="w-3.5 h-3.5" />
+                <Copy size={14} />
               )}
             </button>
           </div>
@@ -497,8 +476,9 @@ export function QuickPanel({ active }: { active: boolean }) {
           value={output}
           readOnly
           placeholder="Translation will appear here…"
-          rows={5}
-          className="w-full p-3 bg-zinc-50/50 text-[14px] text-zinc-900 placeholder:text-zinc-500 resize-none focus:outline-none"
+          rows={4}
+          style={{ backgroundColor: "var(--surface-2)", color: "var(--text)" }}
+          className="w-full p-2.5 text-[13.5px] placeholder:text-[var(--text-muted)] resize-none focus:outline-none"
         />
       </div>
     </div>

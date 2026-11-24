@@ -35,11 +35,6 @@ const AUTO_PAUSE_OPTIONS: [StreamAutoPauseMode, string, string][] = [
 
 export const KEYWORDS = [...SECTION_KEYWORDS, ...AUTO_PAUSE_KEYWORDS];
 
-/**
- * Connection settings for the real-time stream translator: the Soniox API key.
- * Round-trips through the background worker so a live session picks up the
- * change immediately.
- */
 export function StreamGeneralSettings({ query }: StreamGeneralSettingsProps) {
   const [state, setState] = useState<StreamRuntimeState>(DEFAULT_STREAM_STATE);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
@@ -69,7 +64,6 @@ export function StreamGeneralSettings({ query }: StreamGeneralSettingsProps) {
   const saveApiKey = useCallback(async () => {
     const trimmed = apiKeyDraft.trim();
 
-    // Validation
     if (!trimmed) {
       setApiKeyError("API key cannot be empty");
       return;
@@ -154,47 +148,38 @@ export function StreamGeneralSettings({ query }: StreamGeneralSettingsProps) {
   if (!matchesSearch(query, ...SECTION_KEYWORDS, ...AUTO_PAUSE_KEYWORDS)) return null;
 
   return (
-    <div className="space-y-4 pb-4">
-      <header className="pb-1">
-        <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">General</h1>
-        <p className="text-[13px] text-zinc-500 mt-1">
-          Connection and credentials for the real-time stream translator.
+    <div className="space-y-4">
+      <header className="opt-page-header">
+        <h1 className="opt-page-title">API &amp; Auto-pause</h1>
+        <p className="opt-page-subtitle">
+          Connection credentials and session billing controls for live stream subtitles.
         </p>
-        <div className="accent-line mt-3" />
       </header>
 
       <Section query={query} keywords={SECTION_KEYWORDS}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
+        <section className="surface-card p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-                <KeyRound className="w-3.5 h-3.5 text-brand-600" />
-              </div>
-              <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">
-                Soniox API key
-              </h2>
+            <div className="flex items-center gap-2.5">
+              <span className="icon-badge">
+                <KeyRound size={14} />
+              </span>
+              <h2 className="text-[13.5px] font-semibold text-primary m-0">Soniox API key</h2>
             </div>
             {hasApiKey && (
-              <span
-                className={`status-pill transition-all duration-200 ${
-                  savedFlash
-                    ? "bg-emerald-100 text-emerald-700 border-emerald-300 scale-105"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}
-              >
-                <CheckCircle2 className={`w-3 h-3 ${savedFlash ? "animate-scale-in" : ""}`} />
-                {savedFlash ? "Saved" : "Active"}
+              <span className="status-pill status-pill--success">
+                <CheckCircle2 size={12} />
+                <span>{savedFlash ? "Saved" : "Active"}</span>
               </span>
             )}
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
-            Enter your Soniox API key to enable real-time speech translation. The key is stored
-            locally in your browser. Get a key at{" "}
+          <p className="text-[11.5px] leading-snug text-muted m-0">
+            Enter your Soniox API key to enable real-time speech translation. Stored locally in your
+            browser. Get a key at{" "}
             <a
               href={SONIOX_DOC_URL}
               target="_blank"
               rel="noreferrer"
-              className="text-brand-700 font-semibold hover:underline"
+              className="text-accent font-medium hover:underline"
             >
               console.soniox.com
             </a>
@@ -217,71 +202,69 @@ export function StreamGeneralSettings({ query }: StreamGeneralSettingsProps) {
                   setApiKeyError("");
                 }}
                 placeholder="sk-xxxx…"
-                className={`brand-input w-full pr-10 font-mono transition-all duration-200 ${apiKeyError ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-200/50" : ""}`}
+                className={`brand-input w-full pr-9 font-mono ${apiKeyError ? "brand-input--error" : ""}`}
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey((v) => !v)}
-                className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg hover:bg-zinc-100"
+                className="btn-icon-sm absolute right-1 top-1/2 -translate-y-1/2"
                 title={showApiKey ? "Hide key" : "Show key"}
                 aria-label={showApiKey ? "Hide API key" : "Show API key"}
               >
-                {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
             <button
               type="button"
               onClick={() => void saveApiKey()}
               disabled={isSaveDisabled}
-              className="btn-brand shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-brand shrink-0"
             >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? "Saving…" : "Save"}
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
             </button>
             {hasApiKey && (
               <button
                 type="button"
                 onClick={() => void clearApiKey()}
                 disabled={saving || state.isActive}
-                className="btn-ghost shrink-0 disabled:opacity-50"
+                className="btn-ghost shrink-0"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete key
+                <Trash2 size={14} />
+                <span>Delete key</span>
               </button>
             )}
           </div>
           {state.isActive && (
-            <p className="text-[11px] text-amber-700 font-medium">
-              Stop the active live translation session before changing or deleting the API key.
-            </p>
+            <div className="alert-banner alert-banner--warning">
+              <span>
+                Stop the active live translation session before changing or deleting the key.
+              </span>
+            </div>
           )}
           {apiKeyError && (
-            <p
-              id="soniox-key-error"
-              role="alert"
-              className="text-[11px] text-red-600 font-medium animate-scale-in"
-            >
-              {apiKeyError}
-            </p>
+            <div id="soniox-key-error" role="alert" className="alert-banner alert-banner--danger">
+              <span>{apiKeyError}</span>
+            </div>
           )}
         </section>
       </Section>
 
       <Section query={query} keywords={AUTO_PAUSE_KEYWORDS}>
-        <section className="surface-card surface-card-hover p-4 space-y-3 transition-all duration-200">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
-              <Pause className="w-3.5 h-3.5 text-brand-600" />
-            </div>
-            <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">Auto-pause</h2>
+        <section className="surface-card p-4 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="icon-badge">
+              <Pause size={14} />
+            </span>
+            <h2 className="text-[13.5px] font-semibold text-primary m-0">Auto-pause</h2>
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
+          <p className="text-[11.5px] leading-snug text-muted m-0">
             Soniox bills for the whole time a session is open. Pausing closes it, and translation
-            resumes by itself when you come back. After 8 seconds without sound (paused video, muted
-            tab) the session also goes on standby until audio returns.
+            resumes automatically when you return. After 8 seconds without audio, the session also
+            enters standby.
           </p>
           <div
-            className="grid grid-cols-3 gap-1.5 max-w-xl"
+            className="grid grid-cols-3 gap-1.5 max-w-lg"
             role="radiogroup"
             aria-label="Auto-pause"
           >
@@ -293,19 +276,19 @@ export function StreamGeneralSettings({ query }: StreamGeneralSettingsProps) {
                 aria-checked={state.autoPause === mode}
                 title={hint}
                 onClick={() => void setAutoPause(mode)}
-                className={`choice-chip py-1.5 ${state.autoPause === mode ? "choice-chip-active" : ""}`}
+                className={`choice-chip ${state.autoPause === mode ? "choice-chip-active" : ""}`}
               >
                 {label}
               </button>
             ))}
           </div>
-          <p className="text-[11px] leading-snug text-zinc-500">
+          <p className="text-[11.5px] leading-snug text-muted m-0">
             {AUTO_PAUSE_OPTIONS.find(([mode]) => mode === state.autoPause)?.[2]}
           </p>
           {autoPauseError && (
-            <p role="alert" className="text-[11px] text-red-600 font-medium">
-              {autoPauseError}
-            </p>
+            <div role="alert" className="alert-banner alert-banner--danger">
+              <span>{autoPauseError}</span>
+            </div>
           )}
         </section>
       </Section>

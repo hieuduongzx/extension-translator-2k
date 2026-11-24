@@ -7,8 +7,7 @@ interface ToggleSwitchProps {
 }
 
 /**
- * Reusable toggle switch component. Renders as a pill-shaped button
- * with an animated inner dot.
+ * Accessible toggle switch aligned with TubeDeck2k's `.ui-switch` (36×20px).
  */
 export function ToggleSwitch({
   checked,
@@ -20,20 +19,14 @@ export function ToggleSwitch({
   return (
     <button
       type="button"
-      onClick={() => onChange(!checked)}
+      onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
-      className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 ${
-        checked ? "bg-brand-600" : "bg-zinc-300"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+      className={`ui-switch ${checked ? "is-on" : ""}`}
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel}
     >
-      <span
-        className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${
-          checked ? "left-[22px]" : "left-[3px]"
-        }`}
-      />
+      <span className="ui-switch-thumb" />
     </button>
   );
 }

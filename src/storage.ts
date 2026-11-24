@@ -264,6 +264,10 @@ export function mergeSettings(stored: Partial<Settings> & { provider?: string })
       typeof stored.showSelectionOriginal === "boolean"
         ? stored.showSelectionOriginal
         : DEFAULT_SETTINGS.showSelectionOriginal,
+    uiTheme:
+      stored.uiTheme === "system" || stored.uiTheme === "light" || stored.uiTheme === "dark"
+        ? stored.uiTheme
+        : DEFAULT_SETTINGS.uiTheme,
     selectionPopupTheme:
       stored.selectionPopupTheme === "dark" || stored.selectionPopupTheme === "light"
         ? stored.selectionPopupTheme

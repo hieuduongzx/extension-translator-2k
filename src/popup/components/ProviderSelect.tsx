@@ -124,7 +124,7 @@ function AddIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="block text-zinc-500"
+      className="block text-muted"
     >
       <path d="M12 5v14M5 12h14" />
     </svg>
@@ -234,7 +234,7 @@ export function AIProviderSelect({
         ariaLabel="AI service"
         onChange={(v) => (v === ADD_NEW ? onAddCustom() : onChange(v as AIProviderId))}
       />
-      <p className="mt-0.5 text-[10.5px] leading-snug text-zinc-500">
+      <p className="mt-0.5 text-[11px] leading-snug text-muted">
         Used by the AI translation button in the selection popup.
       </p>
     </div>
