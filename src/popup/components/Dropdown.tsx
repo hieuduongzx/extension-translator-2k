@@ -18,9 +18,10 @@ interface DropdownProps<T extends string> {
   buttonLabel?: string;
   /**
    * Accessible name for the trigger. Without it screen readers announce only
-   * the selected value — "Tiếng Việt" with no hint of what the control picks.
+   * the selected value — "English" with no hint of what the control picks.
    */
   ariaLabel?: string;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -47,6 +48,7 @@ export function Dropdown<T extends string>({
   onChange,
   buttonLabel,
   ariaLabel,
+  disabled = false,
   className = ""
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false);
@@ -59,6 +61,10 @@ export function Dropdown<T extends string>({
   const listboxId = useId();
   const current = options.find((o) => o.value === value);
   const selectedIndex = options.findIndex((o) => o.value === value);
+
+  useEffect(() => {
+    if (disabled && open) setOpen(false);
+  }, [disabled, open]);
 
   // Measure the trigger and decide whether the menu opens down or flips up.
   const updatePosition = () => {
@@ -80,14 +86,27 @@ export function Dropdown<T extends string>({
   useLayoutEffect(() => {
     if (!open) return;
     updatePosition();
-    const onReflow = () => updatePosition();
-    window.addEventListener("scroll", onReflow, true);
-    window.addEventListener("resize", onReflow);
+    const onScroll = (e: Event) => {
+      // Scrolling inside the listbox itself does not move the anchor trigger.
+      if (e.target instanceof Node && listRef.current?.contains(e.target)) return;
+      updatePosition();
+    };
+    const onResize = () => updatePosition();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("scroll", onReflow, true);
-      window.removeEventListener("resize", onReflow);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
+
+  // Move focus into the portaled listbox once when it opens (not on every render).
+  const hasPosition = position !== null;
+  useEffect(() => {
+    if (open && hasPosition) {
+      listRef.current?.focus({ preventScroll: true });
+    }
+  }, [open, hasPosition]);
 
   // Close on outside click.
   useEffect(() => {
@@ -104,8 +123,13 @@ export function Dropdown<T extends string>({
 
   // When opening, highlight the currently-selected option.
   useEffect(() => {
-    if (open) setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [open, selectedIndex]);
+    if (!open) return;
+    if (options.length === 0) {
+      setActiveIndex(-1);
+      return;
+    }
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [open, selectedIndex, options.length]);
 
   // Keep the highlighted option scrolled into view.
   useEffect(() => {
@@ -123,6 +147,7 @@ export function Dropdown<T extends string>({
   };
 
   const onButtonKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setOpen(true);
@@ -133,24 +158,28 @@ export function Dropdown<T extends string>({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
+        if (options.length === 0) return;
         setActiveIndex((i) => (i + 1) % options.length);
         break;
       case "ArrowUp":
         e.preventDefault();
+        if (options.length === 0) return;
         setActiveIndex((i) => (i - 1 + options.length) % options.length);
         break;
       case "Home":
         e.preventDefault();
+        if (options.length === 0) return;
         setActiveIndex(0);
         break;
       case "End":
         e.preventDefault();
+        if (options.length === 0) return;
         setActiveIndex(options.length - 1);
         break;
       case "Enter":
       case " ":
         e.preventDefault();
-        commit(activeIndex);
+        if (activeIndex >= 0) commit(activeIndex);
         break;
       case "Escape":
         e.preventDefault();
@@ -158,6 +187,9 @@ export function Dropdown<T extends string>({
         buttonRef.current?.focus({ preventScroll: true });
         break;
       case "Tab":
+        // Restore focus to the trigger synchronously before native Tab runs so
+        // Tab / Shift+Tab continues from the trigger instead of document.body.
+        buttonRef.current?.focus({ preventScroll: true });
         setOpen(false);
         break;
     }
@@ -168,13 +200,16 @@ export function Dropdown<T extends string>({
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen((v) => !v);
+        }}
         onKeyDown={onButtonKeyDown}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 ${
+        className={`group w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border bg-white text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500 disabled:opacity-60 disabled:cursor-not-allowed ${
           open
             ? "border-brand-500 ring-1 ring-brand-500/15"
             : "border-zinc-200/80 hover:border-zinc-300"
@@ -197,15 +232,12 @@ export function Dropdown<T extends string>({
         position &&
         createPortal(
           <div
+            ref={listRef}
             id={listboxId}
             role="listbox"
             tabIndex={-1}
             aria-activedescendant={activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
             onKeyDown={onListKeyDown}
-            ref={(node) => {
-              listRef.current = node;
-              node?.focus({ preventScroll: true });
-            }}
             style={{
               position: "fixed",
               left: position.left,

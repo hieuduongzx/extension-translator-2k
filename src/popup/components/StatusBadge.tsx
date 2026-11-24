@@ -16,14 +16,12 @@ export function StatusBadge({ active, count, pending }: StatusBadgeProps) {
   if (!active) return null;
 
   return (
-    <div className="flex items-center justify-between text-[11px] px-1">
-      <span className="text-zinc-500">
-        Đã dịch {count} đoạn
-      </span>
+    <div role="status" className="flex items-center justify-between text-[11px] px-1">
+      <span className="text-zinc-500">Translated {count} segments</span>
       {pending > 0 && (
         <span className="flex items-center gap-1 text-brand-700">
           <Loader2 className="w-3 h-3 animate-spin" />
-          {pending} lô đang xử lý
+          {pending} batches pending
         </span>
       )}
     </div>

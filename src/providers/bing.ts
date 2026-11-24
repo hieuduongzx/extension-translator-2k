@@ -1,6 +1,6 @@
 import { toMicrosoftCode } from "../languages";
-import { fetchWithTimeout } from "./http";
-import type { TranslateResult } from "./types";
+import { discardResponse, fetchWithTimeout } from "./http";
+import { failedMask, type TranslateResult } from "./types";
 
 /**
  * Public Bing Translator endpoint used by https://www.bing.com/translator.
@@ -33,8 +33,12 @@ let pendingSession: Promise<BingSession> | null = null;
 const CONCURRENCY = 4;
 const TOKEN_SAFETY_MS = 60_000; // refresh 60s before stated expiry
 
-async function getSession(force = false): Promise<BingSession> {
-  if (!force && cachedSession && cachedSession.expiresAt - Date.now() > TOKEN_SAFETY_MS) {
+async function getSession(staleSession?: BingSession): Promise<BingSession> {
+  if (
+    cachedSession &&
+    cachedSession !== staleSession &&
+    cachedSession.expiresAt - Date.now() > TOKEN_SAFETY_MS
+  ) {
     return cachedSession;
   }
   if (pendingSession) return pendingSession;
@@ -56,9 +60,10 @@ async function bootstrapSession(): Promise<BingSession> {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9"
     },
-    credentials: "include"
+    credentials: "omit"
   });
   if (!res.ok) {
+    discardResponse(res);
     throw new Error(`Failed to load Bing Translator (HTTP ${res.status})`);
   }
   const html = await res.text();
@@ -123,7 +128,8 @@ async function translateOne(
   target: string,
   session: BingSession
 ): Promise<{ text: string; detected?: string; needsRefresh?: boolean; rateLimited?: boolean }> {
-  const url = `${TRANSLATE_URL}?isVertical=1&&IG=${session.ig}&IID=${session.iid}.${session.count}`;
+  const count = ++session.count;
+  const url = `${TRANSLATE_URL}?isVertical=1&&IG=${session.ig}&IID=${session.iid}.${count}`;
   const body = new URLSearchParams({
     fromLang: toBingCode(source),
     text,
@@ -139,11 +145,12 @@ async function translateOne(
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json"
     },
-    credentials: "include",
+    credentials: "omit",
     body: body.toString()
   });
 
   if (!res.ok) {
+    discardResponse(res);
     // 429 is rate limiting — re-scraping the session would only add traffic.
     // Signal the caller to back off and retry with the same token instead.
     if (res.status === 429) {
@@ -157,8 +164,11 @@ async function translateOne(
 
   // Bing returns either an array on success or `{ statusCode, errorMessage }`
   // on auth/quota issues.
-  const data = (await res.json()) as BingResponseItem[] | { statusCode: number };
+  const data = (await res.json()) as BingResponseItem[] | { statusCode?: number };
   if (!Array.isArray(data)) {
+    if (data?.statusCode === 429 || data?.statusCode === 429001) {
+      return { text: "", rateLimited: true };
+    }
     return { text: "", needsRefresh: true };
   }
   const item = data[0];
@@ -180,8 +190,13 @@ export async function translateBing(
 
   let session = await getSession();
   const results: string[] = new Array(texts.length).fill("");
+  // Per-slot success flags. A slot stays `false` when every attempt failed
+  // (rate limited, auth refresh exhausted, empty reply), which lets the caller
+  // retry just those segments instead of treating a whole batch as suspect.
+  const ok: boolean[] = new Array(texts.length).fill(false);
   let detected: string | undefined;
   let rateLimitHit = false;
+  let lastError: unknown;
 
   // Limited concurrency worker pool.
   let cursor = 0;
@@ -189,15 +204,19 @@ export async function translateBing(
     while (cursor < texts.length) {
       const idx = cursor++;
       const text = texts[idx];
-      session.count++;
       let attempt = 0;
       while (attempt < 3) {
-        const {
-          text: translated,
-          detected: detectedLang,
-          needsRefresh,
-          rateLimited
-        } = await translateOne(text, source, target, session);
+        const usedSession = session;
+        let reply: Awaited<ReturnType<typeof translateOne>>;
+        try {
+          reply = await translateOne(text, source, target, usedSession);
+        } catch (err) {
+          // A hard error (5xx, timeout) fails only this slot. Rejecting would
+          // throw away every segment the other workers already translated.
+          lastError = err;
+          break;
+        }
+        const { text: translated, detected: detectedLang, needsRefresh, rateLimited } = reply;
         if (rateLimited) {
           rateLimitHit = true;
           if (attempt < 2) {
@@ -210,8 +229,13 @@ export async function translateBing(
           break;
         }
         if (needsRefresh && attempt === 0) {
-          // Refresh token once and retry this segment.
-          session = await getSession(true);
+          // Refresh token once (deduped against already-refreshed sessions) and retry.
+          try {
+            session = await getSession(usedSession);
+          } catch (err) {
+            lastError = err;
+            break;
+          }
           attempt++;
           continue;
         }
@@ -221,6 +245,7 @@ export async function translateBing(
           continue;
         }
         results[idx] = translated;
+        ok[idx] = translated !== "";
         if (!detected && detectedLang) detected = detectedLang;
         break;
       }
@@ -231,7 +256,8 @@ export async function translateBing(
   await Promise.all(workers);
 
   // Surface total failure instead of silently returning untranslated text.
-  if (results.every((r) => r === "")) {
+  if (ok.every((succeeded) => !succeeded)) {
+    if (lastError && !rateLimitHit) throw lastError;
     throw new Error(
       rateLimitHit
         ? "Bing translate failed (HTTP 429): rate limited"
@@ -239,7 +265,11 @@ export async function translateBing(
     );
   }
 
-  return { translations: results, detected };
+  return {
+    translations: results,
+    detected,
+    failed: failedMask(ok.map((succeeded) => !succeeded))
+  };
 }
 
 function delay(ms: number): Promise<void> {

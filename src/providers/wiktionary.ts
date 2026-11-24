@@ -6,7 +6,7 @@
  *
  * Endpoint: vi.wiktionary.org Parsoid REST API.
  */
-import { fetchWithTimeout } from "./http";
+import { discardResponse, fetchWithTimeout } from "./http";
 
 const ENDPOINT = "https://vi.wiktionary.org/w/rest.php/v1/page";
 
@@ -18,8 +18,12 @@ export async function fetchWiktionaryHtml(word: string): Promise<string> {
     method: "GET",
     headers: { Accept: "text/html" }
   });
-  if (res.status === 404) return "";
+  if (res.status === 404) {
+    discardResponse(res);
+    return "";
+  }
   if (!res.ok) {
+    discardResponse(res);
     throw new Error(`Wiktionary lookup failed (HTTP ${res.status})`);
   }
   return await res.text();

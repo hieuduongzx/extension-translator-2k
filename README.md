@@ -9,8 +9,9 @@ Chrome extension built with React + Vite + TypeScript + TailwindCSS. It bundles
    videos/streams, powered by [Soniox](https://soniox.com).
 3. **Dịch nhanh** — standalone quick translator in the popup for ad-hoc text.
 
-Each feature has its own settings, reachable from a single options page with a
-sidebar listing all three functions.
+Each feature has its own settings, reachable from a single options page with
+top-level tabs for Web Translate, Dictionary, Quick Translate, and Stream
+Translate.
 
 ## Features
 
@@ -21,14 +22,21 @@ sidebar listing all three functions.
 - Providers, none requiring an API key for the basics:
   - **Google Translate** — public `translate.googleapis.com` endpoint
   - **Bing Translator** — public `bing.com/translator` endpoint
-  - **Mistral Small / GPT-OSS 120B / custom AI** — shared OpenAI-compatible gateway
-- 31 curated target languages
+  - **Auto Free / custom AI** — shared OpenAI-compatible gateway (`auto-free`),
+    pre-configured in the bundle (no key to enter), plus user-added custom
+    OpenAI-compatible models
+- 30 curated target languages (plus auto-detect for source language)
 - Auto-translate per domain rules (always / ask / never)
 - Translation cache persisted in `chrome.storage.local`
-- Keyboard shortcut: `Alt+A` to toggle translation
+- Keyboard shortcuts: `Alt+A` to toggle full-page translation, `Alt+S` to
+  translate the current selection in place
 - Right-click context menu (page or selection)
-- Floating "translate" icon next to selected text (toggleable)
-- Double-click a word for a Vietnamese dictionary popup
+- Floating "translate" icon next to selected text (toggleable, with hover delay)
+- `Alt + double-click` a word (configurable to plain double-click or off) for a
+  Vietnamese dictionary popup (VDict, Laban, Wiktionary, Free Dictionary)
+- **YouTube Subtitles**: force YouTube captions into your target language
+  (native track or YouTube auto-translate, optional auto-on), plus an in-player
+  **AI** button for AI-translated (optionally bilingual) subtitle overlays
 
 ### Dịch Stream (real-time subtitles)
 
@@ -37,35 +45,50 @@ sidebar listing all three functions.
 - Draggable / resizable subtitle overlay rendered on the page
 - Transcript or sentence display modes, speaker labels, adjustable font size and
   background opacity, auto-scroll
-- Pause / resume and auto-pause when the tab is hidden
-- Requires a Soniox API key (entered in Options → Dịch Stream)
+- Pause / resume, silence standby, and auto-pause when the tab is hidden or
+  unfocused
+- Requires a Soniox API key (entered in Options → Stream Translate)
 
 ## Architecture
 
-- `src/background.ts` — shared service worker. Handles web translation, the
-  dictionary/TTS providers, and calls `initStreamTranslator()`.
+- `src/background.ts` — shared service worker. Handles web translation, YouTube
+  captions/AI subtitles, dictionary/TTS providers, and calls
+  `initStreamTranslator()`.
 - `src/stream/streamBackground.ts` — the Soniox stream-translator background
   logic, refactored into an `initStreamTranslator()` module. Its message
-  listener is scoped to its own `STREAM_*`/`TOGGLE_TRANSLATION` message types.
-- `src/popup/` — tabbed popup (`Popup.tsx` → `WebPanel` / `StreamPanel`).
-- `src/options/` — full-page settings with a sidebar (`OptionsApp.tsx` →
-  `WebSettings` / `StreamSettings`).
+  listener is scoped to its own stream message types.
+- `src/youtube/` — YouTube caption watcher (`captions.ts`), timedtext fetcher
+  (`captionFetch.ts`), cue scheduling (`subtitleCues.ts`), and player overlay
+  (`aiSubtitleOverlay.ts`).
+- `src/popup/` — tabbed popup (`Popup.tsx` → `WebPanel` / `QuickPanel` /
+  `StreamPanel`).
+- `src/options/` — full-page settings (`OptionsApp.tsx` → `WebGeneralSettings`,
+  `WebShortcutsSettings`, `WebServicesSettings`, `DictionarySettings`,
+  `QuickGeneralSettings`, `StreamGeneralSettings`, `StreamOverlaySettings`).
 - `public/offscreen.html`, `public/offscreen.js`, `public/pcm-processor.js` —
   offscreen audio capture pipeline for the stream feature.
 
-Settings are stored separately per feature: web settings under
-`web-translator:settings`, stream settings under `streamTranslatorSettings`.
+Settings are stored per feature: web/dictionary settings under
+`web-translator:settings`, quick-translate settings under
+`translator2k:quickSettings` (draft in `chrome.storage.session` under
+`translator2k:quickDraft`), and stream settings/secrets under
+`streamTranslatorSettings` / `streamTranslatorSecrets`.
 
 ## Development
 
 ```bash
 npm install
-cp .env.example .env   # fill in VITE_AI_* (gateway endpoint + key) then build
 npm run dev
 ```
 
-Without `.env` the extension still builds, but the built-in AI backends will
-fail until the shared gateway endpoint and API key are set.
+No `.env` is required. The shared gateway URL, its API key and the bundled
+`auto-free` model id are baked into `src/types.ts`, so a fresh clone builds and
+translates straight away.
+
+Copy `.env.example` to `.env` only to override those values locally
+(`VITE_AI_ENDPOINT`, `VITE_AI_API_KEY`, `VITE_AUTO_FREE_MODEL`). Model ids must
+be published on the gateway's Models list or requests fail with
+`model_not_found`.
 
 ## Build
 
@@ -88,16 +111,11 @@ files automatically.
 
 ## Security
 
-Built-in AI backends use a self-hosted gateway. Endpoint + API key come from
-`import.meta.env.VITE_AI_*` at build time (see `.env.example`). **Never commit
-`.env`.** If a key was ever committed to git history:
-
-```bash
-# install once: npm i -g git-filter-repo
-git filter-repo --invert-paths --path .env --path src/types.ts
-git push --force-with-lease origin
-# rotate the leaked key on the provider side too
-```
+This is a private build shared with a handful of people, and the shared gateway
+URL and key ship inside `dist/` deliberately so nobody has to configure
+anything. Anyone with the CRX can read both. If either leaks beyond the intended
+group, rotate the key on the gateway and rebuild. See `SECURITY.md` for what is
+and is not protected, including the user-owned custom-model and Soniox keys.
 
 ## Privacy & limitations
 
@@ -107,6 +125,8 @@ git push --force-with-lease origin
 - The stream feature sends captured tab audio to **Soniox** using your own API
   key. Audio is only sent while a session is active.
 - AI providers send text to the configured OpenAI-compatible endpoint.
+- Automatic clipboard paste is off by default. If enabled, the Quick Translate
+  draft is retained only for the current browser session.
 - Selected/page text and looked-up words are sent to the chosen provider /
   dictionary sources. Nothing else is collected; there is no analytics or
   telemetry.

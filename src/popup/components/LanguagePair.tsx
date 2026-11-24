@@ -44,12 +44,12 @@ export function LanguagePair({
   const inner = (
     <div className="flex items-center gap-2">
       <div className="flex flex-col gap-1 min-w-0 flex-1">
-        <span className="section-label">Từ</span>
+        <span className="section-label">From</span>
         <Dropdown
           value={source}
           options={SOURCE_OPTIONS}
           onChange={onSourceChange}
-          ariaLabel="Ngôn ngữ nguồn"
+          ariaLabel="Source language"
         />
       </div>
       {onSwap ? (
@@ -57,8 +57,8 @@ export function LanguagePair({
           type="button"
           onClick={onSwap}
           disabled={swapDisabled}
-          title="Hoán đổi ngôn ngữ"
-          aria-label="Hoán đổi ngôn ngữ"
+          title="Swap languages"
+          aria-label="Swap languages"
           className="mt-5 h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -67,12 +67,12 @@ export function LanguagePair({
         <ArrowRight className="w-4 h-4 text-zinc-400 shrink-0 mt-5" />
       )}
       <div className="flex flex-col gap-1 min-w-0 flex-1">
-        <span className="section-label">Sang</span>
+        <span className="section-label">To</span>
         <Dropdown
           value={target}
           options={TARGET_OPTIONS}
           onChange={onTargetChange}
-          ariaLabel="Ngôn ngữ đích"
+          ariaLabel="Target language"
         />
       </div>
     </div>

@@ -18,8 +18,7 @@ export function batchSegments(segments: TextSegment[]): SegmentBatch[] {
   for (const segment of segments) {
     const len = segment.text.length;
 
-    const wouldExceedChars =
-      currentChars + len > BATCH_CHAR_LIMIT && current.segments.length > 0;
+    const wouldExceedChars = currentChars + len > BATCH_CHAR_LIMIT && current.segments.length > 0;
     const wouldExceedCount = current.segments.length >= BATCH_SEGMENT_LIMIT;
 
     if (wouldExceedChars || wouldExceedCount) {

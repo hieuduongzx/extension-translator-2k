@@ -11,14 +11,14 @@ import { ensureStyles } from "./styles";
 import {
   sendDictionaryRequest,
   sendLabanRequest,
-  sendTranslateRequest,
+  sendChunkedTranslateRequest,
   sendVdictRequest,
   sendWiktionaryRequest
 } from "./messaging";
 import { parseWiktionaryHtml } from "./wiktionaryParser";
 import { parseLabanHtml } from "./labanParser";
 import { parseVdictHtml } from "./vdictParser";
-import { speak as ttsSpeak, stop as ttsStop } from "./tts";
+import { playAudioUrl, speak as ttsSpeak, stop as ttsStop } from "./tts";
 
 interface DictionaryPopupConfig {
   theme: "dark" | "light";
@@ -82,9 +82,13 @@ function createPopup(
   initialAnchor: { x: number; y: number },
   config: DictionaryPopupConfig
 ): PopupHandle {
+  if (!document.body) {
+    return { destroy() {}, show() {} };
+  }
   let currentWord = initialWord;
   let currentTheme = config.theme;
   let inflightId = 0;
+  let initialRaf: number | null = null;
 
   const root = document.createElement("div");
   root.className = "wt-selection-popup wt-dict-popup";
@@ -107,19 +111,19 @@ function createPopup(
   root.innerHTML = `
     <div class="wt-sp-toolbar">
       <div class="wt-sp-toolbar-start">
-        <button type="button" class="wt-sp-icon-btn" data-role="speak" aria-label="Phát âm" title="Phát âm từ">${ICON_SPEAK}</button>
-        <button type="button" class="wt-sp-icon-btn" data-role="copy" aria-label="Sao chép từ" title="Sao chép từ">${ICON_COPY}</button>
-        <button type="button" class="wt-sp-icon-btn" data-role="fallback" aria-label="Dịch thay vì tra" title="Dịch thay vì tra">${ICON_TRANSLATE}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="speak" aria-label="Pronounce" title="Pronounce word">${ICON_SPEAK}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="copy" aria-label="Copy word" title="Copy word">${ICON_COPY}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="fallback" aria-label="Translate instead" title="Translate instead">${ICON_TRANSLATE}</button>
       </div>
       <div class="wt-sp-toolbar-end">
-        <button type="button" class="wt-sp-icon-btn" data-role="theme" aria-label="Đổi giao diện" title="Đổi giao diện">
+        <button type="button" class="wt-sp-icon-btn" data-role="theme" aria-label="Toggle theme" title="Toggle theme">
           <span data-role="theme-icon">${currentTheme === "dark" ? ICON_MOON : ICON_SUN}</span>
         </button>
-        <button type="button" class="wt-sp-icon-btn" data-role="close" aria-label="Đóng" title="Đóng">${ICON_CLOSE}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="close" aria-label="Close" title="Close">${ICON_CLOSE}</button>
       </div>
     </div>
     <div class="wt-sp-body wt-dict-body" data-role="body">
-      <div class="wt-dict-loading">Đang tra &ldquo;${escapeHtml(initialWord)}&rdquo;…</div>
+      <div class="wt-dict-loading">Looking up &ldquo;${escapeHtml(initialWord)}&rdquo;…</div>
     </div>
   `;
 
@@ -136,6 +140,7 @@ function createPopup(
     currentTheme = theme;
     root.dataset.theme = theme;
     themeIconEl.innerHTML = theme === "dark" ? ICON_MOON : ICON_SUN;
+    activeConfigKey = configKey({ ...config, theme: currentTheme });
     config.onThemeChange(theme);
   }
 
@@ -176,7 +181,7 @@ function createPopup(
     });
     if (texts.length === 0) return;
 
-    const response = await sendTranslateRequest({
+    const response = await sendChunkedTranslateRequest({
       type: "translate",
       texts,
       source: config.source,
@@ -199,19 +204,22 @@ function createPopup(
     currentEntries = entries;
     if (entries.length === 0) {
       bodyEl.innerHTML = `<div class="wt-dict-empty">
-        Không tìm thấy mục từ cho <strong>${escapeHtml(currentWord)}</strong>.
+        No dictionary entry found for <strong>${escapeHtml(currentWord)}</strong>.
       </div>`;
+      position(lastAnchor);
       return;
     }
     const html = entries
-      .map((entry) => renderEntry(entry, ICON_SPEAK_SM))
+      .map((entry) => renderEntry(entry, ICON_SPEAK_SM, config.target))
       .join('<hr class="wt-dict-sep"/>');
     bodyEl.innerHTML = html;
+    position(lastAnchor);
   }
 
   async function lookup(word: string): Promise<void> {
     const id = ++inflightId;
-    setStatus(`Đang tra “${word}”…`);
+    currentEntries = [];
+    setStatus(`Looking up “${word}”…`);
 
     // Try the Vietnamese dictionary sources one at a time and stop at the
     // first that yields a non-empty parse. Sequential (not parallel) so we
@@ -219,7 +227,7 @@ function createPopup(
     // words resolve on the first source. Priority order:
     //   1. VDict      — richest with bilingual examples
     //   2. Laban      — wide coverage with example sentences
-    //   3. Wiktionary — community Anh-Việt entries
+    //   3. Wiktionary — community English-Vietnamese entries
     const sources: {
       name: string;
       fetch: () => Promise<{ html: string; error?: string }>;
@@ -283,8 +291,8 @@ function createPopup(
       }
       if (response.entries.length === 0) {
         bodyEl.innerHTML = `<div class="wt-dict-empty">
-          Không tìm thấy mục từ cho <strong>${escapeHtml(word)}</strong>.
-          Đang chuyển sang trình dịch…
+          No dictionary entry found for <strong>${escapeHtml(word)}</strong>.
+          Switching to the translator…
         </div>`;
         window.setTimeout(() => {
           if (inflightId !== id) return;
@@ -316,12 +324,7 @@ function createPopup(
   speakBtn.addEventListener("click", () => {
     const audio = currentEntries.find((e) => e.audio)?.audio;
     if (audio) {
-      try {
-        const a = new Audio(audio);
-        a.play().catch(() => speak(currentWord, "en"));
-      } catch {
-        speak(currentWord, "en");
-      }
+      playAudioUrl(audio, currentWord, "en");
     } else {
       speak(currentWord, "en");
     }
@@ -362,10 +365,16 @@ function createPopup(
   // Dismiss on outside click or Escape only. The popup is `position: fixed`
   // and stays anchored on scroll, so users can keep reading the page.
   const onDocClick = (e: MouseEvent) => {
-    if (!root.contains(e.target as Node)) destroy();
+    const target = e.target as Node;
+    if (root.contains(target)) return;
+    // Keep the dictionary open while the user interacts with the translation
+    // popup that opened it (in-popup lookup).
+    if ((target as Element).closest?.("[data-wt-selection-popup='true']")) return;
+    destroy();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
+      e.stopPropagation();
       destroy();
       return;
     }
@@ -392,7 +401,7 @@ function createPopup(
     if (e.shiftKey && (activeEl === first || !root.contains(activeEl))) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && activeEl === last) {
+    } else if (!e.shiftKey && (activeEl === last || !root.contains(activeEl))) {
       e.preventDefault();
       first.focus();
     }
@@ -402,6 +411,10 @@ function createPopup(
 
   function destroy(): void {
     inflightId++;
+    if (initialRaf !== null) {
+      cancelAnimationFrame(initialRaf);
+      initialRaf = null;
+    }
     document.removeEventListener("mousedown", onDocClick, true);
     document.removeEventListener("keydown", onKey, true);
     try {
@@ -422,8 +435,7 @@ function createPopup(
 
   function position(anchor: { x: number; y: number }): void {
     lastAnchor = anchor;
-    // `anchor` is viewport-relative; convert to document coordinates so the
-    // popup (position: absolute) stays anchored to the page on scroll.
+    // `anchor` is viewport-relative; convert to containing-block coordinates.
     const margin = 8;
     const rect = root.getBoundingClientRect();
     const width = rect.width || 460;
@@ -438,18 +450,34 @@ function createPopup(
       top = anchor.y - height - 10;
       if (top < margin) top = margin;
     }
+    const op = root.offsetParent as HTMLElement | null;
+    if (
+      op &&
+      op !== document.documentElement &&
+      window.getComputedStyle(op).position !== "static"
+    ) {
+      const opRect = op.getBoundingClientRect();
+      root.style.left = `${left - opRect.left - op.clientLeft}px`;
+      root.style.top = `${top - opRect.top - op.clientTop}px`;
+      return;
+    }
     root.style.left = `${left + window.scrollX}px`;
     root.style.top = `${top + window.scrollY}px`;
   }
 
   function show(word: string, anchor: { x: number; y: number }): void {
+    if (initialRaf !== null) {
+      cancelAnimationFrame(initialRaf);
+      initialRaf = null;
+    }
     currentWord = word;
     position(anchor);
     void lookup(word);
   }
 
   document.body.appendChild(root);
-  requestAnimationFrame(() => {
+  initialRaf = requestAnimationFrame(() => {
+    initialRaf = null;
     position(initialAnchor);
     closeBtn.focus();
   });
@@ -459,7 +487,7 @@ function createPopup(
   return handle;
 }
 
-function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
+function renderEntry(entry: DictionaryEntry, speakIcon: string, targetLang: string): string {
   const phonetic = entry.phonetic
     ? `<span class="wt-dict-phonetic">${escapeHtml(entry.phonetic)}</span>`
     : "";
@@ -481,7 +509,7 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
               <button type="button" class="wt-dict-speak"
                 data-wt-speak="${escapeAttr(item.definition)}"
                 data-wt-speak-lang="${primaryLang}"
-                aria-label="Đọc">${speakIcon}</button>
+                aria-label="Read">${speakIcon}</button>
             </div>`;
           const defViLine =
             !isVietnameseSource && item.definitionVi
@@ -489,8 +517,8 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
                    ${escapeHtml(item.definitionVi)}
                    <button type="button" class="wt-dict-speak"
                      data-wt-speak="${escapeAttr(item.definitionVi)}"
-                     data-wt-speak-lang="vi"
-                     aria-label="Đọc bản dịch">${speakIcon}</button>
+                     data-wt-speak-lang="${escapeAttr(targetLang)}"
+                     aria-label="Read translation">${speakIcon}</button>
                  </div>`
               : "";
           // Examples on Laban / VDict entries are always English; Wiktionary varies.
@@ -506,7 +534,7 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
                  <button type="button" class="wt-dict-speak"
                    data-wt-speak="${escapeAttr(item.example)}"
                    data-wt-speak-lang="${exampleLang}"
-                   aria-label="Đọc ví dụ">${speakIcon}</button>
+                   aria-label="Read example">${speakIcon}</button>
                </div>`
             : "";
           // Laban + VDict ship Vietnamese example translations.
@@ -519,13 +547,14 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
           const machineExampleVi =
             !isVietnameseSource && item.exampleVi ? item.exampleVi : undefined;
           const finalExampleVi = sourceExampleVi ?? machineExampleVi;
+          const exampleViLang = sourceExampleVi ? "vi" : targetLang;
           const exampleViLine = finalExampleVi
             ? `<div class="wt-dict-example-vi">
                  <span class="wt-dict-quote">&ldquo;${escapeHtml(finalExampleVi)}&rdquo;</span>
                  <button type="button" class="wt-dict-speak"
                    data-wt-speak="${escapeAttr(finalExampleVi)}"
-                   data-wt-speak-lang="vi"
-                   aria-label="Đọc bản dịch ví dụ">${speakIcon}</button>
+                   data-wt-speak-lang="${escapeAttr(exampleViLang)}"
+                   aria-label="Read example translation">${speakIcon}</button>
                </div>`
             : "";
 
@@ -550,7 +579,7 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
         )
         .join("");
       const synBlock = syns
-        ? `<div class="wt-dict-syn"><span class="wt-dict-syn-label">Đồng nghĩa</span>${syns}</div>`
+        ? `<div class="wt-dict-syn"><span class="wt-dict-syn-label">Synonyms</span>${syns}</div>`
         : "";
 
       return `
@@ -564,12 +593,12 @@ function renderEntry(entry: DictionaryEntry, speakIcon: string): string {
 
   const sourceTag =
     entry.source === "vdict"
-      ? `<span class="wt-dict-source" title="Nguồn: vdict.com">VDict</span>`
+      ? `<span class="wt-dict-source" title="Source: vdict.com">VDict</span>`
       : entry.source === "laban"
-        ? `<span class="wt-dict-source" title="Nguồn: dict.laban.vn">Laban</span>`
+        ? `<span class="wt-dict-source" title="Source: dict.laban.vn">Laban</span>`
         : entry.source === "wiktionary"
-          ? `<span class="wt-dict-source" title="Nguồn: vi.wiktionary.org">Wiktionary</span>`
-          : `<span class="wt-dict-source" title="Nguồn: Free Dictionary API + dịch máy">Free Dictionary · dịch máy</span>`;
+          ? `<span class="wt-dict-source" title="Source: vi.wiktionary.org">Wiktionary</span>`
+          : `<span class="wt-dict-source" title="Source: Free Dictionary API + machine translation">Free Dictionary · machine translation</span>`;
 
   return `
     <header class="wt-dict-header">

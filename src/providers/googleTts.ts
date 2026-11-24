@@ -1,8 +1,8 @@
-import { fetchWithTimeout } from "./http";
+import { discardResponse, fetchWithTimeout } from "./http";
 
 /**
  * Public Google Translate text-to-speech endpoint. This is the same backend
- * that produces the familiar "chị Google" Vietnamese voice. It is unofficial
+ * that produces the familiar Vietnamese Google voice. It is unofficial
  * and capped at ~200 characters per request, so longer text is split into
  * chunks that are fetched in order and played back-to-back by the caller.
  *
@@ -44,19 +44,29 @@ export function splitForTts(text: string, max = MAX_CHUNK): string[] {
 
   while (rest.length > max) {
     const window = rest.slice(0, max);
-    // Prefer the last sentence end, then the last space, within the window.
+    // Prefer the last sentence end (ASCII or CJK), then the last space, within the window.
     let cut = Math.max(
       window.lastIndexOf(". "),
       window.lastIndexOf("! "),
       window.lastIndexOf("? "),
       window.lastIndexOf("; "),
-      window.lastIndexOf(", ")
+      window.lastIndexOf(", "),
+      window.lastIndexOf("。"),
+      window.lastIndexOf("！"),
+      window.lastIndexOf("？"),
+      window.lastIndexOf("；"),
+      window.lastIndexOf("，")
     );
     if (cut > max * 0.5) {
       cut += 1; // include the punctuation char
     } else {
       const space = window.lastIndexOf(" ");
       cut = space > 0 ? space : max;
+    }
+    // Never slice between a UTF-16 high/low surrogate pair.
+    const code = rest.charCodeAt(cut - 1);
+    if (cut > 1 && code >= 0xd800 && code <= 0xdbff) {
+      cut--;
     }
     chunks.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
@@ -105,6 +115,7 @@ export async function fetchGoogleTts(text: string, lang: string): Promise<string
       headers: { Accept: "audio/mpeg" }
     });
     if (!res.ok) {
+      discardResponse(res);
       throw new Error(`Google TTS failed (HTTP ${res.status})`);
     }
     audio.push(await toDataUrl(res));

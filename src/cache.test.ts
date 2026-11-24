@@ -54,8 +54,19 @@ describe("cache", () => {
 
   it("drops entries whose TTL has expired", async () => {
     await writeCache("google", "en", "vi", ["hello"], ["xin chào"]);
+    await vi.advanceTimersByTimeAsync(2000);
     // 8 days later — past the 7-day TTL.
     vi.setSystemTime(new Date("2026-01-09T00:00:00Z"));
+    const { translations } = await readCache("google", "en", "vi", ["hello"]);
+    expect(translations).toEqual([null]);
+    await vi.advanceTimersByTimeAsync(2000);
+    const persisted = await chrome.storage.local.get("web-translator:cache");
+    expect(persisted["web-translator:cache"]).toEqual({});
+  });
+
+  it("expires entries exactly at the TTL boundary", async () => {
+    await writeCache("google", "en", "vi", ["hello"], ["xin chào"]);
+    vi.setSystemTime(new Date("2026-01-08T00:00:00Z"));
     const { translations } = await readCache("google", "en", "vi", ["hello"]);
     expect(translations).toEqual([null]);
   });
@@ -77,10 +88,32 @@ describe("cache", () => {
     expect(jaResult.translations).toEqual(["độ"]);
   });
 
-  it("does not cache empty or unchanged outputs (failure sentinels)", async () => {
-    await writeCache("google", "en", "vi", ["hello", "world"], ["", "world"]);
-    const { translations } = await readCache("google", "en", "vi", ["hello", "world"]);
-    expect(translations).toEqual([null, null]);
+  it("does not cache empty outputs or provider-flagged failures", async () => {
+    await writeCache(
+      "google",
+      "en",
+      "vi",
+      ["hello", "world", "tere"],
+      ["", "world", "tere"],
+      undefined,
+      [false, true, false]
+    );
+    const { translations } = await readCache("google", "en", "vi", ["hello", "world", "tere"]);
+    // "hello" → "" is an empty result; "world" was flagged by the provider as
+    // padding. Both must stay uncached so they retry.
+    expect(translations[0]).toBeNull();
+    expect(translations[1]).toBeNull();
+    // "tere" legitimately translates to itself and is NOT flagged, so it caches.
+    expect(translations[2]).toBe("tere");
+  });
+
+  it("caches a translation that legitimately equals its source", async () => {
+    // Proper nouns, "OK", and pages already written in the target language all
+    // round-trip unchanged. Treating that as a failure (the old behaviour) meant
+    // the engine re-requested those segments on every mutation pass forever.
+    await writeCache("google", "en", "vi", ["Windows", "OK"], ["Windows", "OK"]);
+    const { translations } = await readCache("google", "en", "vi", ["Windows", "OK"]);
+    expect(translations).toEqual(["Windows", "OK"]);
   });
 
   it("evicts least-recently-used entries first when over capacity", async () => {
@@ -107,5 +140,32 @@ describe("cache", () => {
     expect(k0.translations).toEqual(["v0"]); // protected by recent read
     expect(overflow.translations).toEqual(["ov"]); // just written
     expect(k1.translations).toEqual([null]); // evicted as LRU
+  });
+
+  it("skips caching oversized single entries so storage quota is protected", async () => {
+    const huge = "x".repeat(10_000);
+    await writeCache("google", "en", "vi", [huge], [huge]);
+    const { translations } = await readCache("google", "en", "vi", [huge]);
+    expect(translations).toEqual([null]);
+  });
+
+  it("halves the cache and retries once when storage.set hits QuotaExceededError", async () => {
+    const { chromeStub } = installChromeStub();
+    let setCalls = 0;
+    const origSet = chromeStub.storage.local.set;
+    chromeStub.storage.local.set = async (obj: Record<string, unknown>) => {
+      setCalls++;
+      if (setCalls === 1) throw new Error("QUOTA_BYTES quota exceeded");
+      return origSet(obj);
+    };
+
+    await writeCache("google", "en", "vi", ["a", "b", "c", "d"], ["1", "2", "3", "4"]);
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(setCalls).toBe(2);
+    const persisted = (await chrome.storage.local.get("web-translator:cache"))[
+      "web-translator:cache"
+    ] as Record<string, unknown>;
+    expect(Object.keys(persisted).length).toBe(2);
   });
 });

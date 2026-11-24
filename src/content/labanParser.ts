@@ -2,7 +2,7 @@
  * Parses HTML from `dict.laban.vn/find?type=1&query=...` into our
  * `DictionaryEntry` shape.
  *
- * The Anh-Việt page is a flat sequence of `<div>` blocks rather than nested
+ * The English-Vietnamese page is a flat sequence of `<div>` blocks rather than nested
  * structure. Each block carries a class that tells us what it is, e.g.:
  *
  *   <div class="bg-grey bold font-large m-top20"><span>Động từ</span></div>
@@ -23,7 +23,7 @@
  *   <div class="grey bold margin25 m-top15">so sánh với người (vật) trung bình</div>
  *     ← Idiom definition (treated as a separate sense)
  *
- * We walk the active Anh-Việt tab in document order and build up POS-grouped
+ * We walk the active English-Vietnamese tab in document order and build up POS-grouped
  * entries with definitions + paired examples.
  */
 import type { DictionaryEntry } from "../types";
@@ -49,15 +49,16 @@ export function parseLabanHtml(html: string, word: string): DictionaryEntry[] {
     }
   }
 
-  // The Anh-Việt content panel. Laban renders multiple tabs (Anh-Việt /
-  // Anh-Anh / Đồng nghĩa / Việt-Anh); we want `rel="0"`.
+  // The English-Vietnamese content panel. Laban renders multiple tabs
+  // (English-Vietnamese / English-English / Synonyms / Vietnamese-English);
+  // we want `rel="0"`.
   const panel =
     doc.querySelector('.slide_content[rel="0"] .content') ||
     doc.querySelector(".slide_content .content") ||
     doc.querySelector("#content_selectable.content");
   if (!panel) {
     if (typeof console !== "undefined") {
-      console.warn("[web-translator] Laban: no Anh-Việt panel for", word);
+      console.warn("[web-translator] Laban: no English-Vietnamese panel for", word);
     }
     return [];
   }
@@ -166,22 +167,18 @@ export function parseLabanHtml(html: string, word: string): DictionaryEntry[] {
 
   flushPos();
 
-  if (meanings.length === 0) {
+  // Squash repeated empty definitions and drop any POS groups left empty
+  // before checking whether Laban produced a usable entry.
+  for (const m of meanings) {
+    m.definitions = m.definitions.filter((d) => d.definition.trim().length > 0 || d.example);
+  }
+  const usableMeanings = meanings.filter((m) => m.definitions.length > 0);
+
+  if (usableMeanings.length === 0) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[web-translator] Laban: parsed page but extracted 0 meanings for",
-        word
-      );
+      console.warn("[web-translator] Laban: parsed page but extracted 0 meanings for", word);
     }
     return [];
-  }
-
-  // Squash repeated empty definitions and prefer entries that have either
-  // a definition string or an example.
-  for (const m of meanings) {
-    m.definitions = m.definitions.filter(
-      (d) => d.definition.trim().length > 0 || d.example
-    );
   }
 
   return [
@@ -190,7 +187,7 @@ export function parseLabanHtml(html: string, word: string): DictionaryEntry[] {
       phonetic,
       audio: undefined, // Laban audio is JS-driven; we fall back to TTS.
       source: "laban",
-      meanings: meanings.filter((m) => m.definitions.length > 0),
+      meanings: usableMeanings,
       sourceUrl: `https://dict.laban.vn/find?type=1&query=${encodeURIComponent(word)}`
     }
   ];

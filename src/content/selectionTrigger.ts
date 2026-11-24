@@ -17,12 +17,20 @@ import { ensureStyles } from "./styles";
 export interface SelectionTriggerHandlers {
   /** Called when the user clicks the trigger. Receives the selected text. */
   onTranslate: (text: string, anchor: { x: number; y: number }) => void;
+  /**
+   * How long (in ms) the pointer must hover the trigger before it fires.
+   * Defaults to `DEFAULT_HOVER_DELAY_MS`.
+   */
+  hoverDelayMs?: number;
 }
+
+export const DEFAULT_HOVER_DELAY_MS = 500;
 
 let triggerEl: HTMLButtonElement | null = null;
 let lastShownText = "";
 let isInstalled = false;
 let installedHandlers: SelectionTriggerHandlers | null = null;
+let hoverDelayMs = DEFAULT_HOVER_DELAY_MS;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Snapshot of the last non-empty selection, captured on `selectionchange`. */
@@ -32,17 +40,9 @@ let cachedSelection: {
   boundingRect: DOMRect | null;
 } | null = null;
 
-const ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="m5 8 6 6"/>
-  <path d="m4 14 6-6 2-3"/>
-  <path d="M2 5h12"/>
-  <path d="M7 2h1"/>
-  <path d="m22 22-5-10-5 10"/>
-  <path d="M14 18h6"/>
-</svg>`;
-
 export function installSelectionTrigger(handlers: SelectionTriggerHandlers): void {
   installedHandlers = handlers;
+  hoverDelayMs = handlers.hoverDelayMs ?? DEFAULT_HOVER_DELAY_MS;
   if (isInstalled) return;
   isInstalled = true;
 
@@ -70,20 +70,31 @@ export function uninstallSelectionTrigger(): void {
   hideTrigger();
 }
 
+export function hideSelectionTrigger(): void {
+  cachedSelection = null;
+  hideTrigger();
+}
+
 function onMouseUp(e: MouseEvent): void {
+  if (e.button !== 0) return;
   if (isOurOwnNode(e.target as Node | null)) return;
+  if (isInsideEditableField(e.target as Node | null)) return;
   showForCachedSelection({ x: e.clientX, y: e.clientY });
 }
 
 function onPointerUp(e: PointerEvent): void {
   if (e.button !== 0) return;
   if (isOurOwnNode(e.target as Node | null)) return;
+  if (isInsideEditableField(e.target as Node | null)) return;
   showForCachedSelection({ x: e.clientX, y: e.clientY });
 }
 
 function onMouseDown(e: MouseEvent): void {
   // If the user is clicking the trigger itself, let the click handler run.
   if (triggerEl && triggerEl.contains(e.target as Node)) return;
+  // Clear cachedSelection immediately so a plain click-to-deselect cannot
+  // replay the stale selection before the coalesced `selectionchange` fires.
+  cachedSelection = null;
   hideTrigger();
 }
 
@@ -120,6 +131,14 @@ function captureSelection(): {
   if (!text) return null;
 
   const range = sel.getRangeAt(0);
+  if (
+    isInsideEditableField(range.startContainer) ||
+    isInsideEditableField(range.endContainer) ||
+    isOurOwnNode(range.startContainer) ||
+    isOurOwnNode(range.endContainer)
+  ) {
+    return null;
+  }
 
   let rects: DOMRectList | null = null;
   try {
@@ -146,19 +165,16 @@ function isOurOwnNode(node: Node | null): boolean {
   if (!node) return false;
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   if (!el) return false;
-  return !!el.closest(
-    '[data-wt-selection-popup="true"], [data-wt-selection-trigger="true"]'
-  );
+  return !!el.closest('[data-wt-selection-popup="true"], [data-wt-selection-trigger="true"]');
 }
 
 function isInsideEditableField(node: Node | null): boolean {
+  if (document.designMode === "on") return true;
   if (!node) return false;
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   if (!el) return false;
-  const editable = el.closest(
-    'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
-  );
-  return !!editable;
+  if ((el as HTMLElement).isContentEditable) return true;
+  return !!el.closest("input, textarea, select");
 }
 
 /**
@@ -224,8 +240,7 @@ function anchorNearPoint(
     const r = rects[i];
     // Vertical distance from the pointer to this line's band dominates: the
     // line the user released on is the one whose y-range contains the cursor.
-    const dy =
-      point.y < r.top ? r.top - point.y : point.y > r.bottom ? point.y - r.bottom : 0;
+    const dy = point.y < r.top ? r.top - point.y : point.y > r.bottom ? point.y - r.bottom : 0;
     const cx = Math.min(Math.max(point.x, r.left), r.right);
     const dx = Math.abs(point.x - cx);
     const dist = dy * 4 + dx; // weight vertical proximity more heavily
@@ -247,9 +262,8 @@ function showTriggerAt(x: number, y: number, text: string): void {
     triggerEl.type = "button";
     triggerEl.className = "wt-selection-trigger";
     triggerEl.setAttribute("data-wt-selection-trigger", "true");
-    triggerEl.setAttribute("aria-label", "Dịch đoạn đã chọn");
-    triggerEl.setAttribute("title", "Dịch đoạn đã chọn");
-    triggerEl.innerHTML = ICON_SVG;
+    triggerEl.setAttribute("aria-label", "Translate selection");
+    triggerEl.setAttribute("title", "Translate selection");
     triggerEl.addEventListener("mousedown", (e) => {
       // Prevent the document `mousedown` handler from clearing the selection
       // before our click runs.
@@ -262,25 +276,29 @@ function showTriggerAt(x: number, y: number, text: string): void {
       clearHoverTimer();
       fireTranslate();
     });
+    triggerEl.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>';
     triggerEl.addEventListener("mouseenter", () => {
       triggerEl!.classList.add("wt-hovering");
       hoverTimer = setTimeout(() => {
         fireTranslate();
-      }, 1000);
+      }, hoverDelayMs);
     });
     triggerEl.addEventListener("mouseleave", () => {
       triggerEl!.classList.remove("wt-hovering");
       clearHoverTimer();
     });
-    document.body.appendChild(triggerEl);
   }
+  // SPA navigations (pjax, Turbo, …) can swap `<body>` and detach the icon.
+  if (!document.body) return;
+  if (!triggerEl.isConnected) document.body.appendChild(triggerEl);
 
   lastShownText = text;
   // `x` / `y` arrive in viewport space (from getBoundingClientRect).
   // With `position: fixed` the trigger is positioned relative to the viewport,
   // so we use the viewport coordinates directly.
   const margin = 6;
-  const size = 22;
+  const size = 16;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   let left = x + margin;

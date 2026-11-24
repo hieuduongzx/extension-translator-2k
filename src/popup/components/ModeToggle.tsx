@@ -9,14 +9,14 @@ interface ModeToggleProps {
 const MODES: { id: DisplayMode; title: string; subtitle: string; icon: typeof Layers }[] = [
   {
     id: "bilingual",
-    title: "Song ngữ",
-    subtitle: "Hiện bản gốc + bản dịch",
+    title: "Bilingual",
+    subtitle: "Show original + translation",
     icon: Layers
   },
   {
     id: "replace",
-    title: "Chỉ bản dịch",
-    subtitle: "Thay thế văn bản gốc",
+    title: "Translation only",
+    subtitle: "Replace original text",
     icon: Replace
   }
 ];

@@ -2,7 +2,7 @@
  * Text-to-speech for the in-page popups.
  *
  * Primary path: Google Translate's public TTS endpoint (the familiar
- * "chị Google" Vietnamese voice, and Google voices for other languages),
+ * Vietnamese Google voice, and Google voices for other languages),
  * fetched through the background worker and played as MP3 audio. This is the
  * only reliable way to get the Google voice — Chrome does not expose its
  * Google *network* voices to `speechSynthesis.getVoices()` inside a content
@@ -37,36 +37,35 @@ try {
   /* ignore */
 }
 
-// Substrings that identify female / male English voices across platforms
-// (Chrome, Windows SAPI, macOS). Used only as a heuristic.
-const FEMALE_EN_HINTS = [
-  "female",
-  "google us english",
-  "google uk english female",
-  "zira",
-  "aria",
-  "jenny",
-  "michelle",
-  "samantha",
-  "susan",
-  "linda",
-  "hazel",
-  "eva",
-  "sonia"
+// Patterns that identify female / male English voices across platforms
+// (Chrome, Windows SAPI, macOS). Word boundaries prevent "male" from matching "female".
+const FEMALE_EN_PATTERNS = [
+  /\bfemale\b/i,
+  /\bgoogle us english\b/i,
+  /\bgoogle uk english female\b/i,
+  /\bzira\b/i,
+  /\baria\b/i,
+  /\bjenny\b/i,
+  /\bmichelle\b/i,
+  /\bsamantha\b/i,
+  /\bsusan\b/i,
+  /\blinda\b/i,
+  /\bhazel\b/i,
+  /\beva\b/i,
+  /\bsonia\b/i
 ];
-const MALE_EN_HINTS = [
-  "male",
-  "david",
-  "mark",
-  "george",
-  "guy",
-  "ryan",
-  "google uk english male"
+const MALE_EN_PATTERNS = [
+  /\bmale\b/i,
+  /\bdavid\b/i,
+  /\bmark\b/i,
+  /\bgeorge\b/i,
+  /\bguy\b/i,
+  /\bryan\b/i,
+  /\bgoogle uk english male\b/i
 ];
 
-function hasHint(name: string, hints: string[]): boolean {
-  const n = name.toLowerCase();
-  return hints.some((h) => n.includes(h));
+function hasHint(name: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(name));
 }
 
 /** True when a voice's BCP-47 lang shares a primary subtag with `base`. */
@@ -98,14 +97,14 @@ export function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
 
   if (base === "en") {
     const female = candidates.find(
-      (v) => hasHint(v.name, FEMALE_EN_HINTS) && !hasHint(v.name, MALE_EN_HINTS)
+      (v) => hasHint(v.name, FEMALE_EN_PATTERNS) && !hasHint(v.name, MALE_EN_PATTERNS)
     );
     if (female) return female;
     const google = candidates.find(
-      (v) => /google/i.test(v.name) && !hasHint(v.name, MALE_EN_HINTS)
+      (v) => /google/i.test(v.name) && !hasHint(v.name, MALE_EN_PATTERNS)
     );
     if (google) return google;
-    return candidates.find((v) => !hasHint(v.name, MALE_EN_HINTS)) ?? candidates[0];
+    return candidates.find((v) => !hasHint(v.name, MALE_EN_PATTERNS)) ?? candidates[0];
   }
 
   return candidates.find((v) => /google/i.test(v.name)) ?? candidates[0];
@@ -136,7 +135,7 @@ function speakWebSpeech(text: string, lang: string): boolean {
   }
 }
 
-/** Play an ordered list of audio data URLs back-to-back. */
+/** Play an ordered list of audio URLs back-to-back. */
 function playSequence(urls: string[], token: number, onFail: () => void): void {
   let i = 0;
   const playNext = () => {
@@ -147,13 +146,11 @@ function playSequence(urls: string[], token: number, onFail: () => void): void {
     }
     const audio = new Audio(urls[i]);
     currentAudio = audio;
-    audio.onended = () => {
-      i++;
-      playNext();
-    };
-    audio.onerror = () => {
-      if (token !== playToken) return;
-      // First chunk failing means playback never really started — fall back.
+    let handled = false;
+    const handleChunkFailure = () => {
+      if (handled || token !== playToken) return;
+      handled = true;
+      // First chunk failing means playback never really started — fall back once.
       if (i === 0) {
         currentAudio = null;
         onFail();
@@ -162,15 +159,34 @@ function playSequence(urls: string[], token: number, onFail: () => void): void {
       i++;
       playNext();
     };
-    audio.play().catch(() => {
-      if (token !== playToken) return;
-      if (i === 0) {
-        currentAudio = null;
-        onFail();
-      }
-    });
+    audio.onended = () => {
+      if (handled || token !== playToken) return;
+      handled = true;
+      i++;
+      playNext();
+    };
+    audio.onerror = handleChunkFailure;
+    audio.play().catch(handleChunkFailure);
   };
   playNext();
+}
+
+/**
+ * Play a single audio URL (e.g. a dictionary pronunciation recording) through
+ * the same tracked playback slot as {@link speak}, falling back to TTS if
+ * playback fails while this utterance is still active.
+ */
+export function playAudioUrl(url: string, fallbackText?: string, fallbackLang = "en"): void {
+  if (!url) {
+    if (fallbackText) speak(fallbackText, fallbackLang);
+    return;
+  }
+  stop();
+  const token = ++playToken;
+  playSequence([url], token, () => {
+    if (token !== playToken || !fallbackText) return;
+    speak(fallbackText, fallbackLang);
+  });
 }
 
 /** Stop any in-progress speech (both Google audio and Web Speech). */

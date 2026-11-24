@@ -12,11 +12,7 @@ const GOOGLE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 48 48" aria-hi
 
 const BING_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="wt-bing-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#36c5f0"/><stop offset="100%" stop-color="#0078d4"/></linearGradient></defs><path fill="url(#wt-bing-grad)" d="M5 3v22.6l6.5-2.7v-12L20 14l-3 1.3 5 2.2 6 2.5L11.5 28 5 25.7V3z"/></svg>`;
 
-/** Built-in AI backend (Mistral Small). */
-const MISTRAL_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#FF7000"/><path fill="#fff" d="M6 17V7h2.1l2 5.2L12.1 7H14.2v10h-1.9v-5.8L10.3 17H9.1l-2-5.8V17H6zm10.2 0V7H18v10h-1.8z"/></svg>`;
-
-/** Built-in AI backend (GPT-OSS 120B). */
-const GPT_OSS_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#F55036"/><path fill="#fff" d="M7 12.5 12 5l1.2 4.2L17 12.5 13.2 13.8 12 19l-1.2-5.2L7 12.5z"/></svg>`;
+const AUTO_FREE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="wt-auto-free-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="100%" stop-color="#14b8a6"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#wt-auto-free-grad)"/><path fill="#fff" d="M12 5.5l1.4 3.9 3.9 1.4-3.9 1.4L12 16.1l-1.4-3.9-3.9-1.4 3.9-1.4L12 5.5zm5.2 7.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9z"/></svg>`;
 
 const CUSTOM_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="10" rx="2"/><circle cx="9" cy="13" r="1.5"/><circle cx="15" cy="13" r="1.5"/><path d="M12 2v4M8 18v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2"/></svg>`;
 
@@ -27,10 +23,8 @@ export function providerIcon(providerId: ProviderId | string): string {
       return GOOGLE_ICON_SVG;
     case "bing":
       return BING_ICON_SVG;
-    case "mistral":
-      return MISTRAL_ICON_SVG;
-    case "gpt-oss":
-      return GPT_OSS_ICON_SVG;
+    case "auto-free":
+      return AUTO_FREE_ICON_SVG;
     default:
       return CUSTOM_ICON_SVG;
   }

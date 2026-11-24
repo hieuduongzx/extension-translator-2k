@@ -32,7 +32,7 @@ interface AIProviderSelectProps {
  * Using SVG (not external favicons) keeps the popup offline-friendly and
  * avoids any third-party network request from `chrome-extension://`.
  */
-function GoogleIcon() {
+export function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" className="block">
       <path
@@ -55,7 +55,7 @@ function GoogleIcon() {
   );
 }
 
-function BingIcon() {
+export function BingIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true" className="block">
       <defs>
@@ -72,28 +72,25 @@ function BingIcon() {
   );
 }
 
-export function MistralIcon() {
+export function AutoFreeIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className="block">
-      <rect width="24" height="24" rx="6" fill="#FF7000" />
+      <defs>
+        <linearGradient id="wt-auto-free-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#0ea5e9" />
+          <stop offset="100%" stopColor="#14b8a6" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="6" fill="url(#wt-auto-free-grad)" />
       <path
         fill="#fff"
-        d="M6 17V7h2.1l2 5.2L12.1 7H14.2v10h-1.9v-5.8L10.3 17H9.1l-2-5.8V17H6zm10.2 0V7H18v10h-1.8z"
+        d="M12 5.5l1.4 3.9 3.9 1.4-3.9 1.4L12 16.1l-1.4-3.9-3.9-1.4 3.9-1.4L12 5.5zm5.2 7.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9z"
       />
     </svg>
   );
 }
 
-export function GptOssIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className="block">
-      <rect width="24" height="24" rx="6" fill="#F55036" />
-      <path fill="#fff" d="M7 12.5 12 5l1.2 4.2L17 12.5 13.2 13.8 12 19l-1.2-5.2L7 12.5z" />
-    </svg>
-  );
-}
-
-function CustomIcon() {
+export function CustomIcon() {
   return (
     <svg
       width="16"
@@ -144,31 +141,25 @@ type Option = {
 const GOOGLE_OPTION: Option = {
   value: "google",
   label: BUILTIN_PROVIDER_LABELS.google,
-  description: "translate.googleapis.com · nhanh, chất lượng cao",
+  description: "Machine translation",
   icon: <GoogleIcon />
 };
 const BING_OPTION: Option = {
   value: "bing",
   label: BUILTIN_PROVIDER_LABELS.bing,
-  description: "bing.com/translator · không cần API key",
+  description: "Machine translation",
   icon: <BingIcon />
 };
-const MISTRAL_OPTION: Option = {
-  value: "mistral",
-  label: BUILTIN_PROVIDER_LABELS.mistral,
-  description: "mistral/mistral-small-2603",
-  icon: <MistralIcon />
-};
-const GPT_OSS_OPTION: Option = {
-  value: "gpt-oss",
-  label: BUILTIN_PROVIDER_LABELS["gpt-oss"],
-  description: "groq/openai/gpt-oss-120b",
-  icon: <GptOssIcon />
+const AUTO_FREE_OPTION: Option = {
+  value: "auto-free",
+  label: BUILTIN_PROVIDER_LABELS["auto-free"],
+  description: "AI translation",
+  icon: <AutoFreeIcon />
 };
 const ADD_OPTION: Option = {
   value: ADD_NEW,
-  label: "Thêm model mới…",
-  description: "Cấu hình endpoint OpenAI của riêng bạn",
+  label: "Add new model…",
+  description: "Configure your own OpenAI endpoint",
   icon: <AddIcon />
 };
 
@@ -176,27 +167,34 @@ const ADD_OPTION: Option = {
 function customOption(m: CustomModel): Option {
   return {
     value: customProviderId(m.id),
-    label: m.name || "Model chưa đặt tên",
-    description: m.model ? `${m.model} · tuỳ chỉnh` : "tuỳ chỉnh",
+    label: m.name || "Unnamed model",
+    description: m.model ? `${m.model} · custom` : "custom",
     icon: <CustomIcon />
   };
 }
 
 /** Generate all provider options (including custom models). Used for main translation. */
-export function getAllProviderOptions(customModels: CustomModel[]): Option[] {
+export function getAllProviderOptions(
+  customModels: CustomModel[],
+  disabledProviders: readonly ProviderId[] = []
+): Option[] {
   return [
     GOOGLE_OPTION,
     BING_OPTION,
-    MISTRAL_OPTION,
-    GPT_OSS_OPTION,
+    AUTO_FREE_OPTION,
     ...customModels.map(customOption),
     ADD_OPTION
-  ];
+  ].filter((o) => !disabledProviders.includes(o.value as ProviderId));
 }
 
 /** Generate AI-only provider options (built-in + custom). Used for AI button. */
-export function getAIProviderOptions(customModels: CustomModel[]): Option[] {
-  return [MISTRAL_OPTION, GPT_OSS_OPTION, ...customModels.map(customOption), ADD_OPTION];
+export function getAIProviderOptions(
+  customModels: CustomModel[],
+  disabledProviders: readonly ProviderId[] = []
+): Option[] {
+  return [AUTO_FREE_OPTION, ...customModels.map(customOption), ADD_OPTION].filter(
+    (o) => !disabledProviders.includes(o.value as ProviderId)
+  );
 }
 
 export function ProviderSelect({
@@ -204,7 +202,7 @@ export function ProviderSelect({
   customModels,
   onChange,
   onAddCustom,
-  label = "Dịch vụ dịch chính"
+  label = "Main translation service"
 }: ProviderSelectProps) {
   const options = getAllProviderOptions(customModels);
   return (
@@ -213,6 +211,7 @@ export function ProviderSelect({
       <Dropdown
         value={value}
         options={options}
+        ariaLabel={label}
         onChange={(v) => (v === ADD_NEW ? onAddCustom() : onChange(v as ProviderId))}
       />
     </div>
@@ -228,14 +227,15 @@ export function AIProviderSelect({
   const options = getAIProviderOptions(customModels);
   return (
     <div className="surface-card flex flex-col gap-1 p-2.5">
-      <span className="section-label">Dịch vụ AI</span>
+      <span className="section-label">AI service</span>
       <Dropdown
         value={value}
         options={options}
+        ariaLabel="AI service"
         onChange={(v) => (v === ADD_NEW ? onAddCustom() : onChange(v as AIProviderId))}
       />
       <p className="mt-0.5 text-[10.5px] leading-snug text-zinc-500">
-        Dùng cho nút lấy bản dịch AI trong popup chọn văn bản.
+        Used by the AI translation button in the selection popup.
       </p>
     </div>
   );
@@ -246,6 +246,8 @@ interface ProviderPairProps {
   quickProvider: ProviderId;
   aiProvider: AIProviderId;
   customModels: CustomModel[];
+  /** Services turned off in settings; hidden from every picker. */
+  disabledProviders?: readonly ProviderId[];
   onProviderChange: (provider: ProviderId) => void;
   onQuickProviderChange: (provider: ProviderId) => void;
   onAIProviderChange: (provider: AIProviderId) => void;
@@ -266,6 +268,7 @@ export function ProviderPair({
   quickProvider,
   aiProvider,
   customModels,
+  disabledProviders = [],
   onProviderChange,
   onQuickProviderChange,
   onAIProviderChange,
@@ -274,34 +277,37 @@ export function ProviderPair({
   onAddAIProvider,
   bare = false
 }: ProviderPairProps) {
-  const mainOptions = getAllProviderOptions(customModels);
-  const quickOptions = getAllProviderOptions(customModels);
-  const aiOptions = getAIProviderOptions(customModels);
+  const mainOptions = getAllProviderOptions(customModels, disabledProviders);
+  const quickOptions = mainOptions;
+  const aiOptions = getAIProviderOptions(customModels, disabledProviders);
   const inner = (
     <>
       <div className="flex flex-col gap-1">
-        <span className="section-label">Dịch vụ dịch trang</span>
+        <span className="section-label">Page translation service</span>
         <Dropdown
           value={provider}
           options={mainOptions}
+          ariaLabel="Page translation service"
           onChange={(v) => (v === ADD_NEW ? onAddProvider() : onProviderChange(v as ProviderId))}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <span className="section-label">Dịch vụ bôi đen</span>
+        <span className="section-label">Selection translation service</span>
         <Dropdown
           value={quickProvider}
           options={quickOptions}
+          ariaLabel="Selection translation service"
           onChange={(v) =>
             v === ADD_NEW ? onAddQuickProvider() : onQuickProviderChange(v as ProviderId)
           }
         />
       </div>
       <div className="flex flex-col gap-1">
-        <span className="section-label">Dịch vụ AI</span>
+        <span className="section-label">AI service</span>
         <Dropdown
           value={aiProvider}
           options={aiOptions}
+          ariaLabel="AI service"
           onChange={(v) =>
             v === ADD_NEW ? onAddAIProvider() : onAIProviderChange(v as AIProviderId)
           }

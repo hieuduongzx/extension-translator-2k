@@ -84,10 +84,7 @@ export function parseWiktionaryHtml(html: string, word: string): DictionaryEntry
   const sections = collectChildSections(h2);
   if (sections.length === 0) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[web-translator] Wiktionary: no <h3> subsections for",
-        word
-      );
+      console.warn("[web-translator] Wiktionary: no <h3> subsections for", word);
     }
     return [];
   }
@@ -122,10 +119,7 @@ export function parseWiktionaryHtml(html: string, word: string): DictionaryEntry
 
   if (meanings.length === 0) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[web-translator] Wiktionary: parsed page but extracted 0 meanings for",
-        word
-      );
+      console.warn("[web-translator] Wiktionary: parsed page but extracted 0 meanings for", word);
     }
     return [];
   }
@@ -219,20 +213,18 @@ function readPronunciation(nodes: HTMLElement[]): { ipa?: string; mp3?: string }
   const root = wrapNodes(nodes);
   const ipaEl = root.querySelector(".IPA");
   const ipa = ipaEl?.textContent?.trim() || undefined;
-  const mp3Source = root.querySelector('audio source[type="audio/mpeg"]') as
-    | HTMLSourceElement
-    | null;
-  const oggSource = root.querySelector('audio source[type^="audio/ogg"]') as
-    | HTMLSourceElement
-    | null;
-  const rawSrc = mp3Source?.src || oggSource?.src;
+  const mp3Source = root.querySelector(
+    'audio source[type="audio/mpeg"]'
+  ) as HTMLSourceElement | null;
+  const oggSource = root.querySelector(
+    'audio source[type^="audio/ogg"]'
+  ) as HTMLSourceElement | null;
+  const rawSrc = mp3Source?.getAttribute("src") || oggSource?.getAttribute("src");
   const mp3 = rawSrc ? absoluteUrl(rawSrc) : undefined;
   return { ipa, mp3 };
 }
 
-function readDefinitions(
-  nodes: HTMLElement[]
-): { definition: string; example?: string }[] {
+function readDefinitions(nodes: HTMLElement[]): { definition: string; example?: string }[] {
   const root = wrapNodes(nodes);
   const ol = root.querySelector("ol");
   if (!ol) return [];
@@ -243,9 +235,7 @@ function readDefinitions(
     cleanInlineNoise(li);
 
     let example: string | undefined;
-    const nestedExample = li.querySelector(
-      ":scope > ul > li, :scope > dl > dd"
-    );
+    const nestedExample = li.querySelector(":scope > ul > li, :scope > dl > dd");
     if (nestedExample) {
       example = normaliseText(nestedExample.textContent || "") || undefined;
       nestedExample.parentElement?.remove();
@@ -269,7 +259,11 @@ function matchPosByHeading(heading: string): string | null {
 }
 
 function wrapNodes(nodes: HTMLElement[]): HTMLElement {
-  const wrapper = document.createElement("div");
+  // Keep cloned Parsoid nodes inside the inert DOMParser document so the host
+  // page never fetches embedded <img> subresources or resolves relative URLs
+  // against window.location.
+  const inertDoc = nodes[0]?.ownerDocument ?? document.implementation.createHTMLDocument("");
+  const wrapper = inertDoc.createElement("div");
   for (const n of nodes) wrapper.appendChild(n.cloneNode(true) as HTMLElement);
   return wrapper;
 }
@@ -287,7 +281,12 @@ function normaliseText(s: string): string {
     .trim();
 }
 
-function absoluteUrl(src: string): string {
-  if (src.startsWith("//")) return `https:${src}`;
-  return src;
+function absoluteUrl(src: string): string | undefined {
+  try {
+    const resolved = new URL(src.trim(), "https://vi.wiktionary.org");
+    if (resolved.protocol !== "https:" && resolved.protocol !== "http:") return undefined;
+    return resolved.href;
+  } catch {
+    return undefined;
+  }
 }

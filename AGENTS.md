@@ -24,12 +24,14 @@ manually before pushing.
 
 ## Secrets
 
-- Never commit `.env`. Build-time AI endpoint + API keys come from
-  `import.meta.env.VITE_*` (see `.env.example`, typed in
-  `src/vite-env.d.ts`).
-- The historical hardcoded key in `src/types.ts` has been removed; if any key
-  was ever committed, rotate it on the provider side and follow the
-  `git filter-repo` recipe in `README.md#security`.
+- The shared AI gateway URL and key are **intentionally hardcoded** in
+  `src/types.ts` — this is a private build for a few people and must work with no
+  setup. Do not "fix" it by moving them behind env-only config or adding a
+  build-time secret scanner. See `SECURITY.md`.
+- `.env` is optional and only overrides those defaults.
+- Soniox and custom-model keys are different: user-owned, kept in
+  `chrome.storage.local`, never sent to content scripts
+  (`sanitizeSettingsForContent` in `src/storage.ts`).
 
 ## Architecture quick map
 

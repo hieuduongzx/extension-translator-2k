@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sendTtsRequest } from "../content/messaging";
 
 interface SpeakApi {
@@ -19,10 +19,14 @@ interface SpeakApi {
 // Module-level players so a new request instantly supersedes the previous one
 // even across hook instances. A monotonic token guards against stale async work.
 let currentAudio: HTMLAudioElement | null = null;
+let activeClearState: (() => void) | null = null;
 let playToken = 0;
 
 function stopAudio(): void {
   playToken++;
+  const clear = activeClearState;
+  activeClearState = null;
+  clear?.();
   if (currentAudio) {
     try {
       currentAudio.pause();
@@ -42,7 +46,10 @@ function stopAudio(): void {
 function speakWebSpeech(text: string, lang: string, token: number, done: () => void): void {
   try {
     const synth = window.speechSynthesis;
-    if (!synth) return;
+    if (!synth) {
+      done();
+      return;
+    }
     synth.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     if (lang && lang !== "auto") utter.lang = lang;
@@ -66,10 +73,22 @@ function speakWebSpeech(text: string, lang: string, token: number, done: () => v
  */
 export function useSpeak(): SpeakApi {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const onPageHide = () => stopAudio();
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("pagehide", onPageHide);
+      stopAudio();
+    };
+  }, []);
 
   const stop = useCallback(() => {
     stopAudio();
-    setSpeakingId(null);
+    if (mountedRef.current) setSpeakingId(null);
   }, []);
 
   const speak = useCallback((text: string, lang: string, id = "default") => {
@@ -77,27 +96,34 @@ export function useSpeak(): SpeakApi {
     if (!trimmed) return;
     stopAudio();
     const token = ++playToken;
-    setSpeakingId(id);
+    const clearThis = () => {
+      if (mountedRef.current) setSpeakingId(null);
+    };
+    activeClearState = clearThis;
+    if (mountedRef.current) setSpeakingId(id);
 
     const finish = () => {
-      if (token === playToken) setSpeakingId(null);
+      if (token === playToken) {
+        if (activeClearState === clearThis) activeClearState = null;
+        clearThis();
+      }
     };
 
     const fallback = () => {
-      if (token !== playToken) return;
+      if (!mountedRef.current || token !== playToken) return;
       speakWebSpeech(trimmed, lang, token, finish);
     };
 
     void sendTtsRequest({ type: "tts", text: trimmed, lang })
       .then((res) => {
-        if (token !== playToken) return;
+        if (!mountedRef.current || token !== playToken) return;
         if (res.error || res.audio.length === 0) {
           fallback();
           return;
         }
         let i = 0;
         const playNext = () => {
-          if (token !== playToken) return;
+          if (!mountedRef.current || token !== playToken) return;
           if (i >= res.audio.length) {
             currentAudio = null;
             finish();
@@ -105,12 +131,10 @@ export function useSpeak(): SpeakApi {
           }
           const audio = new Audio(res.audio[i]);
           currentAudio = audio;
-          audio.onended = () => {
-            i++;
-            playNext();
-          };
-          audio.onerror = () => {
-            if (token !== playToken) return;
+          let handled = false;
+          const onChunkFail = () => {
+            if (handled || !mountedRef.current || token !== playToken) return;
+            handled = true;
             if (i === 0) {
               currentAudio = null;
               fallback();
@@ -119,13 +143,14 @@ export function useSpeak(): SpeakApi {
               playNext();
             }
           };
-          audio.play().catch(() => {
-            if (token !== playToken) return;
-            if (i === 0) {
-              currentAudio = null;
-              fallback();
-            }
-          });
+          audio.onended = () => {
+            if (handled || !mountedRef.current || token !== playToken) return;
+            handled = true;
+            i++;
+            playNext();
+          };
+          audio.onerror = onChunkFail;
+          audio.play().catch(onChunkFail);
         };
         playNext();
       })

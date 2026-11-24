@@ -1,5 +1,5 @@
 import type { DictionaryEntry } from "../types";
-import { fetchWithTimeout } from "./http";
+import { discardResponse, fetchWithTimeout } from "./http";
 
 const ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries";
 
@@ -22,10 +22,7 @@ interface RawDictionaryEntry {
  * — other languages return 404 most of the time. The caller is expected to
  * fall back to the regular translator when this throws or returns empty.
  */
-export async function lookupDictionary(
-  word: string,
-  lang: string
-): Promise<DictionaryEntry[]> {
+export async function lookupDictionary(word: string, lang: string): Promise<DictionaryEntry[]> {
   const code = lang === "auto" ? "en" : lang;
   const trimmed = word.trim();
   if (!trimmed) return [];
@@ -36,8 +33,12 @@ export async function lookupDictionary(
     headers: { Accept: "application/json" }
   });
 
-  if (res.status === 404) return [];
+  if (res.status === 404) {
+    discardResponse(res);
+    return [];
+  }
   if (!res.ok) {
+    discardResponse(res);
     throw new Error(`Dictionary lookup failed (HTTP ${res.status})`);
   }
 
@@ -47,10 +48,7 @@ export async function lookupDictionary(
   return data
     .map<DictionaryEntry>((raw) => {
       // Pick the first phonetic that has a text/audio value.
-      const phoneticText =
-        raw.phonetic ||
-        raw.phonetics?.find((p) => p.text)?.text ||
-        undefined;
+      const phoneticText = raw.phonetic || raw.phonetics?.find((p) => p.text)?.text || undefined;
       const audio = raw.phonetics?.find((p) => p.audio)?.audio || undefined;
 
       const meanings = (raw.meanings ?? [])

@@ -21,9 +21,7 @@ describe("batchSegments", () => {
   });
 
   it("splits when the segment count limit is exceeded", () => {
-    const segments = Array.from({ length: BATCH_SEGMENT_LIMIT + 5 }, (_, i) =>
-      seg(`s${i}`)
-    );
+    const segments = Array.from({ length: BATCH_SEGMENT_LIMIT + 5 }, (_, i) => seg(`s${i}`));
     const batches = batchSegments(segments);
     expect(batches).toHaveLength(2);
     expect(batches[0].segments).toHaveLength(BATCH_SEGMENT_LIMIT);

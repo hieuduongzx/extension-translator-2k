@@ -1,5 +1,5 @@
 /** Built-in providers shipped with the extension. */
-export type BuiltinProviderId = "google" | "bing" | "mistral" | "gpt-oss";
+export type BuiltinProviderId = "google" | "bing" | "auto-free";
 /**
  * A user-added custom model. Encoded as `custom:<modelId>` so the provider id
  * stays a plain string everywhere it already flows (messages, cache keys, …).
@@ -9,9 +9,9 @@ export type ProviderId = BuiltinProviderId | CustomProviderId;
 
 /**
  * Providers that talk to an OpenAI-compatible chat-completions endpoint:
- * the bundled gateway models (`mistral`, `gpt-oss`) plus every user-added custom model.
+ * the bundled gateway models plus every user-added custom model.
  */
-export type BuiltinAIProviderId = "mistral" | "gpt-oss";
+export type BuiltinAIProviderId = "auto-free";
 export type AIProviderId = BuiltinAIProviderId | CustomProviderId;
 
 const CUSTOM_PREFIX = "custom:";
@@ -31,7 +31,7 @@ export function customModelId(id: CustomProviderId): string {
 }
 
 export function isBuiltinAIProvider(id: string): id is BuiltinAIProviderId {
-  return id === "mistral" || id === "gpt-oss";
+  return id === "auto-free";
 }
 
 export function isAIProvider(id: ProviderId): id is AIProviderId {
@@ -44,8 +44,7 @@ export function isAIProvider(id: ProviderId): id is AIProviderId {
 export const BUILTIN_PROVIDER_LABELS: Record<BuiltinProviderId, string> = {
   google: "Google",
   bing: "Bing",
-  mistral: "Mistral Small",
-  "gpt-oss": "GPT-OSS 120B"
+  "auto-free": "Auto Free"
 };
 
 export type DisplayMode = "bilingual" | "replace";
@@ -54,6 +53,8 @@ export type AutoRule = "always" | "never" | "ask";
 
 /** How the in-page dictionary lookup popup is triggered. */
 export type DictionaryMode = "doubleclick" | "alt-doubleclick" | "off";
+
+export type ReasoningEffort = "none" | "low" | "medium" | "high";
 
 /**
  * Connection settings for an OpenAI-compatible chat-completions endpoint.
@@ -65,6 +66,17 @@ export interface AIProviderConfig {
   apiKey: string;
   /** Model name sent in the request body. */
   model: string;
+  /**
+   * Send `reasoning: { effort: "none" }` to ask the model to skip its thinking
+   * pass. Opt-in per model: backends that reject the field must leave it off.
+   */
+  noReasoning?: boolean;
+  /**
+   * Explicit `reasoning: { effort }` level to send (overrides `noReasoning`).
+   * Used when a backend requires a specific minimum effort (e.g. `"low"` for
+   * models that reject `"none"`).
+   */
+  reasoningEffort?: ReasoningEffort;
 }
 
 /**
@@ -83,7 +95,7 @@ export interface ProviderSettings {
     /** No key required for the public endpoint, kept for future official Cloud API support. */
     apiKey?: string;
   };
-  /** Fixed developer-provided AI backend(s) on the shared self-hosted gateway. */
+  /** Fixed built-in AI backends; endpoint/key/model come from the bundle. */
   ai: Record<BuiltinAIProviderId, AIProviderConfig>;
 }
 
@@ -92,7 +104,7 @@ export interface Settings {
   provider: ProviderId;
   /**
    * Provider used when selecting text on a page and opening the in-page
-   * translation popup (quick/bôi đen). Independent of `provider` so the user
+   * translation popup (quick selection translate). Independent of `provider` so the user
    * can keep e.g. Google for page translation while using an AI model for
    * fast, context-aware snippet translation.
    */
@@ -117,6 +129,12 @@ export interface Settings {
    * the popups and is editable in Settings. Empty by default.
    */
   customModels: CustomModel[];
+  /**
+   * Providers the user has switched off in the Translation Service registry.
+   * Disabled providers are hidden from every service picker (page translation,
+   * selection translation, AI) and cannot be selected.
+   */
+  disabledProviders: ProviderId[];
   displayMode: DisplayMode;
   sourceLang: string; // "auto" or BCP-47 code
   targetLang: string;
@@ -139,6 +157,12 @@ export interface Settings {
    */
   selectionTrigger: boolean;
   /**
+   * How long (in ms) the user must hover over the floating selection icon
+   * before the translation popup opens. `0` translates instantly on hover.
+   * Defaults to 500ms.
+   */
+  selectionHoverDelayMs: number;
+  /**
    * How the dictionary lookup popup (definitions, phonetic, examples) is
    * triggered:
    *  - "doubleclick"     — double-click a single word opens the dictionary.
@@ -147,18 +171,39 @@ export interface Settings {
    * Falls back to the translation popup when the word is not found.
    */
   dictionaryMode: DictionaryMode;
+  /**
+   * When enabled, double-clicking a single word inside the open translation
+   * (selection) popup opens the dictionary popup for that word. Defaults to
+   * false.
+   */
+  dictionaryInPopup: boolean;
+  /**
+   * "YouTube Subtitle": force YouTube's captions into `youtubeSubtitleLang`
+   * (a native track when available, otherwise YouTube auto-translate).
+   */
+  youtubeSubtitle: boolean;
+  /** Language YouTube captions are switched to. Defaults to Vietnamese. */
+  youtubeSubtitleLang: string;
+  /** Also turn captions on automatically for videos that have them. */
+  youtubeSubtitleAutoOn: boolean;
+  /**
+   * AI subtitles (switched on per tab from the extension's button in the
+   * YouTube player): also show the original line under the translation.
+   */
+  youtubeSubtitleBilingual: boolean;
 }
 
-/** Shared self-hosted OpenAI-compatible gateway (routes by model id). */
-const AI_GATEWAY_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT ?? "http://103.38.236.38:20128/v1";
-const AI_GATEWAY_API_KEY = import.meta.env.VITE_AI_API_KEY ?? "";
+/** Shared gateway, bundled on purpose so a fresh install needs no setup. See SECURITY.md. */
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT ?? "http://103.38.236.38:20128/v1";
+const AI_API_KEY = import.meta.env.VITE_AI_API_KEY ?? "sk-36643e228a430321-47diu6-db3c7863";
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "google",
   quickProvider: "google",
-  aiProvider: "mistral",
+  aiProvider: "auto-free",
   aiTranslationMode: "below",
   customModels: [],
+  disabledProviders: [],
   displayMode: "replace",
   sourceLang: "auto",
   targetLang: "vi",
@@ -167,22 +212,24 @@ export const DEFAULT_SETTINGS: Settings = {
   providers: {
     google: {},
     ai: {
-      mistral: {
-        endpoint: AI_GATEWAY_ENDPOINT,
-        apiKey: AI_GATEWAY_API_KEY,
-        model: import.meta.env.VITE_MISTRAL_MODEL ?? "mistral/mistral-small-2603"
-      },
-      "gpt-oss": {
-        endpoint: AI_GATEWAY_ENDPOINT,
-        apiKey: AI_GATEWAY_API_KEY,
-        model: import.meta.env.VITE_GPT_OSS_MODEL ?? "groq/openai/gpt-oss-120b"
+      "auto-free": {
+        endpoint: AI_ENDPOINT,
+        apiKey: AI_API_KEY,
+        model: import.meta.env.VITE_AUTO_FREE_MODEL ?? "auto-free",
+        reasoningEffort: "low"
       }
     }
   },
   showSelectionOriginal: false,
   selectionPopupTheme: "light",
   selectionTrigger: true,
-  dictionaryMode: "alt-doubleclick"
+  selectionHoverDelayMs: 500,
+  dictionaryMode: "alt-doubleclick",
+  dictionaryInPopup: false,
+  youtubeSubtitle: false,
+  youtubeSubtitleLang: "vi",
+  youtubeSubtitleAutoOn: false,
+  youtubeSubtitleBilingual: false
 };
 
 export interface TranslateRequestMessage {
@@ -233,6 +280,23 @@ export interface StatusMessage {
 export interface ApplySettingsMessage {
   type: "apply-settings";
   settings: Settings;
+}
+
+export interface GetSettingsMessage {
+  type: "get-settings";
+}
+
+export interface UpdateSettingsMessage {
+  type: "update-settings";
+  patch: Partial<Settings>;
+}
+
+export interface GetFrameContextMessage {
+  type: "get-frame-context";
+}
+
+export interface TabMarkerMessage {
+  type: "get-tab-active" | "mark-tab-active" | "mark-tab-inactive";
 }
 
 export interface DictionaryRequestMessage {
@@ -312,7 +376,7 @@ export interface VdictResponseMessage {
 
 /**
  * Ask the background worker to synthesize speech for `text` in `lang` using
- * Google Translate's public TTS endpoint (the familiar "chị Google" voice).
+ * Google Translate's public TTS endpoint (the familiar Vietnamese Google voice).
  * Done in the background to avoid page CORS and because the audio bytes come
  * back as a data URL the content script can play with `new Audio()`.
  */
@@ -330,6 +394,35 @@ export interface TtsResponseMessage {
   error?: string;
 }
 
+/**
+ * Sent by a content script on a YouTube frame: the background (re)injects the
+ * MAIN-world caption watcher with the current "YouTube Subtitle" settings.
+ */
+export interface YoutubeCaptionsSyncMessage {
+  type: "youtube-captions-sync";
+}
+
+/** Content script → background: fetch the current video's original captions (json3). */
+export interface YoutubeAiCuesMessage {
+  type: "youtube-ai-cues";
+}
+
+/** Content script → background: AI-translate a run of subtitle lines. */
+export interface YoutubeAiTranslateMessage {
+  type: "youtube-ai-translate";
+  lines: string[];
+  /** Preceding source lines, sent as read-only context. */
+  context: string[];
+  source: string;
+  target: string;
+}
+
+export interface YoutubeAiTranslateResponse {
+  translations: string[];
+  failed?: boolean[];
+  error?: string;
+}
+
 export type RuntimeMessage =
   | TranslateRequestMessage
   | TranslateResponseMessage
@@ -339,6 +432,10 @@ export type RuntimeMessage =
   | TranslateSelectionInlineMessage
   | StatusMessage
   | ApplySettingsMessage
+  | GetSettingsMessage
+  | UpdateSettingsMessage
+  | GetFrameContextMessage
+  | TabMarkerMessage
   | DictionaryRequestMessage
   | DictionaryResponseMessage
   | WiktionaryRequestMessage
@@ -348,4 +445,7 @@ export type RuntimeMessage =
   | VdictRequestMessage
   | VdictResponseMessage
   | TtsRequestMessage
-  | TtsResponseMessage;
+  | TtsResponseMessage
+  | YoutubeCaptionsSyncMessage
+  | YoutubeAiCuesMessage
+  | YoutubeAiTranslateMessage;

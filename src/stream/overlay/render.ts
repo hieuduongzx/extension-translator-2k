@@ -4,28 +4,41 @@
  * These two functions are deliberately self-contained: they are shipped to the
  * page via `chrome.scripting.executeScript({ func, args })`, which serialises
  * the function source with `.toString()` and re-evaluates it in the page
- * context. They must NOT close over any module-scope variable and must use only
+ * isolated extension context. They must NOT close over any module-scope variable and must use only
  * their arguments + DOM APIs. That is also why the overlay CSS lives here as an
  * inline string literal rather than an imported constant.
  *
- * Everything in this file runs in the PAGE world, not the service worker.
+ * The DOM is shared with the page, but JavaScript runs in Chrome's ISOLATED world.
  */
 
-export type TranslationPayload = {
+/** A finished subtitle line. `id` is stable so the page can render incrementally. */
+export type OverlayLine = {
+  id: number;
   text: string;
   translatedText: string;
+  speaker?: string;
+};
+
+export type TranslationPayload = {
+  /** Original text of the open line (or a status message's detail). */
+  text: string;
+  /** Translation of the open line (or a status message). */
+  translatedText: string;
+  speaker?: string;
   isFinal?: boolean;
   status?: "info" | "success" | "warning" | "error";
   isPaused?: boolean;
+  isStandby?: boolean;
   fontScale?: number;
   opacity?: number;
   showSource?: boolean;
   showSpeaker?: boolean;
   targetLanguage?: string;
   statusHint?: string;
-  history?: { text: string; translatedText: string }[];
+  history?: OverlayLine[];
   displayMode?: "transcript" | "block";
   autoScroll?: boolean;
+  captureId?: string;
 };
 
 export function resetOverlayLayoutOnPage() {
@@ -33,31 +46,51 @@ export function resetOverlayLayoutOnPage() {
   const storageKey = "st-overlay-layout";
   const root = document.getElementById(containerId) as HTMLDivElement | null;
 
-  window.localStorage.removeItem(storageKey);
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    /* blocked storage */
+  }
 
   if (!root) return;
 
   root.style.left = "50%";
+  root.style.top = "";
+  root.style.bottom = "48px";
+  // Back to the stylesheet's centered `translate`.
+  root.style.translate = "";
+  root.style.animation = "";
+  root.classList.remove("is-dragging");
   root.style.width = "";
   root.style.height = "";
   const content = root.querySelector(".st-card-content") as HTMLDivElement | null;
   if (content) {
     content.style.width = "";
     content.style.height = "";
+    content.style.maxHeight = "";
   }
+  delete root.dataset.savedWidth;
+  delete root.dataset.savedHeight;
 }
 
 export function renderOverlayOnPage(payload: TranslationPayload | null) {
   const containerId = "stream-translator-overlay-root";
   const styleId = "stream-translator-overlay-style";
   const storageKey = "st-overlay-layout";
+  const cleanupKey = "__translator2kOverlayCleanup";
+  const overlayWindow = window as Window & { __translator2kOverlayCleanup?: () => void };
 
   if (!payload) {
+    overlayWindow[cleanupKey]?.();
+    delete overlayWindow[cleanupKey];
     document.getElementById(containerId)?.remove();
     document.getElementById(styleId)?.remove();
     return;
   }
 
+  // Bump when the CSS below changes. Rewriting a stylesheet makes the browser
+  // re-match styles for the whole page, so only do it when it actually differs.
+  const styleVersion = "6";
   let style = document.getElementById(styleId) as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");
@@ -65,157 +98,165 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
     document.documentElement.appendChild(style);
   }
 
-  style.textContent = `
-    @keyframes st-slide-up { from { opacity:0; transform:translateY(20px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-    @keyframes st-pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.4; } }
-    @keyframes st-settings-in { from { opacity:0; transform:translateY(6px) scale(.96); } to { opacity:1; transform:translateY(0) scale(1); } }
+  if (style.dataset.version !== styleVersion) {
+    style.dataset.version = styleVersion;
+    style.textContent = `
+    @keyframes st-slide-up { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
+    @keyframes st-pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+    @keyframes st-settings-in { from { opacity:0; transform:translateY(6px) scale(.97); } to { opacity:1; transform:none; } }
 
+    /* Centered with the separate translate property: the slide-up animation
+       animates transform, and its final frame would otherwise override a
+       transform-based centering. */
     #${containerId} {
-      position:fixed; left:50%; bottom:48px; transform:translateX(-50%);
+      position:fixed; left:50%; bottom:48px; translate:-50% 0;
       z-index:2147483647;
-      font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",sans-serif;
+      color:#fff; line-height:normal; text-align:left;
       pointer-events:auto; user-select:none;
-      animation:st-slide-up .45s cubic-bezier(.16,1,.3,1) both;
-      --st-t-size:26px; --st-s-size:13px;
+      animation:st-slide-up .35s cubic-bezier(.16,1,.3,1) both;
+      --st-t-size:26px;
+      /* Scales the whole frame (fill, border, shadow, blur): at 0% only the
+         text is left. Hovering brings it back enough to reach the controls. */
+      --st-frame-a:var(--st-bg-opacity, .85);
     }
+    #${containerId}:hover,
+    #${containerId}:has(:focus-visible),
+    #${containerId}.is-dragging,
+    #${containerId}[data-settings-open="true"] { --st-frame-a:max(var(--st-bg-opacity, .85), .55); }
     #${containerId}.is-dragging { transition:none !important; animation:none !important; }
+    #${containerId}, #${containerId} *, #${containerId} *::before, #${containerId} *::after { box-sizing:border-box; }
+    #${containerId} [hidden] { display:none !important; }
 
-    /* ─── Main Card ─── */
-    #${containerId} .st-card {
-      position: relative;
-      display: flex;
-    }
-
+    /* ─── Card: sized by its text, up to ~5 lines ─── */
+    #${containerId} .st-card { position:relative; display:flex; }
     #${containerId} .st-card-content {
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.1);
-      background:rgba(15,15,22,var(--st-bg-opacity, 0.88));
-      box-shadow:0 24px 80px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
-      backdrop-filter:blur(24px) saturate(160%);
-      -webkit-backdrop-filter:blur(24px) saturate(160%);
-      overflow:hidden;
-      width:min(640px, calc(100vw - 32px)); min-width:300px;
-      height:140px;
-      max-height:calc(100vh - 64px);
-      display:flex; flex-direction:column;
-      flex:1;
+      position:relative; flex:1;
+      display:flex; flex-direction:column; overflow:hidden;
+      width:min(680px, calc(100vw - 32px)); min-width:280px;
+      min-height:calc(var(--st-t-size) * 1.32 + 22px);
+      max-height:min(calc(var(--st-t-size) * 5.4 + 22px), calc(100vh - 96px));
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,calc(.08 * var(--st-frame-a)));
+      background:rgba(12,12,18,var(--st-frame-a));
+      box-shadow:0 12px 40px rgba(0,0,0,calc(.35 * var(--st-frame-a)));
+      backdrop-filter:blur(calc(16px * var(--st-frame-a))) saturate(calc(1 + .5 * var(--st-frame-a)));
+      -webkit-backdrop-filter:blur(calc(16px * var(--st-frame-a))) saturate(calc(1 + .5 * var(--st-frame-a)));
+      transition:background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
     }
+
+    /* ─── Toolbar: floats above the card, so it never covers the text.
+       Hidden while live; shown on hover/focus and whenever not live. ─── */
+    #${containerId} .st-header {
+      position:absolute; left:0; bottom:calc(100% + 6px); z-index:5;
+      display:flex; align-items:center; gap:6px; max-width:100%;
+      padding:3px 3px 3px 9px; border-radius:999px;
+      background:rgba(18,18,26,.9); border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 4px 14px rgba(0,0,0,.35);
+      backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+      cursor:grab; touch-action:none;
+      opacity:0; pointer-events:none; transition:opacity .15s ease;
+    }
+    /* Keeps the hover alive while the pointer crosses the gap to the card. */
+    #${containerId} .st-header::after {
+      content:""; position:absolute; left:0; right:0; top:100%; height:8px;
+    }
+    #${containerId}:hover .st-header,
+    #${containerId}:has(:focus-visible) .st-header,
+    #${containerId}.is-dragging .st-header,
+    #${containerId}[data-settings-open="true"] .st-header,
+    #${containerId}:not([data-live="true"]) .st-header { opacity:1; pointer-events:auto; }
+    #${containerId} .st-header:active { cursor:grabbing; }
+    #${containerId} .st-header-left { display:flex; align-items:center; gap:7px; min-width:0; }
+    #${containerId} .st-grip { display:grid; grid-template-columns:repeat(2,3px); gap:2px; opacity:.45; }
+    #${containerId} .st-header:hover .st-grip { opacity:.8; }
+    #${containerId} .st-grip-dot { width:3px; height:3px; border-radius:50%; background:#fff; }
 
     #${containerId} .st-resizer {
-      position: absolute; top:0; right:0; width:20px; height:20px;
-      cursor:ne-resize; z-index: 10;
+      position:absolute; top:0; right:0; width:22px; height:22px; z-index:6;
+      cursor:ne-resize; opacity:0; transition:opacity .15s ease;
     }
+    #${containerId}:hover .st-resizer { opacity:1; }
     #${containerId} .st-resizer::after {
-      content: ""; position:absolute; top:8px; right:8px;
-      width:8px; height:8px; border-top:2px solid rgba(255,255,255,.4); border-right:2px solid rgba(255,255,255,.4);
-      border-radius: 0 2px 0 0;
+      content:""; position:absolute; top:7px; right:7px; width:7px; height:7px;
+      border-top:2px solid rgba(255,255,255,.5); border-right:2px solid rgba(255,255,255,.5);
+      border-radius:0 2px 0 0;
     }
-    #${containerId} .st-resizer:hover::after { border-color: rgba(255,255,255,.8); }
-
-    /* ─── Header / Drag Bar ─── */
-    #${containerId} .st-header {
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      padding:6px 12px; cursor:grab; touch-action:none;
-      border-top:1px solid rgba(255,255,255,.06);
-      background:rgba(255,255,255,.02);
-      transition:background .2s;
-    }
-    #${containerId} .st-header:hover { background:rgba(255,255,255,.04); }
-    #${containerId} .st-header:active { cursor:grabbing; }
-
-    #${containerId} .st-header-left {
-      display:flex; align-items:center; gap:10px; min-width:0; flex:1;
-    }
-
-    /* Drag grip dots */
-    #${containerId} .st-grip {
-      display:grid; grid-template-columns:repeat(2,4px); gap:3px;
-      opacity:.35; transition:opacity .2s;
-    }
-    #${containerId} .st-header:hover .st-grip { opacity:.65; }
-    #${containerId} .st-grip-dot {
-      width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,.7);
-    }
+    #${containerId} .st-resizer:hover::after { border-color:#fff; }
 
     /* Status badge */
     #${containerId} .st-badge {
-      padding:2px 8px; border-radius:999px;
+      padding:2px 7px; border-radius:999px;
       font-size:9.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-      line-height:1.1; white-space:nowrap;
+      line-height:1.2; white-space:nowrap;
     }
     #${containerId} .st-badge.info { background:rgba(20,184,166,.18); color:#99f6e4; }
     #${containerId} .st-badge.success { background:rgba(34,197,94,.15); color:#86efac; }
     #${containerId} .st-badge.success::before {
       content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
-      background:#22c55e; margin-right:6px; vertical-align:middle;
+      background:#22c55e; margin-right:5px; vertical-align:1px;
       animation:st-pulse-dot 1.8s ease-in-out infinite;
     }
     #${containerId} .st-badge.warning { background:rgba(245,158,11,.15); color:#fcd34d; }
     #${containerId} .st-badge.error { background:rgba(239,68,68,.15); color:#fca5a5; }
-    #${containerId}[data-paused="true"] .st-badge.success { background:rgba(251,191,36,.15); color:#fcd34d; }
-    #${containerId}[data-paused="true"] .st-badge.success::before { background:#f59e0b; animation:none; }
+    #${containerId}[data-paused="true"] .st-badge.success,
+    #${containerId}[data-standby="true"] .st-badge.success { background:rgba(251,191,36,.15); color:#fcd34d; }
+    #${containerId}[data-paused="true"] .st-badge.success::before,
+    #${containerId}[data-standby="true"] .st-badge.success::before { background:#f59e0b; animation:none; }
 
     #${containerId} .st-lang {
-      font-size:11px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
-      color:rgba(255,255,255,.45); white-space:nowrap;
+      font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+      color:rgba(255,255,255,.5); white-space:nowrap;
     }
 
-    /* ─── Controls ─── */
-    #${containerId} .st-controls { display:flex; align-items:center; gap:2px; }
-
+    #${containerId} .st-controls { display:flex; align-items:center; gap:1px; }
     #${containerId} .st-btn {
       display:inline-flex; align-items:center; justify-content:center;
-      width:26px; height:26px; border:none; border-radius:6px;
-      background:transparent; color:rgba(255,255,255,.55); cursor:pointer;
-      font-size:12px; line-height:1; padding:0;
-      transition:all .18s ease;
+      width:24px; height:24px; border:none; border-radius:999px;
+      background:transparent; color:rgba(255,255,255,.65); cursor:pointer;
+      font-size:11px; line-height:1; padding:0; font-family:inherit;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
     }
-    #${containerId} .st-btn:hover { background:rgba(255,255,255,.08); color:#fff; }
+    #${containerId} .st-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
     #${containerId} .st-btn:active { transform:scale(.92); }
-    #${containerId} .st-btn.stop { color:rgba(248,113,113,.8); }
-    #${containerId} .st-btn.stop:hover { background:rgba(239,68,68,.12); color:#f87171; }
+    #${containerId} .st-btn:focus-visible { outline:2px solid #2dd4bf; outline-offset:1px; }
+    #${containerId} .st-btn.stop { color:rgba(248,113,113,.85); }
+    #${containerId} .st-btn.stop:hover { background:rgba(239,68,68,.14); color:#f87171; }
     #${containerId} .st-btn.pause[data-paused="true"] { color:#fbbf24; }
-    #${containerId} .st-btn.settings[data-open="true"] { background:rgba(255,255,255,.08); color:#fff; }
-
-    #${containerId} .st-sep {
-      width:1px; height:14px; background:rgba(255,255,255,.08); margin:0 4px;
-    }
+    #${containerId} .st-sep { width:1px; height:12px; background:rgba(255,255,255,.12); margin:0 3px; }
 
     /* ─── Settings Panel ─── */
     #${containerId} .st-settings-panel {
-      display:none; position:absolute; right:12px; bottom:calc(100% + 8px);
-      width:264px; padding:16px; border-radius:16px;
+      display:none; position:absolute; right:0; bottom:calc(100% + 42px); z-index:7;
+      width:272px; padding:16px; border-radius:16px;
       border:1px solid rgba(255,255,255,.1);
       background:linear-gradient(180deg,rgba(20,20,28,.97),rgba(14,14,20,.98));
       box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04) inset;
       backdrop-filter:blur(20px);
-      animation:st-settings-in .25s cubic-bezier(.16,1,.3,1) both;
+      animation:st-settings-in .2s cubic-bezier(.16,1,.3,1) both;
       pointer-events:auto; color:#e2e8f0;
     }
     #${containerId}[data-settings-open="true"] .st-settings-panel { display:block; }
-    #${containerId}[data-settings-open="true"] .st-btn.settings { background:rgba(255,255,255,.08); color:#fff; }
+    #${containerId}[data-settings-open="true"] .st-btn.settings { background:rgba(255,255,255,.12); color:#fff; }
 
     #${containerId} .st-settings-title {
       font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
-      color:rgba(255,255,255,.5); margin-bottom:16px;
+      color:rgba(255,255,255,.5); margin-bottom:14px;
     }
-
     #${containerId} .st-setting-row {
       display:flex; align-items:center; justify-content:space-between; gap:10px;
       font-size:13px; font-weight:500; color:rgba(255,255,255,.8);
-      margin-bottom:14px; cursor:default;
+      margin-bottom:12px; cursor:default;
     }
     #${containerId} .st-setting-row:last-child { margin-bottom:0; }
-
     #${containerId} .st-value {
       font-size:12px; font-weight:600; color:rgba(255,255,255,.5);
       font-variant-numeric:tabular-nums; min-width:40px; text-align:right;
     }
-
     #${containerId} .st-range {
       width:100%; height:5px; -webkit-appearance:none; appearance:none;
-      background:rgba(255,255,255,.08); border-radius:3px; outline:none;
-      cursor:pointer; margin:8px 0 4px;
+      background:rgba(255,255,255,.1); border-radius:3px; outline:none;
+      cursor:pointer; margin:6px 0 4px;
     }
     #${containerId} .st-range::-webkit-slider-thumb {
       -webkit-appearance:none; width:16px; height:16px;
@@ -224,15 +265,17 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       transition:transform .15s;
     }
     #${containerId} .st-range::-webkit-slider-thumb:hover { transform:scale(1.15); }
-
+    #${containerId} .st-range:focus-visible { outline:2px solid #2dd4bf; outline-offset:3px; }
     #${containerId} .st-toggle-row {
       display:flex; align-items:center; justify-content:space-between;
-      padding:10px 0; cursor:pointer; font-size:13px; font-weight:500;
-      color:rgba(255,255,255,.8);
+      padding:8px 0; cursor:pointer; font-size:13px; font-weight:500;
+      color:rgba(255,255,255,.8); width:100%; border:0; background:transparent;
+      font-family:inherit;
     }
+    #${containerId} .st-toggle-row:focus-visible { outline:2px solid #2dd4bf; outline-offset:2px; }
     #${containerId} .st-toggle-switch {
-      position:relative; width:36px; height:20px; border-radius:10px;
-      background:rgba(255,255,255,.12); transition:background .25s; cursor:pointer;
+      position:relative; width:36px; height:20px; border-radius:10px; flex:none;
+      background:rgba(255,255,255,.14); transition:background .25s; cursor:pointer;
     }
     #${containerId} .st-toggle-switch.on { background:#14b8a6; }
     #${containerId} .st-toggle-knob {
@@ -242,136 +285,199 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       transition:transform .25s cubic-bezier(.16,1,.3,1);
     }
     #${containerId} .st-toggle-switch.on .st-toggle-knob { transform:translateX(16px); }
-
-    #${containerId} .st-settings-divider {
-      height:1px; background:rgba(255,255,255,.06); margin:12px 0;
-    }
-
-    #${containerId} .st-reset-btn {
-      width:100%; padding:9px 12px; border:1px solid rgba(255,255,255,.1);
-      background:rgba(255,255,255,.04); color:rgba(255,255,255,.7);
-      border-radius:10px; font-size:12px; font-weight:600; cursor:pointer;
-      transition:all .2s;
-    }
-    #${containerId} .st-reset-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
-
-    /* ─── Body / Subtitle Area ─── */
-    #${containerId} .st-body {
-      padding:16px 20px 20px; display:grid; align-content:center; justify-items:center;
-      min-height:60px;
-      flex:1; overflow-y:auto; overflow-x:hidden;
-      scrollbar-width:none; -ms-overflow-style:none;
-    }
-    #${containerId} .st-body::-webkit-scrollbar { display:none; }
-    #${containerId} .st-copy { width:100%; }
-
-    /* ─── Transcript Area ─── */
-    #${containerId} .st-transcript {
-      font-size:var(--st-t-size); line-height:1.45; font-weight:500;
-      color:rgba(255,255,255,.9); text-align:left;
-      text-shadow:0 2px 20px rgba(0,0,0,.4);
-      word-break:break-word; letter-spacing:-.01em;
-    }
-    #${containerId} .st-history-text { color:#fff; font-weight:700; transition: color 0.3s ease; }
-    #${containerId} .st-current-text { color:rgba(255,255,255,.55); font-weight:600; transition: color 0.3s ease; }
-    #${containerId} .st-current-text[data-final="true"] { color:#fff; font-weight:700; }
-    #${containerId} .st-source-text {
-      display:block; margin-top:8px;
-      color:rgba(255,255,255,.4); font-style:italic; font-size:0.85em;
-      line-height:1.4; text-align:left; text-shadow:0 2px 20px rgba(0,0,0,.4);
-    }
-    #${containerId} .st-history-text,
-    #${containerId} .st-current-text,
-    #${containerId} .st-source-text,
-    #${containerId} .st-translation,
-    #${containerId} .st-source,
-    #${containerId} .st-history-translation { white-space:pre-wrap; }
-    #${containerId}[data-show-source="false"] .st-source-text { display:none; }
-
-    /* ─── Mode Tabs ─── */
+    #${containerId} .st-settings-divider { height:1px; background:rgba(255,255,255,.07); margin:10px 0; }
     #${containerId} .st-mode-tabs {
-      display:flex; background:rgba(255,255,255,.05); border-radius:8px; padding:3px; margin-top:6px;
+      display:flex; background:rgba(255,255,255,.06); border-radius:8px; padding:3px; margin-top:6px;
     }
     #${containerId} .st-mode-tab {
       flex:1; text-align:center; padding:6px; font-size:12px; font-weight:600;
-      color:rgba(255,255,255,.5); cursor:pointer; border-radius:6px; transition:all .2s;
+      color:rgba(255,255,255,.55); cursor:pointer; border-radius:6px; transition:all .2s;
+      border:0; background:transparent; font-family:inherit;
     }
-    #${containerId} .st-mode-tab[data-active="true"] {
-      background:rgba(255,255,255,.15); color:#fff;
+    #${containerId} .st-mode-tab:focus-visible { outline:2px solid #2dd4bf; }
+    #${containerId} .st-mode-tab[data-active="true"] { background:rgba(255,255,255,.16); color:#fff; }
+    #${containerId} .st-reset-btn {
+      width:100%; padding:8px 12px; border:1px solid rgba(255,255,255,.1);
+      background:rgba(255,255,255,.05); color:rgba(255,255,255,.75);
+      border-radius:10px; font-size:12px; font-weight:600; cursor:pointer;
+      transition:all .2s; font-family:inherit;
+    }
+    #${containerId} .st-reset-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
+
+    /* ─── Subtitle area ─── */
+    #${containerId} .st-body {
+      flex:1; min-height:0; display:flex; flex-direction:column;
+      padding:10px 18px 12px; overflow-y:auto; overflow-x:hidden;
+      scrollbar-width:none; overscroll-behavior:contain;
+    }
+    #${containerId} .st-body::-webkit-scrollbar { display:none; }
+    /* Older lines fade out under the top edge once the box is full. */
+    #${containerId} .st-body[data-overflow="true"] {
+      -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 18px);
+      mask-image:linear-gradient(to bottom, transparent 0, #000 18px);
+    }
+    /* Pinned to the bottom edge like video subtitles; scrolls once full. */
+    #${containerId} .st-copy { margin-top:auto; width:100%; }
+
+    #${containerId} .st-transcript,
+    #${containerId} .st-history,
+    #${containerId} .st-current {
+      font-size:var(--st-t-size); line-height:1.32; letter-spacing:0;
+      overflow-wrap:break-word; white-space:pre-wrap;
+      text-shadow:0 1px 2px rgba(0,0,0,.45);
     }
 
-    /* ─── Block Area ─── */
-    #${containerId} .st-translation {
-      font-size:var(--st-t-size); line-height:1.35; font-weight:600;
-      color:rgba(255,255,255,.55); text-align:center; text-wrap:balance;
-      text-shadow:0 2px 20px rgba(0,0,0,.3);
-      word-break:break-word; letter-spacing:-.01em;
-      transition: color 0.3s ease, font-weight 0.3s ease;
-    }
-    #${containerId} .st-translation[data-final="true"] {
-      font-weight:700;
-      color:#fff;
-    }
-    #${containerId} .st-source {
-      font-size:var(--st-s-size); line-height:1.5; font-weight:500;
-      color:rgba(255,255,255,.4); text-align:center;
-      margin-top:6px; word-break:break-word;
-    }
-    #${containerId}[data-show-source="false"] .st-source { display:none; }
+    /* Continuous: one flowing paragraph, newest text brightest. */
+    #${containerId} .st-transcript { font-weight:500; text-wrap:pretty; }
+    #${containerId} .st-history-text { color:rgba(255,255,255,.6); }
+    #${containerId} .st-current-text { color:rgba(255,255,255,.88); font-weight:600; }
+    #${containerId} .st-current-text[data-final="true"] { color:#fff; }
+    #${containerId} .st-source-text { display:block; }
 
-    #${containerId} .st-history { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
-    #${containerId} .st-history-item { display: flex; flex-direction: column; align-items: center; }
-    #${containerId} .st-history-translation {
-      font-size: calc(var(--st-t-size) * 0.8); line-height: 1.35; font-weight: 600;
-      color: rgba(255,255,255,.55); text-align: center; text-wrap: balance; text-shadow: 0 2px 20px rgba(0,0,0,.3);
-      word-break: break-word; letter-spacing: -.01em;
-      transition: color 0.3s ease, font-weight 0.3s ease;
+    /* By sentence: earlier lines small and dim above the current one. */
+    #${containerId} .st-history { display:flex; flex-direction:column; gap:1px; margin-bottom:3px; text-align:center; }
+    #${containerId} .st-history:empty { display:none; }
+    #${containerId} .st-history-item {
+      font-size:.66em; line-height:1.35; font-weight:500;
+      color:rgba(255,255,255,.55); text-wrap:balance;
     }
-    #${containerId} .st-history-last .st-history-translation {
-      color: #fff; font-weight: 700;
+    /* Between sentences the newest finished line keeps the main style. */
+    #${containerId} .st-dynamic-content[data-has-current="false"] .st-history-last {
+      font-size:1em; font-weight:600; color:#fff;
     }
+    #${containerId} .st-current { display:flex; flex-direction:column; align-items:center; text-align:center; }
+    #${containerId} .st-line { font-weight:600; text-wrap:balance; }
+    #${containerId} .st-translation { color:rgba(255,255,255,.88); }
+    #${containerId} .st-translation[data-final="true"] { color:#fff; }
 
-    /* ─── Error State ─── */
+    /* Original text: small, upright (italics hurt diacritics) and muted. */
+    #${containerId} .st-source,
+    #${containerId} .st-source-text {
+      margin-top:2px; font-size:.6em; line-height:1.35; font-weight:500;
+      color:rgba(255,255,255,.6);
+    }
+    #${containerId} .st-source:empty,
+    #${containerId} .st-source-text:empty { display:none; }
+    #${containerId}[data-show-source="false"] .st-source,
+    #${containerId}[data-show-source="false"] .st-source-text { display:none; }
+
+    /* Speaker chips sit inline with the text, one color per speaker. */
+    #${containerId} .st-speaker {
+      display:inline-block; vertical-align:middle; margin:0 .45em .12em 0; padding:0 7px;
+      border-radius:999px; font-size:calc(var(--st-t-size) * .4); line-height:1.7;
+      font-weight:700; letter-spacing:.02em; white-space:nowrap; text-shadow:none;
+      color:#0b0b10; background:#5eead4;
+    }
+    #${containerId} .st-speaker[data-n="2"] { background:#fcd34d; }
+    #${containerId} .st-speaker[data-n="3"] { background:#c4b5fd; }
+    #${containerId} .st-speaker[data-n="4"] { background:#f9a8d4; }
+    #${containerId} .st-speaker[data-n="5"] { background:#93c5fd; }
+    #${containerId} .st-speaker[data-n="0"] { background:#bef264; }
+    #${containerId} .st-speaker:empty { display:none; }
+    #${containerId}[data-show-speaker="false"] .st-speaker,
+    #${containerId}[data-show-speaker="false"] .st-speaker-break,
+    #${containerId}[data-show-speaker="false"] .st-current-turn { display:none; }
+
+    /* Little or no frame: outline the text like video subtitles and lift the
+       dimmed lines so they stay readable over bright video. */
+    #${containerId}[data-transparent="true"] .st-transcript,
+    #${containerId}[data-transparent="true"] .st-history,
+    #${containerId}[data-transparent="true"] .st-current {
+      text-shadow:0 0 2px #000, 0 0 4px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,.9);
+    }
+    #${containerId}[data-transparent="true"] .st-history-text,
+    #${containerId}[data-transparent="true"] .st-history-item { color:rgba(255,255,255,.8); }
+    #${containerId}[data-transparent="true"] .st-source,
+    #${containerId}[data-transparent="true"] .st-source-text { color:rgba(255,255,255,.85); }
+    #${containerId}[data-transparent="true"] .st-current-text,
+    #${containerId}[data-transparent="true"] .st-translation { color:rgba(255,255,255,.93); }
+    #${containerId}[data-transparent="true"] .st-current-text[data-final="true"],
+    #${containerId}[data-transparent="true"] .st-translation[data-final="true"],
+    #${containerId}[data-transparent="true"] .st-dynamic-content[data-has-current="false"] .st-history-last { color:#fff; }
+
+    /* ─── Error ─── */
     #${containerId} .st-error {
-      display:none; margin-top:16px; padding:14px 18px;
-      border-radius:14px; border:1px solid rgba(248,113,113,.2);
-      background:rgba(127,29,29,.25); text-align:left;
+      display:none; padding:10px 12px; border-radius:10px;
+      border:1px solid rgba(248,113,113,.25); background:rgba(127,29,29,.4);
     }
     #${containerId}[data-status="error"] .st-error { display:block; }
-    #${containerId}[data-status="error"] .st-transcript,
-    #${containerId}[data-status="error"] .st-translation,
-    #${containerId}[data-status="error"] .st-source,
-    #${containerId}[data-status="error"] .st-history { display:none; }
-
+    #${containerId}[data-status="error"] .st-dynamic-content { display:none; }
     #${containerId} .st-error-title {
       display:flex; align-items:center; gap:6px;
-      font-size:11px; font-weight:700; letter-spacing:.05em;
+      font-size:10.5px; font-weight:700; letter-spacing:.05em;
       text-transform:uppercase; color:#fca5a5;
     }
-    #${containerId} .st-error-title::before {
-      content:"⚠"; font-size:13px;
-    }
+    #${containerId} .st-error-title::before { content:"⚠"; font-size:12px; }
     #${containerId} .st-error-message {
-      margin-top:8px; font-size:14px; line-height:1.5; color:#fef2f2; word-break:break-word;
+      margin-top:6px; font-size:13px; line-height:1.45; color:#fef2f2; overflow-wrap:break-word;
     }
     #${containerId} .st-error-hint {
-      margin-top:6px; font-size:13px; line-height:1.5; color:rgba(254,226,226,.75); word-break:break-word;
+      margin-top:4px; font-size:12px; line-height:1.45; color:rgba(254,226,226,.75); overflow-wrap:break-word;
     }
-
     #${containerId} .st-footer {
-      display:none; margin-top:10px; font-size:11px;
-      color:rgba(255,255,255,.4); text-align:center;
+      display:none; margin-top:8px; font-size:11px;
+      color:rgba(255,255,255,.5); text-align:center;
     }
     #${containerId}[data-show-footer="true"] .st-footer { display:block; }
   `;
+  }
+
+  const safeStorageGet = (key: string): string | null => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+  const safeStorageSet = (key: string, value: string): void => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      /* blocked or full storage */
+    }
+  };
+  const safeStorageRemove = (key: string): void => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  };
+  const sendStreamMsg = (message: unknown): void => {
+    try {
+      void chrome.runtime.sendMessage(message).catch(() => undefined);
+    } catch {
+      /* extension context invalidated */
+    }
+  };
+  const overlayHostParent = (): Element => {
+    const fs = document.fullscreenElement;
+    // `<video>` / `<iframe>` elements cannot render child DOM nodes.
+    if (fs && fs.tagName !== "VIDEO" && fs.tagName !== "IFRAME") return fs;
+    return document.documentElement;
+  };
+  const clampNumber = (v: number, lo: number, hi: number): number =>
+    Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const clampRootToViewport = (el: HTMLDivElement): void => {
+    if (el.style.translate !== "none") return;
+    const rect = el.getBoundingClientRect();
+    const width = rect.width || 280;
+    const height = rect.height || 80;
+    const clampedLeft = clampNumber(rect.left, 8, window.innerWidth - width - 8);
+    const currentBottom = Math.max(8, window.innerHeight - rect.bottom);
+    const clampedBottom = clampNumber(currentBottom, 8, window.innerHeight - height - 44);
+    el.style.left = `${Math.round(clampedLeft)}px`;
+    el.style.bottom = `${Math.round(clampedBottom)}px`;
+    el.style.top = "auto";
+  };
 
   let root = document.getElementById(containerId) as HTMLDivElement | null;
   if (!root) {
     root = document.createElement("div");
     root.id = containerId;
-    document.documentElement.appendChild(root);
+    overlayHostParent().appendChild(root);
 
-    const saved = window.localStorage.getItem(storageKey);
+    const saved = safeStorageGet(storageKey);
     if (saved) {
       try {
         const layout = JSON.parse(saved) as {
@@ -381,21 +487,39 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
           width?: number;
           height?: number;
         };
-        if (typeof layout.left === "number") {
-          root.style.left = `${layout.left}px`;
-          root.style.transform = "none";
-          if (typeof layout.bottom === "number") {
-            root.style.bottom = `${layout.bottom}px`;
+        const savedWidth =
+          typeof layout.width === "number" && Number.isFinite(layout.width)
+            ? clampNumber(layout.width, 280, window.innerWidth - 16)
+            : undefined;
+        const savedHeight =
+          typeof layout.height === "number" && Number.isFinite(layout.height)
+            ? clampNumber(layout.height, 48, window.innerHeight - 96)
+            : undefined;
+        if (savedWidth !== undefined) {
+          root.dataset.savedWidth = String(Math.round(savedWidth));
+        }
+        if (savedHeight !== undefined) {
+          root.dataset.savedHeight = String(Math.round(savedHeight));
+        }
+        if (typeof layout.left === "number" && Number.isFinite(layout.left)) {
+          const estW = savedWidth ?? Math.min(720, window.innerWidth - 24);
+          const estH = savedHeight ?? 120;
+          const left = clampNumber(layout.left, 8, window.innerWidth - estW - 8);
+          root.style.left = `${Math.round(left)}px`;
+          root.style.translate = "none";
+          if (typeof layout.bottom === "number" && Number.isFinite(layout.bottom)) {
+            const bottom = clampNumber(layout.bottom, 8, window.innerHeight - estH - 44);
+            root.style.bottom = `${Math.round(bottom)}px`;
             root.style.top = "auto";
-          } else if (typeof layout.top === "number") {
-            root.style.bottom = `${Math.max(8, window.innerHeight - (layout.top + (layout.height || 0)))}px`;
+          } else if (typeof layout.top === "number" && Number.isFinite(layout.top)) {
+            const rawBottom = Math.max(8, window.innerHeight - (layout.top + estH));
+            const bottom = clampNumber(rawBottom, 8, window.innerHeight - estH - 44);
+            root.style.bottom = `${Math.round(bottom)}px`;
             root.style.top = "auto";
           }
         }
-        root.dataset.savedWidth = String(layout.width);
-        root.dataset.savedHeight = String(layout.height);
       } catch {
-        window.localStorage.removeItem(storageKey);
+        safeStorageRemove(storageKey);
       }
     }
   }
@@ -403,15 +527,26 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
   const status = payload.status ?? "info";
   const badgeLabel = payload.isPaused
     ? "Paused"
-    : status === "warning"
-      ? "Setup"
-      : status === "error"
-        ? "Error"
-        : status === "success"
-          ? "Live"
-          : "Listening";
+    : payload.isStandby && status !== "error"
+      ? "Standby"
+      : status === "warning"
+        ? "Setup"
+        : status === "error"
+          ? "Error"
+          : status === "success"
+            ? "Live"
+            : "Listening";
 
-  if (!root.querySelector(".st-card")) {
+  // Bump when the markup below changes: an overlay already on the page is then
+  // rebuilt, and its listeners re-bound, instead of being patched in place.
+  const domVersion = "2";
+  if (root.dataset.domVersion !== domVersion || !root.querySelector(".st-card-content")) {
+    overlayWindow[cleanupKey]?.();
+    delete overlayWindow[cleanupKey];
+    delete root.dataset.actionBound;
+    delete root.dataset.dragBound;
+    delete root.dataset.resizeBound;
+    root.dataset.domVersion = domVersion;
     root.innerHTML = `
       <div class="st-card">
         <div class="st-settings-panel">
@@ -420,83 +555,91 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
             <span>Font size</span>
             <span class="st-value font-val"></span>
           </label>
-          <input class="st-range font-range" type="range" min="30" max="180" step="5" />
+          <input class="st-range font-range" aria-label="Font size" type="range" min="30" max="180" step="5" />
           <label class="st-setting-row" style="margin-top:10px;">
             <span>Background opacity</span>
             <span class="st-value opacity-val"></span>
           </label>
-          <input class="st-range opacity-range" type="range" min="10" max="100" step="5" />
+          <input class="st-range opacity-range" aria-label="Background opacity" type="range" min="0" max="100" step="5" />
           <div class="st-settings-divider"></div>
-          <div class="st-toggle-row" data-action="toggle-source">
+          <button type="button" class="st-toggle-row" data-action="toggle-source">
             <span>Show original text</span>
             <div class="st-toggle-switch" data-key="source"><div class="st-toggle-knob"></div></div>
-          </div>
-          <div class="st-toggle-row" data-action="toggle-speaker" style="margin-top:10px;">
+          </button>
+          <button type="button" class="st-toggle-row" data-action="toggle-speaker">
             <span>Show speakers</span>
             <div class="st-toggle-switch" data-key="speaker"><div class="st-toggle-knob"></div></div>
-          </div>
-          <div class="st-toggle-row" data-action="toggle-autoscroll" style="margin-top:10px;">
+          </button>
+          <button type="button" class="st-toggle-row" data-action="toggle-autoscroll">
             <span>Auto-focus newest text</span>
             <div class="st-toggle-switch" data-key="autoscroll"><div class="st-toggle-knob"></div></div>
-          </div>
+          </button>
           <div class="st-settings-divider"></div>
           <div class="st-setting-row" style="margin-bottom:0;"><span>Display Mode</span></div>
           <div class="st-mode-tabs">
-            <div class="st-mode-tab" data-mode="transcript">Transcript</div>
-            <div class="st-mode-tab" data-mode="block">Sentence</div>
+            <button type="button" class="st-mode-tab" data-mode="transcript">Transcript</button>
+            <button type="button" class="st-mode-tab" data-mode="block">Sentence</button>
           </div>
           <div class="st-settings-divider"></div>
           <button class="st-reset-btn st-reset-layout" type="button">Reset position</button>
         </div>
+        <div class="st-header">
+          <div class="st-header-left">
+            <div class="st-grip"><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div></div>
+            <div class="st-badge"></div>
+            <div class="st-lang"></div>
+          </div>
+          <div class="st-sep"></div>
+          <div class="st-controls">
+            <button class="st-btn settings" type="button" title="Settings" aria-label="Settings">⚙</button>
+            <button class="st-btn pause" type="button" title="Pause" aria-label="Pause">❚❚</button>
+            <button class="st-btn stop" type="button" title="Stop" aria-label="Stop">■</button>
+          </div>
+        </div>
         <div class="st-card-content">
           <div class="st-resizer"></div>
           <div class="st-body">
-          <div class="st-copy">
-            <div class="st-dynamic-content"></div>
-            <div class="st-footer"></div>
-            <div class="st-error">
-              <div class="st-error-title">Translation Error</div>
-              <div class="st-error-message"></div>
-              <div class="st-error-hint"></div>
-            </div>
-          </div>
-          </div>
-          <div class="st-header">
-            <div class="st-header-left">
-              <div class="st-grip"><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div><div class="st-grip-dot"></div></div>
-              <div class="st-badge"></div>
-              <div class="st-lang"></div>
-            </div>
-            <div class="st-controls">
-              <button class="st-btn settings" type="button" title="Settings" aria-label="Settings">⚙</button>
-              <div class="st-sep"></div>
-              <button class="st-btn pause" type="button" title="Pause" aria-label="Pause">❚❚</button>
-              <button class="st-btn stop" type="button" title="Stop" aria-label="Stop">■</button>
+            <div class="st-copy">
+              <div class="st-dynamic-content"></div>
+              <div class="st-error">
+                <div class="st-error-title">Translation Error</div>
+                <div class="st-error-message"></div>
+                <div class="st-error-hint"></div>
+              </div>
+              <div class="st-footer"></div>
             </div>
           </div>
         </div>
+      </div>
     `;
 
-    if (root.dataset.savedWidth && root.dataset.savedWidth !== "undefined") {
+    if (root.dataset.savedWidth && root.dataset.savedHeight) {
       const content = root.querySelector(".st-card-content") as HTMLDivElement;
       content.style.width = `${root.dataset.savedWidth}px`;
       content.style.height = `${root.dataset.savedHeight}px`;
+      // A size the user picked replaces the ~5-line auto height cap.
+      content.style.maxHeight = "calc(100vh - 96px)";
     }
   }
 
   root.dataset.status = status;
   root.dataset.paused = payload.isPaused ? "true" : "false";
+  root.dataset.standby = payload.isStandby ? "true" : "false";
+  // While live the toolbar hides so only the subtitles show.
+  root.dataset.live =
+    status === "success" && !payload.isPaused && !payload.isStandby ? "true" : "false";
   root.dataset.targetLang = payload.targetLanguage || "vi";
+  root.dataset.captureId = payload.captureId || "";
   root.dataset.showSource = payload.showSource === false ? "false" : "true";
   root.dataset.showSpeaker = payload.showSpeaker === true ? "true" : "false";
   root.dataset.showFooter = status === "error" && payload.statusHint ? "true" : "false";
 
   const scale = (payload.fontScale ?? 100) / 100;
   root.style.setProperty("--st-t-size", `${Math.round(26 * scale)}px`);
-  root.style.setProperty("--st-s-size", `${Math.round(13 * scale)}px`);
 
-  const opacityRatio = (payload.opacity ?? 85) / 100;
+  const opacityRatio = Math.min(1, Math.max(0, (payload.opacity ?? 85) / 100));
   root.style.setProperty("--st-bg-opacity", String(opacityRatio));
+  root.dataset.transparent = opacityRatio < 0.5 ? "true" : "false";
 
   const badge = root.querySelector(".st-badge") as HTMLDivElement | null;
   const dynamicContent = root.querySelector(".st-dynamic-content") as HTMLDivElement | null;
@@ -524,54 +667,128 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
   }
 
   if (dynamicContent) {
-    // Transcribed/translated text comes from an untrusted source (live audio),
-    // so escape it before interpolating into innerHTML. Defined inline because
-    // this function is serialized and injected into the page via executeScript.
-    const esc = (value: string) =>
-      String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-
-    let html = "";
-    if (payload.displayMode === "block") {
-      const history = payload.history || [];
-      const historyHtml = history
-        .map(
-          (item, idx) => `
-        <div class="st-history-item ${idx === history.length - 1 ? "st-history-last" : ""}">
-          <div class="st-history-translation">${esc(item.translatedText)}</div>
-        </div>
-      `
-        )
-        .join("");
-      let currentHtml = "";
-      if (payload.translatedText)
-        currentHtml += `<div class="st-translation" data-final="${payload.isFinal ? "true" : "false"}">${esc(payload.translatedText)}</div>`;
-      if (payload.text) currentHtml += `<div class="st-source">${esc(payload.text)}</div>`;
-      html = `<div class="st-history">${historyHtml}</div>${currentHtml}`;
-    } else {
-      const historyText = (payload.history || []).map((i) => i.translatedText).join(" ");
-      let currentHtml = "";
-      if (payload.translatedText)
-        currentHtml += `<span class="st-current-text" data-final="${payload.isFinal ? "true" : "false"}">${esc(payload.translatedText)}</span>`;
-      else if (payload.text)
-        currentHtml += `<span class="st-source-text">${esc(payload.text)}</span>`;
-      // Show the original line beneath the translation when both exist, gated by
-      // the "show source" toggle via the [data-show-source] CSS rule.
-      const sourceLine =
-        payload.translatedText && payload.text
-          ? `<span class="st-source-text">${esc(payload.text)}</span>`
-          : "";
-      html = `<div class="st-transcript"><span class="st-history-text">${historyText ? esc(historyText) + " " : ""}</span>${currentHtml}${sourceLine}</div>`;
-    }
-    dynamicContent.innerHTML = html;
-
+    // Live text is untrusted (it comes from page audio), so it only ever goes
+    // through textContent. The DOM is updated incrementally: finished lines are
+    // appended once by id, and only the open line's text is rewritten.
+    const isBlock = payload.displayMode === "block";
+    const layoutKey = isBlock ? "block" : "transcript";
     const stBody = root.querySelector(".st-body") as HTMLDivElement | null;
-    if (stBody && payload.autoScroll !== false) {
-      stBody.scrollTop = stBody.scrollHeight;
+    // Follow new text only while the reader is at the bottom, so scrolling up
+    // to re-read isn't yanked back down on every update.
+    const followTail =
+      payload.autoScroll !== false &&
+      (!stBody || stBody.scrollHeight - stBody.scrollTop - stBody.clientHeight < 32);
+
+    if (dynamicContent.dataset.layout !== layoutKey) {
+      dynamicContent.dataset.layout = layoutKey;
+      dynamicContent.innerHTML = isBlock
+        ? '<div class="st-history"></div><div class="st-current"><div class="st-line"><span class="st-speaker"></span><span class="st-translation"></span></div><div class="st-source"></div></div>'
+        : '<div class="st-transcript"><span class="st-history-text"></span><span class="st-current-turn" hidden><br class="st-speaker-break"><span class="st-speaker"></span></span><span class="st-current-text"></span><span class="st-source-text"></span></div>';
+    }
+
+    const setText = (el: Element | null, value: string) => {
+      if (el && el.textContent !== value) el.textContent = value;
+    };
+    // "Speaker 3" → color slot 3, so each speaker keeps one chip color.
+    const setChip = (chip: HTMLElement | null, label: string) => {
+      if (!chip) return;
+      setText(chip, label);
+      chip.dataset.n = label ? String((Number(label.replace(/\D+/g, "")) || 1) % 6) : "";
+    };
+    const makeChip = (label: string) => {
+      const chip = document.createElement("span");
+      chip.className = "st-speaker";
+      setChip(chip, label);
+      return chip;
+    };
+    // Scripts written without spaces between words.
+    const joiner = /^(zh|ja|th|lo|km|my)$/.test((payload.targetLanguage || "").split("-")[0])
+      ? ""
+      : " ";
+    const history = payload.history || [];
+    const historyEl = dynamicContent.querySelector(
+      isBlock ? ".st-history" : ".st-history-text"
+    ) as HTMLElement | null;
+
+    if (historyEl) {
+      const wanted = new Set(history.map((line) => String(line.id)));
+      const rendered = new Set<string>();
+      for (const child of Array.from(historyEl.children) as HTMLElement[]) {
+        const id = child.dataset.id || "";
+        if (wanted.has(id)) rendered.add(id);
+        else child.remove();
+      }
+      history.forEach((line, index) => {
+        if (rendered.has(String(line.id))) return;
+        const shown = line.translatedText || line.text;
+        const speaker = line.speaker !== history[index - 1]?.speaker ? line.speaker : undefined;
+        if (isBlock) {
+          const item = document.createElement("div");
+          item.className = "st-history-item";
+          item.dataset.id = String(line.id);
+          if (speaker) item.appendChild(makeChip(speaker));
+          item.appendChild(document.createTextNode(shown));
+          historyEl.appendChild(item);
+        } else {
+          const segment = document.createElement("span");
+          segment.dataset.id = String(line.id);
+          // A new speaker starts a new line, led by their label.
+          if (speaker) {
+            if (historyEl.childElementCount > 0) {
+              const lineBreak = document.createElement("br");
+              lineBreak.className = "st-speaker-break";
+              segment.appendChild(lineBreak);
+            }
+            segment.appendChild(makeChip(speaker));
+          }
+          segment.appendChild(document.createTextNode(shown + joiner));
+          historyEl.appendChild(segment);
+        }
+      });
+      if (isBlock) {
+        const last = historyEl.lastElementChild;
+        historyEl.querySelectorAll(".st-history-last").forEach((el) => {
+          if (el !== last) el.classList.remove("st-history-last");
+        });
+        last?.classList.add("st-history-last");
+      }
+    }
+
+    const translated = payload.translatedText || "";
+    const source = payload.text && payload.text !== translated ? payload.text : "";
+    const finalFlag = payload.isFinal ? "true" : "false";
+    // Between sentences the last finished line keeps the main style.
+    dynamicContent.dataset.hasCurrent = translated || source ? "true" : "false";
+    // Speaker chips are always rendered; [data-show-speaker] hides them.
+    const lastSpeaker = history[history.length - 1]?.speaker;
+    const currentSpeaker =
+      payload.speaker && payload.speaker !== lastSpeaker && (translated || source)
+        ? payload.speaker
+        : "";
+    if (isBlock) {
+      setChip(dynamicContent.querySelector(".st-current .st-speaker"), currentSpeaker);
+      const translationEl = dynamicContent.querySelector(".st-translation") as HTMLElement | null;
+      setText(translationEl, translated);
+      if (translationEl) translationEl.dataset.final = finalFlag;
+      setText(dynamicContent.querySelector(".st-current .st-source"), source);
+    } else {
+      const turn = dynamicContent.querySelector(".st-current-turn") as HTMLElement | null;
+      if (turn) {
+        turn.hidden = !currentSpeaker;
+        const lineBreak = turn.querySelector(".st-speaker-break") as HTMLElement | null;
+        if (lineBreak) lineBreak.hidden = history.length === 0;
+        setChip(turn.querySelector(".st-speaker"), currentSpeaker);
+      }
+      const currentEl = dynamicContent.querySelector(".st-current-text") as HTMLElement | null;
+      setText(currentEl, translated);
+      if (currentEl) currentEl.dataset.final = finalFlag;
+      setText(dynamicContent.querySelector(".st-source-text"), source);
+    }
+
+    if (stBody) {
+      if (followTail) stBody.scrollTop = stBody.scrollHeight;
+      // Fade the top edge only when older lines are actually cut off.
+      stBody.dataset.overflow = stBody.scrollHeight > stBody.clientHeight + 1 ? "true" : "false";
     }
   }
   if (footer) footer.textContent = status === "error" ? payload.statusHint || "" : "";
@@ -580,7 +797,8 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
 
   if (pauseButton) {
     pauseButton.dataset.paused = payload.isPaused ? "true" : "false";
-    pauseButton.innerHTML = payload.isPaused ? "▶" : "❚❚";
+    const pauseGlyph = payload.isPaused ? "▶" : "❚❚";
+    if (pauseButton.textContent !== pauseGlyph) pauseButton.textContent = pauseGlyph;
     pauseButton.title = payload.isPaused ? "Resume" : "Pause";
     pauseButton.setAttribute("aria-label", pauseButton.title);
   }
@@ -616,99 +834,156 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
   if (root.dataset.actionBound !== "true") {
     root.dataset.actionBound = "true";
 
-    document.addEventListener("visibilitychange", () => {
-      void chrome.runtime.sendMessage({
+    const onVisibilityChange = () => {
+      sendStreamMsg({
         type: "VISIBILITY_CHANGED",
-        payload: { hidden: document.hidden }
+        payload: { hidden: document.hidden, captureId: root?.dataset.captureId }
       });
-    });
+    };
+    const onFullscreenChange = () => {
+      const parent = overlayHostParent();
+      if (root && root.parentElement !== parent) parent.appendChild(root);
+      if (root) clampRootToViewport(root);
+    };
+    const onWindowResize = () => {
+      if (root) clampRootToViewport(root);
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    window.addEventListener("resize", onWindowResize);
+    overlayWindow[cleanupKey] = () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      window.removeEventListener("resize", onWindowResize);
+    };
 
     root.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest(".st-settings-panel") || target?.closest(".settings")) return;
       root!.dataset.settingsOpen = "false";
     });
 
     settingsButton?.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
       event.stopPropagation();
       root!.dataset.settingsOpen = root!.dataset.settingsOpen === "true" ? "false" : "true";
     });
 
     root.querySelector(".st-settings-panel")?.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
       event.stopPropagation();
     });
 
-    fontScaleRange?.addEventListener("input", () => {
+    fontScaleRange?.addEventListener("input", (event) => {
+      if (!event.isTrusted) return;
       const nextValue = Number(fontScaleRange.value);
       if (fontScaleValue) fontScaleValue.textContent = `${nextValue}%`;
-      void chrome.runtime.sendMessage({
+      sendStreamMsg({
         type: "UPDATE_OVERLAY_SETTINGS",
-        payload: { fontScale: nextValue }
+        payload: { fontScale: nextValue, captureId: root?.dataset.captureId }
       });
     });
 
-    opacityRange?.addEventListener("input", () => {
+    opacityRange?.addEventListener("input", (event) => {
+      if (!event.isTrusted) return;
       const nextValue = Number(opacityRange.value);
       if (opacityValue) opacityValue.textContent = `${nextValue}%`;
-      void chrome.runtime.sendMessage({
+      sendStreamMsg({
         type: "UPDATE_OVERLAY_SETTINGS",
-        payload: { opacity: nextValue }
+        payload: { opacity: nextValue, captureId: root?.dataset.captureId }
       });
     });
 
     root
       .querySelector('.st-toggle-row[data-action="toggle-source"]')
-      ?.addEventListener("click", () => {
+      ?.addEventListener("click", (event) => {
+        if (!event.isTrusted) return;
         const s = root!.querySelector('.st-toggle-switch[data-key="source"]');
-        void chrome.runtime.sendMessage({
+        sendStreamMsg({
           type: "UPDATE_OVERLAY_SETTINGS",
-          payload: { showSource: !s?.classList.contains("on") }
+          payload: {
+            showSource: !s?.classList.contains("on"),
+            captureId: root?.dataset.captureId
+          }
         });
       });
 
     root
       .querySelector('.st-toggle-row[data-action="toggle-speaker"]')
-      ?.addEventListener("click", () => {
+      ?.addEventListener("click", (event) => {
+        if (!event.isTrusted) return;
         const s = root!.querySelector('.st-toggle-switch[data-key="speaker"]');
-        void chrome.runtime.sendMessage({
+        sendStreamMsg({
           type: "UPDATE_OVERLAY_SETTINGS",
-          payload: { showSpeaker: !s?.classList.contains("on") }
+          payload: {
+            showSpeaker: !s?.classList.contains("on"),
+            captureId: root?.dataset.captureId
+          }
         });
       });
 
     root
       .querySelector('.st-toggle-row[data-action="toggle-autoscroll"]')
-      ?.addEventListener("click", () => {
+      ?.addEventListener("click", (event) => {
+        if (!event.isTrusted) return;
         const s = root!.querySelector('.st-toggle-switch[data-key="autoscroll"]');
-        void chrome.runtime.sendMessage({
+        sendStreamMsg({
           type: "UPDATE_OVERLAY_SETTINGS",
-          payload: { autoScroll: !s?.classList.contains("on") }
+          payload: {
+            autoScroll: !s?.classList.contains("on"),
+            captureId: root?.dataset.captureId
+          }
         });
       });
 
     root.querySelectorAll(".st-mode-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        void chrome.runtime.sendMessage({
+      tab.addEventListener("click", (event) => {
+        if (!event.isTrusted) return;
+        sendStreamMsg({
           type: "UPDATE_OVERLAY_SETTINGS",
-          payload: { displayMode: tab.getAttribute("data-mode") }
+          payload: {
+            displayMode: tab.getAttribute("data-mode"),
+            captureId: root?.dataset.captureId
+          }
         });
       });
     });
 
-    resetLayoutButton?.addEventListener("click", () => {
-      void chrome.runtime.sendMessage({ type: "RESET_OVERLAY_LAYOUT" });
-    });
-
-    root.querySelector(".st-btn.pause")?.addEventListener("click", () => {
-      void chrome.runtime.sendMessage({
-        type: root?.dataset.paused === "true" ? "RESUME_TRANSLATION" : "PAUSE_TRANSLATION"
+    resetLayoutButton?.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
+      sendStreamMsg({
+        type: "RESET_OVERLAY_LAYOUT",
+        payload: { captureId: root?.dataset.captureId }
       });
     });
 
-    root.querySelector(".st-btn.stop")?.addEventListener("click", () => {
-      void chrome.runtime.sendMessage({
+    root.querySelector(".st-btn.pause")?.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
+      sendStreamMsg({
+        type: root?.dataset.paused === "true" ? "RESUME_TRANSLATION" : "PAUSE_TRANSLATION",
+        payload: { captureId: root?.dataset.captureId }
+      });
+    });
+
+    root.querySelector(".st-btn.stop")?.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
+      // On an error overlay the session is already stopped in the background,
+      // so dismiss the overlay directly instead of waiting for the 15s timer.
+      if (root?.dataset.status === "error") {
+        overlayWindow[cleanupKey]?.();
+        delete overlayWindow[cleanupKey];
+        root.remove();
+        document.getElementById(styleId)?.remove();
+        return;
+      }
+      sendStreamMsg({
         type: "TOGGLE_TRANSLATION",
-        payload: { active: false, lang: root?.dataset.targetLang || "vi" }
+        payload: {
+          active: false,
+          lang: root?.dataset.targetLang || "vi",
+          captureId: root?.dataset.captureId
+        }
       });
     });
   }
@@ -721,25 +996,29 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
     let pointerId: number | null = null;
     let offsetX = 0;
     let offsetY = 0;
-    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-
     const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
     const saveLayout = () => {
       const content = root!.querySelector(".st-card-content") as HTMLElement;
-      const bottom = Math.max(8, window.innerHeight - (root!.offsetTop + root!.offsetHeight));
-      window.localStorage.setItem(
+      const rect = root!.getBoundingClientRect();
+      const bottom = Math.max(8, window.innerHeight - rect.bottom);
+      // Only a size the user resized to is kept; otherwise the card keeps
+      // sizing itself to the text.
+      const userSized = Boolean(root!.dataset.savedWidth && root!.dataset.savedHeight);
+      safeStorageSet(
         storageKey,
         JSON.stringify({
-          left: Math.round(root!.offsetLeft),
+          left: Math.round(rect.left),
           bottom: Math.round(bottom),
-          width: Math.round(content.offsetWidth),
-          height: Math.round(content.offsetHeight)
+          ...(userSized
+            ? { width: Math.round(content.offsetWidth), height: Math.round(content.offsetHeight) }
+            : {})
         })
       );
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      if (!event.isTrusted) return;
       const target = event.target as HTMLElement | null;
       if (
         target?.closest(
@@ -754,7 +1033,11 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       offsetY = event.clientY - rect.top;
       root!.classList.add("is-dragging");
       root!.style.animation = "none";
-      root!.style.transform = "none";
+      root!.style.translate = "none";
+      // Pin the current spot in px so dropping the centering doesn't jump.
+      root!.style.left = `${rect.left}px`;
+      root!.style.bottom = `${window.innerHeight - rect.bottom}px`;
+      root!.style.top = "auto";
       dragHandle.setPointerCapture(pointerId);
       event.preventDefault();
     };
@@ -763,7 +1046,8 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       if (pointerId !== event.pointerId) return;
       const content = root!.querySelector(".st-card-content") as HTMLElement;
       const maxL = Math.max(8, window.innerWidth - content.offsetWidth - 8);
-      const maxB = Math.max(8, window.innerHeight - root!.offsetHeight - 8);
+      // Leave room above the card for the floating toolbar.
+      const maxB = Math.max(8, window.innerHeight - root!.offsetHeight - 44);
       const newTop = event.clientY - offsetY;
       const newBottom = window.innerHeight - (newTop + root!.offsetHeight);
 
@@ -784,15 +1068,13 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", finishDrag);
     window.addEventListener("pointercancel", finishDrag);
-
-    // Debounced resize save
-    if ("ResizeObserver" in window) {
-      const observer = new ResizeObserver(() => {
-        if (resizeTimeout) clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(saveLayout, 300);
-      });
-      observer.observe(root);
-    }
+    const previousCleanup = overlayWindow[cleanupKey];
+    overlayWindow[cleanupKey] = () => {
+      previousCleanup?.();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+    };
   }
 
   // Top Resize Handle Logic
@@ -806,6 +1088,7 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
       startY = 0;
 
     resizer.addEventListener("pointerdown", (e) => {
+      if (!e.isTrusted) return;
       resizePointerId = e.pointerId;
       const content = root!.querySelector(".st-card-content") as HTMLElement;
       startW = content.offsetWidth;
@@ -821,27 +1104,37 @@ export function renderOverlayOnPage(payload: TranslationPayload | null) {
     resizer.addEventListener("pointermove", (e) => {
       if (resizePointerId !== e.pointerId) return;
       const content = root!.querySelector(".st-card-content") as HTMLElement;
+      const rect = root!.getBoundingClientRect();
       const deltaX = e.clientX - startX;
       const deltaY = startY - e.clientY;
-      const nextW = Math.max(300, Math.min(window.innerWidth - 16, startW + deltaX));
-      const nextH = Math.max(80, startH + deltaY);
+      const maxW =
+        root!.style.translate === "none"
+          ? Math.max(280, window.innerWidth - Math.max(8, rect.left) - 8)
+          : Math.max(280, window.innerWidth - 16);
+      const maxH = Math.max(48, Math.min(window.innerHeight - 96, rect.bottom - 52));
+      const nextW = Math.max(280, Math.min(maxW, startW + deltaX));
+      const nextH = Math.max(48, Math.min(maxH, startH + deltaY));
       content.style.width = `${nextW}px`;
       content.style.height = `${nextH}px`;
+      content.style.maxHeight = "calc(100vh - 96px)";
       root!.dataset.savedWidth = String(nextW);
       root!.dataset.savedHeight = String(nextH);
     });
 
     const endResize = (e: PointerEvent) => {
       if (resizePointerId !== e.pointerId) return;
-      resizer.releasePointerCapture(resizePointerId);
+      if (resizer.hasPointerCapture(resizePointerId)) {
+        resizer.releasePointerCapture(resizePointerId);
+      }
       resizePointerId = null;
 
       const content = root!.querySelector(".st-card-content") as HTMLElement;
-      const bottom = Math.max(8, window.innerHeight - (root!.offsetTop + root!.offsetHeight));
-      window.localStorage.setItem(
+      const rect = root!.getBoundingClientRect();
+      const bottom = Math.max(8, window.innerHeight - rect.bottom);
+      safeStorageSet(
         storageKey,
         JSON.stringify({
-          left: Math.round(root!.offsetLeft),
+          left: Math.round(rect.left),
           bottom: Math.round(bottom),
           width: Math.round(content.offsetWidth),
           height: Math.round(content.offsetHeight)

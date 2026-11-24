@@ -2,13 +2,13 @@ export interface QuickSettings {
   /**
    * When enabled, the Quick Translate popup tab automatically reads the
    * system clipboard on open and pastes its text into the source input.
-   * Defaults to `true`.
+   * Defaults to `false`.
    */
   pasteFromClipboard: boolean;
 }
 
 export const DEFAULT_QUICK_SETTINGS: QuickSettings = {
-  pasteFromClipboard: true
+  pasteFromClipboard: false
 };
 
 const QUICK_SETTINGS_KEY = "translator2k:quickSettings";
@@ -18,8 +18,10 @@ export async function loadQuickSettings(): Promise<QuickSettings> {
   const stored = result[QUICK_SETTINGS_KEY] as Partial<QuickSettings> | undefined;
   if (!stored) return { ...DEFAULT_QUICK_SETTINGS };
   return {
-    ...DEFAULT_QUICK_SETTINGS,
-    ...stored
+    pasteFromClipboard:
+      typeof stored.pasteFromClipboard === "boolean"
+        ? stored.pasteFromClipboard
+        : DEFAULT_QUICK_SETTINGS.pasteFromClipboard
   };
 }
 
@@ -39,13 +41,19 @@ export async function updateQuickSettings(patch: Partial<QuickSettings>): Promis
 }
 
 export function watchQuickSettings(callback: (settings: QuickSettings) => void): () => void {
-  const listener = (
-    changes: { [key: string]: chrome.storage.StorageChange },
-    area: string
-  ) => {
+  const listener = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
     if (area !== "local" || !(QUICK_SETTINGS_KEY in changes)) return;
     const next = changes[QUICK_SETTINGS_KEY]?.newValue as Partial<QuickSettings> | undefined;
-    callback(next ? { ...DEFAULT_QUICK_SETTINGS, ...next } : { ...DEFAULT_QUICK_SETTINGS });
+    callback(
+      next
+        ? {
+            pasteFromClipboard:
+              typeof next.pasteFromClipboard === "boolean"
+                ? next.pasteFromClipboard
+                : DEFAULT_QUICK_SETTINGS.pasteFromClipboard
+          }
+        : { ...DEFAULT_QUICK_SETTINGS }
+    );
   };
   chrome.storage.onChanged.addListener(listener);
   return () => chrome.storage.onChanged.removeListener(listener);

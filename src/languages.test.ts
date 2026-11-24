@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getLanguageName,
-  LANGUAGES,
-  toGoogleCode,
-  toMicrosoftCode
-} from "./languages";
+import { getLanguageName, LANGUAGES, toGoogleCode, toMicrosoftCode } from "./languages";
 
 describe("toMicrosoftCode", () => {
   it("returns null for auto-detect (Bing omits `from`)", () => {

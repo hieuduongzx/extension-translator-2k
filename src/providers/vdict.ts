@@ -1,11 +1,11 @@
 /**
- * Fetches the search-results HTML from VDict's Anh-Việt page.
+ * Fetches the search-results HTML from VDict's English-Vietnamese page.
  *
  * VDict URL scheme: `vdict.com/<word>,1,0,0.html` — the four numbers are
  * `<dict_id>,<unused>,<unused>,<unused>` where `1` = English-Vietnamese.
  * Parsing happens in the content script.
  */
-import { fetchWithTimeout } from "./http";
+import { discardResponse, fetchWithTimeout } from "./http";
 
 const ENDPOINT = "https://vdict.com";
 
@@ -20,8 +20,12 @@ export async function fetchVdictHtml(word: string): Promise<string> {
       "Accept-Language": "vi,en;q=0.9"
     }
   });
-  if (res.status === 404) return "";
+  if (res.status === 404) {
+    discardResponse(res);
+    return "";
+  }
   if (!res.ok) {
+    discardResponse(res);
     throw new Error(`VDict lookup failed (HTTP ${res.status})`);
   }
   return await res.text();

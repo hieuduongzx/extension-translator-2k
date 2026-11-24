@@ -1,18 +1,21 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Languages, Globe2, Loader2, Sparkles } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Captions, Languages, Globe2, Loader2, Sparkles } from "lucide-react";
 import { ProviderPair } from "./components/ProviderSelect";
 import { LanguagePair } from "./components/LanguagePair";
 import { ModeSwitch } from "./components/ModeSwitch";
 import { StatusBadge } from "./components/StatusBadge";
-import { loadSettings, updateSettings, watchSettings, diffSettings } from "../storage";
+import { ToggleSwitch } from "./components/ToggleSwitch";
+import { diffSettings, loadSettings, updateSettings, watchSettings } from "../storage";
+import { formatShortcutKeys } from "../shared/shortcuts";
 import type { AIProviderId, AutoRule, ProviderId, Settings } from "../types";
 import { DEFAULT_SETTINGS } from "../types";
+import { LANGUAGES } from "../languages";
 
-/** Vietnamese labels for the per-site auto-translate rules. */
+/** Labels for the per-site auto-translate rules. */
 const AUTO_RULE_LABELS: Record<AutoRule, string> = {
-  always: "Luôn luôn",
-  ask: "Hỏi",
-  never: "Không bao giờ"
+  always: "Always",
+  ask: "Ask",
+  never: "Never"
 };
 
 interface TabContext {
@@ -28,7 +31,7 @@ interface PageStatus {
 }
 
 /**
- * The "Dịch Web" tab of the popup: page translation controls. Settings that
+ * The "Web Translate" tab of the popup: page translation controls. Settings that
  * used to live behind the inline gear now open the dedicated options page so
  * both features can share one settings surface with a sidebar.
  */
@@ -38,24 +41,46 @@ export function WebPanel() {
   const [status, setStatus] = useState<PageStatus>({ active: false, count: 0, pending: 0 });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [toggleShortcut, setToggleShortcut] = useState("");
+  const pendingSaves = useRef(0);
 
   // Initial load
   useEffect(() => {
     let unwatch: (() => void) | undefined;
+    let cancelled = false;
     void (async () => {
       const initial = await loadSettings();
+      if (cancelled) return;
       setSettings(initial);
-      unwatch = watchSettings((next) => setSettings(next));
+      unwatch = watchSettings((next) => {
+        if (pendingSaves.current === 0) setSettings(next);
+      });
+
+      // Read the live Alt+A binding so the hint stays accurate after the user
+      // re-assigns the shortcut in chrome://extensions/shortcuts.
+      chrome.commands
+        .getAll()
+        .then((commands) => {
+          if (!cancelled) {
+            setToggleShortcut(
+              commands.find((c) => c.name === "toggle-translation")?.shortcut ?? ""
+            );
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setToggleShortcut("");
+        });
 
       const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (cancelled) return;
       if (active?.id && active.url) {
         try {
           const url = new URL(active.url);
           setTab({ tabId: active.id, hostname: url.hostname, url: active.url });
           chrome.tabs
-            .sendMessage(active.id, { type: "get-status" })
+            .sendMessage(active.id, { type: "get-status" }, { frameId: 0 })
             .then((res: PageStatus | undefined) => {
-              if (res && typeof res === "object") {
+              if (!cancelled && res && typeof res === "object") {
                 setStatus({
                   active: !!res.active,
                   count: res.count ?? 0,
@@ -71,16 +96,21 @@ export function WebPanel() {
         }
       }
     })();
-    return () => unwatch?.();
+    return () => {
+      cancelled = true;
+      unwatch?.();
+    };
   }, []);
 
   // Listen for live status updates while the popup is open
   useEffect(() => {
-    const listener = (message: unknown) => {
+    const listener = (message: unknown, sender: chrome.runtime.MessageSender) => {
       if (
         message &&
         typeof message === "object" &&
-        (message as { type?: string }).type === "status"
+        (message as { type?: string }).type === "status" &&
+        sender.frameId === 0 &&
+        sender.tab?.id === tab?.tabId
       ) {
         const m = message as PageStatus;
         setStatus({
@@ -93,7 +123,7 @@ export function WebPanel() {
     };
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, []);
+  }, [tab?.tabId]);
 
   const hostRule: AutoRule = useMemo(() => {
     if (!tab?.hostname) return settings.autoRule;
@@ -102,22 +132,38 @@ export function WebPanel() {
 
   const restricted = useMemo(() => {
     if (!tab?.url) return false;
-    return /^(chrome|edge|about|chrome-extension|view-source):/i.test(tab.url);
+    if (!/^https?:\/\//i.test(tab.url)) return true;
+    try {
+      const { hostname, pathname } = new URL(tab.url);
+      if (hostname === "chromewebstore.google.com") return true;
+      if (hostname === "chrome.google.com" && pathname.startsWith("/webstore")) return true;
+    } catch {
+      return true;
+    }
+    return false;
   }, [tab]);
 
   const isLoading = useMemo(() => (busy || status.pending > 0) && !status.active, [busy, status]);
 
   const update = useCallback(
-    async (next: Settings, notifyTab = true): Promise<void> => {
-      setSettings(next);
+    async (next: Settings): Promise<void> => {
       const patch = diffSettings(settings, next);
-      const saved = await updateSettings(patch);
-      if (!notifyTab || !tab) return;
-      chrome.tabs.sendMessage(tab.tabId, { type: "apply-settings", settings: saved }).catch(() => {
-        /* content script may not be loaded */
-      });
+      setSettings(next);
+      setError("");
+      pendingSaves.current++;
+      try {
+        const saved = await updateSettings(patch);
+        if (pendingSaves.current === 1) setSettings(saved);
+      } catch {
+        setError("Couldn't save settings. Try again.");
+        if (pendingSaves.current === 1) {
+          setSettings(await loadSettings().catch(() => settings));
+        }
+      } finally {
+        pendingSaves.current--;
+      }
     },
-    [settings, tab]
+    [settings]
   );
 
   const triggerTranslate = useCallback(async (): Promise<void> => {
@@ -125,24 +171,23 @@ export function WebPanel() {
     setBusy(true);
     setError("");
     try {
-      await chrome.tabs.sendMessage(tab.tabId, { type: "toggle" });
-      window.close();
-    } catch {
       try {
+        await chrome.tabs.sendMessage(tab.tabId, { type: "get-status" }, { frameId: 0 });
+      } catch {
         const files = getContentScriptFiles();
         if (files.length === 0) throw new Error("No content script declared in manifest");
         await chrome.scripting.executeScript({
-          target: { tabId: tab.tabId },
+          target: { tabId: tab.tabId, allFrames: true },
           files
         });
-        await new Promise((r) => setTimeout(r, 50));
-        await chrome.tabs.sendMessage(tab.tabId, { type: "toggle" });
-        window.close();
-      } catch (err) {
-        console.warn("Failed to translate page", err);
-        setError("Không thể dịch trang này. Hãy tải lại trang rồi thử lại.");
-        setBusy(false);
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
+      await chrome.tabs.sendMessage(tab.tabId, { type: "toggle" });
+      setBusy(false);
+    } catch (err) {
+      console.warn("Failed to translate page", err);
+      setError("Couldn't translate this page. Reload the page and try again.");
+      setBusy(false);
     }
   }, [tab, restricted]);
 
@@ -178,7 +223,7 @@ export function WebPanel() {
   );
 
   /**
-   * Jump to the full settings "Quản lý Model" panel so the user can add a
+   * Jump to the full settings "Manage Models" panel so the user can add a
    * model there — we deliberately do NOT pre-create a blank model or
    * auto-select it as the active provider from the popup.
    */
@@ -198,7 +243,7 @@ export function WebPanel() {
 
   const setHostRule = useCallback(
     async (rule: AutoRule): Promise<void> => {
-      if (!tab?.hostname) return;
+      if (!tab?.hostname || restricted) return;
       const hostRules = { ...settings.hostRules };
       if (rule === settings.autoRule) {
         delete hostRules[tab.hostname];
@@ -207,11 +252,11 @@ export function WebPanel() {
       }
       await update({ ...settings, hostRules });
     },
-    [settings, tab, update]
+    [settings, tab, restricted, update]
   );
 
   const buttonLabel = useMemo(
-    () => (status.active ? "Hiện bản gốc" : isLoading ? "Đang dịch…" : "Dịch trang này"),
+    () => (status.active ? "Show original" : isLoading ? "Translating…" : "Translate this page"),
     [status.active, isLoading]
   );
 
@@ -228,7 +273,7 @@ export function WebPanel() {
             <Globe2 className="w-3 h-3 text-zinc-500" />
           </div>
           <p className="text-[11.5px] font-semibold text-zinc-700 truncate max-w-[190px] leading-tight">
-            {tab?.hostname || "Không có tab nào"}
+            {tab?.hostname || "No tab"}
           </p>
         </div>
         <ModeSwitch
@@ -251,15 +296,18 @@ export function WebPanel() {
             className={`w-4 h-4 transition-transform duration-200 ${status.active ? "" : "group-hover:scale-110"}`}
           />
         )}
-        {restricted ? "Không thể dịch trang này" : buttonLabel}
+        {restricted ? "Can't translate this page" : buttonLabel}
       </button>
 
-      {!restricted && (
+      {!restricted && toggleShortcut && (
         <div className="flex items-center justify-center gap-1.5 -mt-1 text-[10.5px] text-zinc-500">
-          <span>Phím tắt:</span>
-          <kbd className="kbd-key">Alt</kbd>
-          <span className="opacity-60">+</span>
-          <kbd className="kbd-key">A</kbd>
+          <span>Shortcut:</span>
+          {formatShortcutKeys(toggleShortcut).map((key, i) => (
+            <Fragment key={i}>
+              {i > 0 && <span className="opacity-60">+</span>}
+              <kbd className="kbd-key">{key}</kbd>
+            </Fragment>
+          ))}
         </div>
       )}
 
@@ -290,6 +338,7 @@ export function WebPanel() {
           quickProvider={settings.quickProvider}
           aiProvider={settings.aiProvider}
           customModels={settings.customModels}
+          disabledProviders={settings.disabledProviders}
           onProviderChange={setProvider}
           onQuickProviderChange={setQuickProvider}
           onAIProviderChange={setAIProvider}
@@ -304,16 +353,17 @@ export function WebPanel() {
       <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-2 transition-all duration-200">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3 h-3 text-zinc-400" />
-          <h2 className="section-label">Tự động dịch</h2>
+          <h2 className="section-label">Auto-translate</h2>
         </div>
         <div className="flex gap-1.5">
           {(["always", "ask", "never"] as AutoRule[]).map((r) => (
             <button
               key={r}
               type="button"
+              disabled={!tab?.hostname || restricted}
               onClick={() => setHostRule(r)}
               aria-pressed={hostRule === r}
-              className={`choice-chip uppercase text-[10.5px] tracking-wider ${
+              className={`choice-chip uppercase text-[10.5px] tracking-wider disabled:opacity-45 disabled:cursor-not-allowed ${
                 hostRule === r ? "choice-chip-active" : ""
               }`}
             >
@@ -321,6 +371,32 @@ export function WebPanel() {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* YouTube Subtitle */}
+      <section className="surface-card surface-card-hover p-2.5 flex flex-col gap-1.5 transition-all duration-200">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start gap-1.5 min-w-0">
+            <Captions className="w-3 h-3 mt-0.5 text-zinc-400 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <h2 className="section-label">YouTube Subtitle</h2>
+              <p className="text-[10.5px] leading-snug text-zinc-500">
+                Always show YouTube captions in{" "}
+                {LANGUAGES.find((l) => l.code === settings.youtubeSubtitleLang)?.native ??
+                  settings.youtubeSubtitleLang}
+              </p>
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={settings.youtubeSubtitle}
+            onChange={(youtubeSubtitle) => update({ ...settings, youtubeSubtitle })}
+            ariaLabel="YouTube Subtitle"
+          />
+        </div>
+        <p className="text-[10.5px] leading-snug text-zinc-500">
+          For AI-translated subtitles, click the <span className="font-semibold">AI</span> button in
+          the YouTube player&apos;s control bar.
+        </p>
       </section>
     </div>
   );

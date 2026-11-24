@@ -6,13 +6,15 @@
  * trims stray whitespace around line breaks.
  */
 export function normalizeSelection(text: string): string {
-  return text
-    .replace(/\r\n/g, "\n")
-    // Collapse 2+ newlines (with optional whitespace between) into \n\n.
-    .replace(/[ \t]*\n(?:[ \t]*\n[ \t]*)+/g, "\n\n")
-    // Trim whitespace around each newline.
-    .replace(/[ \t]*\n[ \t]*/g, "\n")
-    // Collapse runs of spaces/tabs (not newlines).
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return (
+    text
+      .replace(/\r\n/g, "\n")
+      // Collapse 2+ newlines (with optional whitespace between) into \n\n.
+      .replace(/[ \t]*\n(?:[ \t]*\n[ \t]*)+/g, "\n\n")
+      // Trim whitespace around each newline.
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      // Collapse runs of spaces/tabs (not newlines).
+      .replace(/[ \t]{2,}/g, " ")
+      .trim()
+  );
 }

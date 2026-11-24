@@ -42,9 +42,7 @@ describe("normalizeSelection", () => {
 
   it("keeps multi-paragraph layout with line breaks", () => {
     const raw = "Intro line with\nan icon here.\n\nNext real paragraph.";
-    expect(normalizeSelection(raw)).toBe(
-      "Intro line with\nan icon here.\n\nNext real paragraph."
-    );
+    expect(normalizeSelection(raw)).toBe("Intro line with\nan icon here.\n\nNext real paragraph.");
   });
 
   it("preserves line breaks in multi-line selections", () => {

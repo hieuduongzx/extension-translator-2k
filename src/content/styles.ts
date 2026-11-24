@@ -538,43 +538,36 @@ const STYLES = `
   color: transparent;
 }
 
-/* ===== Floating selection trigger ===== */
+/* ===== Floating selection trigger (translator pill) ===== */
 .wt-selection-trigger {
   position: fixed;
   z-index: 2147483646;
   width: 16px;
   height: 16px;
   display: none;
+  padding: 0;
   align-items: center;
   justify-content: center;
-  padding: 0;
   background: #ffffff;
-  color: #0d9488;
-  border: 1.5px solid rgba(13, 148, 136, 0.3);
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 1px solid #0d9488;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  font: 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui,
-    sans-serif;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   animation: wt-trigger-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.wt-selection-trigger:hover {
-  background: #f0fdfa;
-  border-color: rgba(13, 148, 136, 0.5);
-  transform: scale(1.12);
-  box-shadow: 0 3px 12px rgba(13, 148, 136, 0.25);
-}
-.wt-selection-trigger:active { transform: scale(0.95); }
 .wt-selection-trigger svg {
   width: 9px;
   height: 9px;
   display: block;
 }
+.wt-selection-trigger:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
+}
+.wt-selection-trigger:active { transform: scale(0.95); }
 .wt-selection-trigger.wt-hovering {
-  background: #ccfbf1;
-  border-color: #0d9488;
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15), 0 3px 12px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.18), 0 2px 6px rgba(13, 148, 136, 0.35);
 }
 
 @keyframes wt-trigger-in {
@@ -809,25 +802,14 @@ const STYLES = `
   transform: translateY(-1px);
 }
 
-/* ===== "Đang dịch" per-segment hint =====
-   A tiny, low-cost signal on the exact text being translated: a gentle opacity
-   pulse plus a faint teal underline. Only opacity is animated (compositor-
-   only — no layout/paint per frame) so it stays cheap even when many segments
-   are in flight at once. Auto-clears when the batch resolves. */
+/* ===== "Translating" per-segment hint =====
+   Static teal underline on text currently in flight. No opacity pulse —
+   that made whole segments blink during full-page translation. Auto-clears
+   when the batch resolves. */
 .wt-translating {
-  animation: wt-translating-pulse 1.1s ease-in-out infinite;
   text-decoration: underline dotted rgba(13, 148, 136, 0.5);
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-}
-@keyframes wt-translating-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-/* Respect users who ask for less motion: keep only the static underline. */
-@media (prefers-reduced-motion: reduce) {
-  .wt-translating { animation: none; }
 }
 `;
 

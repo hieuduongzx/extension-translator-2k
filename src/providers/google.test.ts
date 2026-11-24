@@ -8,6 +8,10 @@ describe("parseGoogleResponse", () => {
     });
   });
 
+  it("pads a malformed multi-segment bare string response", () => {
+    expect(parseGoogleResponse("xin chào", 3).translations).toEqual(["xin chào", "", ""]);
+  });
+
   it("parses a single string with detected language", () => {
     expect(parseGoogleResponse(["xin chào", "en"], 1)).toEqual({
       translations: ["xin chào"],
@@ -38,6 +42,16 @@ describe("parseGoogleResponse", () => {
     expect(result.translations).toEqual(["only-one", "", ""]);
   });
 
+  it("preserves alignment around malformed interior items", () => {
+    const raw = [[["t1"], "en"], null, [["t3"], "en"]];
+    expect(parseGoogleResponse(raw, 3)).toEqual({
+      translations: ["t1", "", "t3"],
+      detected: "en",
+      // The middle slot is padding, not a result — flagged so it isn't cached.
+      failed: [false, true, false]
+    });
+  });
+
   it("truncates when more segments come back than expected", () => {
     const result = parseGoogleResponse(["a", "b", "c", "d"], 2);
     expect(result.translations).toEqual(["a", "b"]);
@@ -47,5 +61,21 @@ describe("parseGoogleResponse", () => {
     expect(() => parseGoogleResponse({ unexpected: true }, 2)).toThrow(
       /Unexpected Google Translate response/
     );
+  });
+
+  it("flags padded slots but not real results", () => {
+    // Padding must be distinguishable from a translation, otherwise the cache
+    // stores "" as a result and the engine marks the node done.
+    expect(parseGoogleResponse(["only-one"], 3).failed).toEqual([false, true, true]);
+    expect(parseGoogleResponse("xin chào", 3).failed).toEqual([false, true, true]);
+    expect(parseGoogleResponse(["a", "b"], 2).failed).toBeUndefined();
+  });
+
+  it("does not flag a translation that legitimately equals its source", () => {
+    // A proper noun round-trips unchanged; that is a result, not a failure.
+    expect(parseGoogleResponse(["Windows", "OK"], 2)).toEqual({
+      translations: ["Windows", "OK"],
+      detected: undefined
+    });
   });
 });

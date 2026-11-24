@@ -108,11 +108,24 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
   const meanings: DictionaryEntry["meanings"] = [];
   const partGroups = new Map<string, RawDef[]>();
 
-  // Pass 1: collect numbered Vietnamese senses keyed by POS.
-  const defGroups = root.querySelectorAll<HTMLElement>(".meanings-list > .meaning");
+  // Pass 1: collect numbered Vietnamese senses keyed by POS, skipping the
+  // "Ví dụ sử dụng" section so example sentences aren't duplicated as definitions.
+  const allHeadings = Array.from(root.querySelectorAll<HTMLElement>(".word-type"));
+  const defGroups: HTMLElement[] = [];
+  if (allHeadings.length > 0) {
+    for (const h of allHeadings) {
+      const label = h.textContent?.trim().toLowerCase() || "";
+      if (label.startsWith("ví dụ")) continue;
+      const listEl = h.nextElementSibling;
+      if (!listEl || !listEl.classList.contains("meanings-list")) continue;
+      defGroups.push(...Array.from(listEl.querySelectorAll<HTMLElement>(":scope > .meaning")));
+    }
+  } else {
+    defGroups.push(...Array.from(root.querySelectorAll<HTMLElement>(".meanings-list > .meaning")));
+  }
   let currentPos: string | null = null;
 
-  for (const group of Array.from(defGroups)) {
+  for (const group of defGroups) {
     const posEl = group.querySelector(".meaning-value strong");
     const posText = posEl?.textContent?.trim().toLowerCase() || "";
     if (posText && POS_NORMALISE[posText]) {
@@ -149,8 +162,7 @@ function readFriendly(root: HTMLElement): DictionaryEntry["meanings"] {
   // Pass 2: pull bilingual examples from the "Ví dụ sử dụng" sub-block and
   // merge them into the matching POS group, attaching to the first def
   // that doesn't already have an example.
-  const allHeadings = root.querySelectorAll<HTMLElement>(".word-type");
-  for (const h of Array.from(allHeadings)) {
+  for (const h of allHeadings) {
     const label = h.textContent?.trim().toLowerCase() || "";
     if (!label.startsWith("ví dụ")) continue;
     const cur: Element | null = h.nextElementSibling;

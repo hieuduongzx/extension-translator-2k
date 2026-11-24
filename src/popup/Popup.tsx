@@ -9,9 +9,9 @@ type TabId = "web" | "stream" | "quick";
 const ACTIVE_TAB_KEY = "translator2k:activeTab";
 
 const TABS: { id: TabId; label: string; icon: typeof Globe }[] = [
-  { id: "web", label: "Dịch Web", icon: Globe },
-  { id: "quick", label: "Dịch nhanh", icon: Languages },
-  { id: "stream", label: "Dịch Stream", icon: Radio }
+  { id: "web", label: "Web Translate", icon: Globe },
+  { id: "quick", label: "Quick Translate", icon: Languages },
+  { id: "stream", label: "Stream Translate", icon: Radio }
 ];
 
 /**
@@ -24,18 +24,25 @@ const TABS: { id: TabId; label: string; icon: typeof Globe }[] = [
 export function Popup() {
   const [tab, setTab] = useState<TabId>("web");
   const tabRefs = useRef(new Map<TabId, HTMLButtonElement>());
+  const userSelectedTab = useRef(false);
 
   useEffect(() => {
     void (async () => {
       const stored = await chrome.storage.local.get(ACTIVE_TAB_KEY);
       const saved = stored[ACTIVE_TAB_KEY] as TabId | undefined;
-      if (saved === "web" || saved === "stream" || saved === "quick") setTab(saved);
+      if (
+        !userSelectedTab.current &&
+        (saved === "web" || saved === "stream" || saved === "quick")
+      ) {
+        setTab(saved);
+      }
     })();
   }, []);
 
   const selectTab = useCallback(
     (next: TabId) => {
       if (next === tab) return;
+      userSelectedTab.current = true;
       setTab(next);
       void chrome.storage.local.set({ [ACTIVE_TAB_KEY]: next });
     },
@@ -85,8 +92,8 @@ export function Popup() {
             type="button"
             onClick={openSettings}
             className="btn-icon-sm"
-            title="Cài đặt"
-            aria-label="Cài đặt"
+            title="Settings"
+            aria-label="Settings"
           >
             <SettingsIcon className="w-4 h-4" />
           </button>
@@ -131,7 +138,7 @@ export function Popup() {
           >
             {id === "web" && <WebPanel />}
             {id === "stream" && <StreamPanel />}
-            {id === "quick" && <QuickPanel />}
+            {id === "quick" && <QuickPanel active={tab === "quick"} />}
           </div>
         ))}
       </div>

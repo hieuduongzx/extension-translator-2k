@@ -1,8 +1,10 @@
 import { toGoogleCode } from "../languages";
-import { fetchWithTimeout } from "./http";
-import type { TranslateResult } from "./types";
+import { discardResponse, fetchWithRetry } from "./http";
+import { failedMask, type TranslateResult } from "./types";
 
 const ENDPOINT = "https://translate.googleapis.com/translate_a/t";
+const GOOGLE_ATTEMPT_TIMEOUT_MS = 12_000;
+const GOOGLE_TOTAL_BUDGET_MS = 30_000;
 
 /**
  * Calls the public (unauthenticated) Google Translate endpoint. This is the
@@ -34,7 +36,12 @@ export async function translateGoogle(
   const body = new URLSearchParams();
   for (const t of texts) body.append("q", t);
 
-  const res = await fetchWithTimeout(`${ENDPOINT}?${params.toString()}`, {
+  // The public endpoint 429s / 5xx's / stalls now and then. Without retries
+  // a single blip failed the whole batch (up to 80 segments) on the page.
+  const res = await fetchWithRetry(`${ENDPOINT}?${params.toString()}`, {
+    timeoutMs: GOOGLE_TOTAL_BUDGET_MS,
+    attemptTimeoutMs: GOOGLE_ATTEMPT_TIMEOUT_MS,
+    attempts: 3,
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -44,6 +51,7 @@ export async function translateGoogle(
   });
 
   if (!res.ok) {
+    discardResponse(res);
     throw new Error(`Google Translate failed (HTTP ${res.status})`);
   }
 
@@ -60,7 +68,11 @@ export async function translateGoogle(
  */
 export function parseGoogleResponse(raw: unknown, expected: number): TranslateResult {
   if (typeof raw === "string") {
-    return { translations: [raw] };
+    return {
+      translations: Array.from({ length: expected }, (_, index) => (index === 0 ? raw : "")),
+      // Only slot 0 got a translation; the rest are padding, not results.
+      failed: failedMask(Array.from({ length: expected }, (_, index) => index !== 0))
+    };
   }
 
   if (!Array.isArray(raw)) {
@@ -76,37 +88,38 @@ export function parseGoogleResponse(raw: unknown, expected: number): TranslateRe
   }
 
   const translations: string[] = [];
+  const failed: boolean[] = [];
   let detected: string | undefined;
 
-  for (const item of raw) {
+  for (let i = 0; i < expected; i++) {
+    const item = raw[i];
     if (typeof item === "string") {
       translations.push(item);
+      failed.push(false);
       continue;
     }
-    if (!Array.isArray(item)) continue;
+    if (!Array.isArray(item)) {
+      // Missing or malformed slot: padded to keep alignment, but not a result.
+      translations.push("");
+      failed.push(true);
+      continue;
+    }
 
     const first = item[0];
     if (typeof first === "string") {
       translations.push(first);
+      failed.push(false);
     } else if (Array.isArray(first) && typeof first[0] === "string") {
       translations.push(first[0]);
+      failed.push(false);
+    } else {
+      translations.push("");
+      failed.push(true);
     }
     if (!detected && typeof item[1] === "string") {
       detected = item[1];
     }
   }
 
-  if (translations.length !== expected) {
-    // Degrade gracefully rather than discarding the whole batch. A count
-    // mismatch is rare but when it happens we keep whatever segments did
-    // come back and pad the rest with empty strings (the engine then leaves
-    // those nodes untouched) instead of throwing away good translations.
-    if (translations.length > expected) {
-      translations.length = expected;
-    } else {
-      while (translations.length < expected) translations.push("");
-    }
-  }
-
-  return { translations, detected };
+  return { translations, detected, failed: failedMask(failed) };
 }

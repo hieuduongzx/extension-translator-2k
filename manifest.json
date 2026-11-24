@@ -1,18 +1,11 @@
 ﻿{
   "manifest_version": 3,
   "name": "Translator2k",
-  "version": "2.0.9",
-  "description": "Dịch trang web, dịch nhanh trong popup và phụ đề thời gian thực cho video/stream nhanh chóng. Ba chức năng trong một tiện ích.",
-  "permissions": [
-    "storage",
-    "activeTab",
-    "scripting",
-    "contextMenus",
-    "offscreen",
-    "tabCapture",
-    "clipboardRead",
-    "clipboardWrite"
-  ],
+  "version": "2.1.7",
+  "minimum_chrome_version": "116",
+  "description": "Translate web pages, text in the popup, and get real-time subtitles for videos and streams.",
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "offscreen", "tabCapture"],
+  "optional_permissions": ["clipboardRead"],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "public/icons/icon-16.png",
@@ -50,13 +43,13 @@
       "suggested_key": {
         "default": "Alt+A"
       },
-      "description": "Bật/tắt dịch trang"
+      "description": "Toggle page translation"
     },
     "translate-selection": {
       "suggested_key": {
         "default": "Alt+S"
       },
-      "description": "Dịch phần đã bôi đen tại chỗ"
+      "description": "Translate selection in place"
     }
   }
 }

@@ -1,7 +1,7 @@
 import type { ProviderId } from "../types";
 import { providerIcon } from "../providerIcons";
 import { ensureStyles } from "./styles";
-import { sendTranslateRequest } from "./messaging";
+import { sendChunkedTranslateRequest } from "./messaging";
 import { speak as ttsSpeak, stop as ttsStop } from "./tts";
 
 interface SelectionPopupConfig {
@@ -25,6 +25,14 @@ interface SelectionPopupConfig {
   showOriginal: boolean;
   /** Initial visual theme. Can be toggled live via the popup. */
   theme: "dark" | "light";
+  /**
+   * When true, double-clicking a single word in the ORIGINAL text inside the
+   * popup calls `onDictionaryLookup` so the dictionary can be opened for that
+   * word. Only applies while the original text is shown (`showOriginal`); the
+   * translated result has no source word to look up.
+   */
+  dictionaryInPopup: boolean;
+  onDictionaryLookup: (word: string, anchor: { x: number; y: number }) => void;
   onProviderChange: (provider: ProviderId) => void;
   onThemeChange: (theme: "dark" | "light") => void;
 }
@@ -51,6 +59,7 @@ function configKey(config: SelectionPopupConfig): string {
     config.target,
     config.showOriginal,
     config.theme,
+    config.dictionaryInPopup,
     config.providerOptions
   ]);
 }
@@ -83,6 +92,9 @@ function createPopup(
   initialAnchor: { x: number; y: number },
   config: SelectionPopupConfig
 ): PopupHandle {
+  if (!document.body) {
+    return { destroy() {}, show() {} };
+  }
   let currentText = initialText;
   let currentProvider = config.provider;
   let currentTheme = config.theme;
@@ -90,9 +102,28 @@ function createPopup(
   let lastAITranslation = "";
   let inflightId = 0;
   let aiInflightId = 0;
+  let lastAnchor = initialAnchor;
+  let initialRaf: number | null = null;
   // Set once the user drags the popup, so subsequent re-shows keep its spot
   // instead of snapping back to the selection anchor.
   let dragged = false;
+
+  /** Convert viewport coordinates to `el`'s CSS containing-block offsets. */
+  function setViewportPosition(el: HTMLElement, left: number, top: number): void {
+    const op = el.offsetParent as HTMLElement | null;
+    if (
+      op &&
+      op !== document.documentElement &&
+      window.getComputedStyle(op).position !== "static"
+    ) {
+      const opRect = op.getBoundingClientRect();
+      el.style.left = `${left - opRect.left - op.clientLeft}px`;
+      el.style.top = `${top - opRect.top - op.clientTop}px`;
+      return;
+    }
+    el.style.left = `${left + window.scrollX}px`;
+    el.style.top = `${top + window.scrollY}px`;
+  }
 
   const root = document.createElement("div");
   root.className = "wt-selection-popup";
@@ -122,32 +153,32 @@ function createPopup(
   root.innerHTML = `
     <div class="wt-sp-toolbar">
       <div class="wt-sp-toolbar-start">
-        <button type="button" class="wt-sp-icon-btn" data-role="speak" aria-label="Đọc bản dịch" title="Đọc bản dịch">${ICON_SPEAK}</button>
-        <button type="button" class="wt-sp-icon-btn" data-role="copy" aria-label="Sao chép bản dịch" title="Sao chép bản dịch">${ICON_COPY}</button>
-        <button type="button" class="wt-sp-icon-btn" data-role="retry" aria-label="Dịch lại" title="Dịch lại">${ICON_RETRY}</button>
-        <button type="button" class="wt-sp-icon-btn" data-role="ai" aria-label="Lấy bản dịch AI" title="Lấy bản dịch AI">${ICON_SPARKLE}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="speak" aria-label="Read translation" title="Read translation">${ICON_SPEAK}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="copy" aria-label="Copy translation" title="Copy translation">${ICON_COPY}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="retry" aria-label="Retranslate" title="Retranslate">${ICON_RETRY}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="ai" aria-label="Get AI translation" title="Get AI translation">${ICON_SPARKLE}</button>
       </div>
       <div class="wt-sp-toolbar-center">
-        <button type="button" class="wt-sp-provider-trigger" data-role="provider-button" aria-expanded="false" aria-haspopup="listbox" aria-label="Dịch vụ dịch" title="Dịch vụ dịch">
+        <button type="button" class="wt-sp-provider-trigger" data-role="provider-button" aria-expanded="false" aria-haspopup="listbox" aria-label="Translation service" title="Translation service">
           <span class="wt-sp-provider-icon" data-role="provider-icon"></span>
           <span class="wt-sp-provider-current" data-role="provider-current"></span>
           <span class="wt-sp-provider-caret">${ICON_CHEVRON}</span>
         </button>
       </div>
       <div class="wt-sp-toolbar-end">
-        <button type="button" class="wt-sp-icon-btn" data-role="theme" aria-label="Đổi giao diện" title="Đổi giao diện">
+        <button type="button" class="wt-sp-icon-btn" data-role="theme" aria-label="Toggle theme" title="Toggle theme">
           <span data-role="theme-icon">${currentTheme === "dark" ? ICON_MOON : ICON_SUN}</span>
         </button>
-        <button type="button" class="wt-sp-icon-btn" data-role="close" aria-label="Đóng" title="Đóng">${ICON_CLOSE}</button>
+        <button type="button" class="wt-sp-icon-btn" data-role="close" aria-label="Close" title="Close">${ICON_CLOSE}</button>
       </div>
     </div>
     <div class="wt-sp-body">
       ${sourceSectionHtml}
-      <div class="wt-sp-result wt-loading" data-role="result">Đang dịch…</div>
+      <div class="wt-sp-result wt-loading" data-role="result">Translating…</div>
       <div class="wt-sp-ai" data-role="ai-section" hidden>
         <div class="wt-sp-ai-header">
-          <span class="wt-sp-ai-label">Bản dịch AI</span>
-          <button type="button" class="wt-sp-icon-btn wt-sp-ai-copy" data-role="ai-copy" aria-label="Sao chép bản dịch AI" title="Sao chép bản dịch AI">${ICON_COPY}</button>
+          <span class="wt-sp-ai-label">AI translation</span>
+          <button type="button" class="wt-sp-icon-btn wt-sp-ai-copy" data-role="ai-copy" aria-label="Copy AI translation" title="Copy AI translation">${ICON_COPY}</button>
         </div>
         <div class="wt-sp-ai-result" data-role="ai-result"></div>
       </div>
@@ -203,6 +234,7 @@ function createPopup(
     root.dataset.theme = theme;
     providerMenu.dataset.theme = theme;
     themeIconEl.innerHTML = theme === "dark" ? ICON_MOON : ICON_SUN;
+    activeConfigKey = configKey({ ...config, theme: currentTheme, provider: currentProvider });
     config.onThemeChange(theme);
   }
 
@@ -210,12 +242,12 @@ function createPopup(
     // Reflect the current selection in the toolbar trigger (icon + label).
     const current = config.providerOptions.find((p) => p.id === currentProvider);
     providerIconEl.innerHTML = providerIcon(currentProvider);
-    providerCurrentEl.textContent = current?.label ?? "Dịch vụ";
+    providerCurrentEl.textContent = current?.label ?? "Service";
 
     providerMenu.innerHTML = "";
     const heading = document.createElement("div");
     heading.className = "wt-sp-provider-heading";
-    heading.textContent = "Dịch vụ dịch";
+    heading.textContent = "Translation service";
     providerMenu.appendChild(heading);
     for (const p of config.providerOptions) {
       const opt = document.createElement("button");
@@ -264,8 +296,7 @@ function createPopup(
       if (above >= margin) top = above;
       else top = Math.max(margin, window.innerHeight - menuH - margin);
     }
-    providerMenu.style.left = `${left + window.scrollX}px`;
-    providerMenu.style.top = `${top + window.scrollY}px`;
+    setViewportPosition(providerMenu, left, top);
   }
 
   function toggleMenu(force?: boolean): void {
@@ -283,6 +314,7 @@ function createPopup(
   function setProvider(provider: ProviderId): void {
     if (provider === currentProvider) return;
     currentProvider = provider;
+    activeConfigKey = configKey({ ...config, theme: currentTheme, provider: currentProvider });
     config.onProviderChange(provider);
     renderProviderMenu();
     resetAISection();
@@ -349,10 +381,13 @@ function createPopup(
 
   async function translate(): Promise<void> {
     const id = ++inflightId;
+    // In replace mode both actions write into `resultEl`; cancel any older AI
+    // request so a slow AI reply cannot clobber a newer Retry.
+    if (config.aiTranslationMode === "replace") aiInflightId++;
     lastTranslation = "";
     resultEl.classList.remove("wt-error");
     resultEl.classList.add("wt-loading");
-    resultEl.textContent = "Đang dịch…";
+    resultEl.textContent = "Translating…";
     setStatus("");
 
     const { parts, idx, texts } = splitSegments();
@@ -361,11 +396,12 @@ function createPopup(
       resultEl.classList.remove("wt-loading");
       resultEl.textContent = currentText;
       lastTranslation = currentText;
+      if (!dragged) position(lastAnchor);
       return;
     }
 
     try {
-      const response = await sendTranslateRequest({
+      const response = await sendChunkedTranslateRequest({
         type: "translate",
         texts,
         source: config.source,
@@ -376,7 +412,8 @@ function createPopup(
       resultEl.classList.remove("wt-loading");
       if (response.error || response.translations.length === 0) {
         resultEl.classList.add("wt-error");
-        resultEl.textContent = response.error || "Không có bản dịch.";
+        resultEl.textContent = response.error || "No translation.";
+        if (!dragged) position(lastAnchor);
         return;
       }
       resultEl.classList.remove("wt-error");
@@ -384,12 +421,14 @@ function createPopup(
       const stitched = stitch(parts, idx, response.translations);
       lastTranslation = stitched;
       resultEl.textContent = stitched;
+      if (!dragged) position(lastAnchor);
     } catch (err) {
       if (id !== inflightId) return;
       const message = err instanceof Error ? err.message : String(err);
       resultEl.classList.remove("wt-loading");
       resultEl.classList.add("wt-error");
       resultEl.textContent = message;
+      if (!dragged) position(lastAnchor);
     }
   }
 
@@ -413,7 +452,7 @@ function createPopup(
     }
     targetEl.classList.remove("wt-error");
     targetEl.classList.add("wt-loading");
-    targetEl.textContent = "Đang lấy bản dịch AI…";
+    targetEl.textContent = "Getting AI translation…";
 
     const finish = (value: string): void => {
       lastAITranslation = value;
@@ -429,7 +468,7 @@ function createPopup(
     }
 
     try {
-      const response = await sendTranslateRequest({
+      const response = await sendChunkedTranslateRequest({
         type: "translate",
         texts,
         source: config.source,
@@ -440,26 +479,28 @@ function createPopup(
       targetEl.classList.remove("wt-loading");
       if (response.error || response.translations.length === 0) {
         targetEl.classList.add("wt-error");
-        targetEl.textContent = response.error || "Không có bản dịch.";
+        targetEl.textContent = response.error || "No translation.";
         return;
       }
       targetEl.classList.remove("wt-error");
       const stitched = stitch(parts, idx, response.translations);
       targetEl.textContent = stitched;
       finish(stitched);
+      if (!dragged) position(lastAnchor);
     } catch (err) {
       if (id !== aiInflightId) return;
       const message = err instanceof Error ? err.message : String(err);
       targetEl.classList.remove("wt-loading");
       targetEl.classList.add("wt-error");
       targetEl.textContent = message;
+      if (!dragged) position(lastAnchor);
     }
   }
 
   function speak(text: string, lang: string): void {
     if (!text) return;
     if (!ttsSpeak(text, lang)) {
-      setStatus("Đọc thất bại", 1500);
+      setStatus("Reading failed", 1500);
     }
   }
 
@@ -472,15 +513,15 @@ function createPopup(
   copyBtn.addEventListener("click", () => {
     if (!lastTranslation) return;
     navigator.clipboard?.writeText(lastTranslation).then(
-      () => setStatus("Đã sao chép", 1500),
-      () => setStatus("Sao chép thất bại", 1500)
+      () => setStatus("Copied", 1500),
+      () => setStatus("Copy failed", 1500)
     );
   });
   aiCopyBtn.addEventListener("click", () => {
     if (!lastAITranslation) return;
     navigator.clipboard?.writeText(lastAITranslation).then(
-      () => setStatus("Đã sao chép bản dịch AI", 1500),
-      () => setStatus("Sao chép thất bại", 1500)
+      () => setStatus("Copied AI translation", 1500),
+      () => setStatus("Copy failed", 1500)
     );
   });
   speakBtn.addEventListener("click", () => {
@@ -490,6 +531,26 @@ function createPopup(
     e.stopPropagation();
     toggleMenu();
   });
+
+  // Double-clicking a single word in the ORIGINAL text inside the popup opens
+  // the dictionary for that word (when enabled). The browser expands the
+  // selection to the word before this fires, so `Selection.toString()` already
+  // holds the word. The source section only exists when `config.showOriginal`
+  // is on — the translated result has no source word to look up.
+  const onDblClick = (e: MouseEvent): void => {
+    if (!config.dictionaryInPopup) return;
+    const target = e.target as HTMLElement | null;
+    if (!target || !target.closest(".wt-sp-source")) return;
+    const sel = window.getSelection();
+    const raw = sel?.toString().trim() ?? "";
+    if (!raw) return;
+    const word = raw.match(/^[\p{L}\p{M}'’-]+$/u) ? raw : null;
+    if (!word) return;
+    e.preventDefault();
+    e.stopPropagation();
+    config.onDictionaryLookup(word, { x: e.clientX, y: e.clientY });
+  };
+  root.addEventListener("dblclick", onDblClick);
 
   // ----- Drag the whole popup by its toolbar -----
   // Pointer events give us mouse + touch + pen for free and capture so the
@@ -511,18 +572,31 @@ function createPopup(
     let top = dragOriginTop + (e.clientY - dragStartY);
     left = Math.min(Math.max(margin, left), Math.max(margin, maxLeft));
     top = Math.min(Math.max(margin, top), Math.max(margin, maxTop));
-    root.style.left = `${left + window.scrollX}px`;
-    root.style.top = `${top + window.scrollY}px`;
+    setViewportPosition(root, left, top);
     if (!providerMenu.hidden) positionMenu();
   };
 
-  const onDragEnd = (e: PointerEvent) => {
-    if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+  const stopDrag = () => {
+    if (dragPointerId === null) return;
+    const pointerId = dragPointerId;
     dragPointerId = null;
+    if (toolbarEl.hasPointerCapture?.(pointerId)) {
+      try {
+        toolbarEl.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
     root.classList.remove("wt-dragging");
     document.removeEventListener("pointermove", onDragMove, true);
     document.removeEventListener("pointerup", onDragEnd, true);
     document.removeEventListener("pointercancel", onDragEnd, true);
+    window.removeEventListener("blur", stopDrag);
+  };
+
+  const onDragEnd = (e: PointerEvent) => {
+    if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+    stopDrag();
   };
 
   toolbarEl.addEventListener("pointerdown", (e) => {
@@ -540,9 +614,15 @@ function createPopup(
     root.classList.add("wt-dragging");
     toggleMenu(false);
     e.preventDefault();
+    try {
+      toolbarEl.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
     document.addEventListener("pointermove", onDragMove, true);
     document.addEventListener("pointerup", onDragEnd, true);
     document.addEventListener("pointercancel", onDragEnd, true);
+    window.addEventListener("blur", stopDrag);
   });
 
   // Dismiss on outside click or Escape only. We intentionally do NOT close
@@ -555,6 +635,9 @@ function createPopup(
     const target = e.target as Node;
     if (root.contains(target)) return;
     if (providerMenu.contains(target)) return;
+    // Keep the popup open while the user interacts with a dictionary popup
+    // opened from inside it (in-popup lookup).
+    if ((e.target as Element).closest?.(".wt-dict-popup")) return;
     // A click anywhere else closes the menu first (if open), else the popup.
     if (!providerMenu.hidden) {
       toggleMenu(false);
@@ -563,6 +646,8 @@ function createPopup(
     destroy();
   };
   const onKey = (e: KeyboardEvent) => {
+    // Let a stacked dictionary popup handle Escape/Tab first.
+    if (document.querySelector(".wt-dict-popup")) return;
     if (e.key === "Escape") {
       if (!providerMenu.hidden) {
         toggleMenu(false);
@@ -602,7 +687,7 @@ function createPopup(
     if (e.shiftKey && (activeEl === first || !root.contains(activeEl))) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && activeEl === last) {
+    } else if (!e.shiftKey && (activeEl === last || !root.contains(activeEl))) {
       e.preventDefault();
       first.focus();
     }
@@ -612,13 +697,17 @@ function createPopup(
 
   function destroy(): void {
     inflightId++;
+    aiInflightId++;
+    if (initialRaf !== null) {
+      cancelAnimationFrame(initialRaf);
+      initialRaf = null;
+    }
+    stopDrag();
+    root.removeEventListener("dblclick", onDblClick);
     document.removeEventListener("mousedown", onDocClick, true);
     document.removeEventListener("keydown", onKey, true);
     window.removeEventListener("scroll", onReflow, true);
     window.removeEventListener("resize", onReflow);
-    document.removeEventListener("pointermove", onDragMove, true);
-    document.removeEventListener("pointerup", onDragEnd, true);
-    document.removeEventListener("pointercancel", onDragEnd, true);
     try {
       ttsStop();
     } catch {
@@ -636,10 +725,8 @@ function createPopup(
   }
 
   function position(anchor: { x: number; y: number }): void {
+    lastAnchor = anchor;
     // `anchor` is in viewport coordinates (clientX/Y or getClientRects).
-    // The popup uses `position: absolute` so it stays anchored to the page
-    // when the user scrolls. Convert to document coordinates by adding the
-    // current scroll offset.
     const margin = 8;
     const rect = root.getBoundingClientRect();
     const width = rect.width || 360;
@@ -654,12 +741,16 @@ function createPopup(
       top = anchor.y - height - 10;
       if (top < margin) top = margin;
     }
-    root.style.left = `${left + window.scrollX}px`;
-    root.style.top = `${top + window.scrollY}px`;
+    setViewportPosition(root, left, top);
   }
 
   function show(text: string, anchor: { x: number; y: number }): void {
+    if (initialRaf !== null) {
+      cancelAnimationFrame(initialRaf);
+      initialRaf = null;
+    }
     currentText = text;
+    lastAnchor = anchor;
     if (sourceEl) sourceEl.textContent = text;
     toggleMenu(false);
     resetAISection();
@@ -674,7 +765,8 @@ function createPopup(
   if (sourceEl) sourceEl.textContent = currentText;
   renderProviderMenu();
   syncAIButton();
-  requestAnimationFrame(() => {
+  initialRaf = requestAnimationFrame(() => {
+    initialRaf = null;
     position(initialAnchor);
     closeBtn.focus();
   });

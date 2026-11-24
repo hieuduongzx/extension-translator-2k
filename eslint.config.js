@@ -15,13 +15,29 @@ export default tseslint.config(
       "dist/**",
       "node_modules/**",
       "*.zip",
-      "public/offscreen.js",
-      "public/pcm-processor.js",
       "scripts/**",
       ".agents/**",
       ".claude/**",
       ".kilo/**"
     ]
+  },
+  {
+    files: ["public/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: {
+        chrome: "readonly",
+        navigator: "readonly",
+        AudioContext: "readonly",
+        AudioWorkletNode: "readonly",
+        AudioWorkletProcessor: "readonly",
+        BroadcastChannel: "readonly",
+        registerProcessor: "readonly",
+        // AudioWorkletGlobalScope (public/pcm-processor.js)
+        sampleRate: "readonly"
+      }
+    }
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
